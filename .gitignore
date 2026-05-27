@@ -1,0 +1,33 @@
+### Node / Frontend
+node_modules/
+dist/
+build/
+.vite/
+
+### Vite / bundlers
+*.local
+
+### Env files (secrets)
+.env
+.env.*
+
+### Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+### OS / editor
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.vscode/
+.idea/
+.fleet/
+
+### TypeScript
+*.tsbuildinfo
+
