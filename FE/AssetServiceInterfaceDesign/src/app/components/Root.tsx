@@ -45,17 +45,6 @@ export default function Root() {
                 )}
               </Link>
               <Link
-                to="/tutorial"
-                className={`text-sm font-medium transition-all relative group ${
-                  isActive("/tutorial") ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Hướng dẫn
-                {isActive("/tutorial") && (
-                  <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
-                )}
-              </Link>
-              <Link
                 to="/dashboard"
                 className={`text-sm font-medium transition-all relative group ${
                   isActive("/dashboard") ? "text-primary" : "text-muted-foreground hover:text-foreground"
@@ -170,15 +159,6 @@ export default function Root() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Trang chủ
-              </Link>
-              <Link
-                to="/tutorial"
-                className={`block text-sm font-medium ${
-                  isActive("/tutorial") ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Hướng dẫn
               </Link>
               <Link
                 to="/dashboard"
@@ -300,9 +280,6 @@ export default function Root() {
                 </Link>
                 <Link to="/marketplace" className="block text-muted-foreground hover:text-primary text-sm transition-colors">
                   Marketplace
-                </Link>
-                <Link to="/tutorial" className="block text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Hướng dẫn
                 </Link>
                 <Link to="/dashboard" className="block text-muted-foreground hover:text-primary text-sm transition-colors">
                   AI Assistant

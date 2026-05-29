@@ -42,7 +42,6 @@ const packages: Record<string, Package> = {
     credits: -1, // unlimited
     features: [
       "Không giới hạn lượt hỏi AI",
-      "1 giờ tư vấn Mentor qua Zalo",
       "Gợi ý assets tùy chỉnh",
       "Full library assets",
       "Review assets miễn phí",
@@ -58,7 +57,6 @@ const packages: Record<string, Package> = {
       "Không giới hạn lượt hỏi AI",
       "Hỗ trợ Team (nhiều thành viên)",
       "Source code mẫu chất lượng cao",
-      "3 giờ tư vấn chuyên gia",
       "Review dự án game",
       "Priority support 24/7",
       "Asset packs độc quyền",
