@@ -9,6 +9,7 @@ export default function Root() {
   const { user, logout } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
+  const isAuthPage = location.pathname === "/auth";
 
   const handleLogout = () => {
     logout();
@@ -18,6 +19,7 @@ export default function Root() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
+      {!isAuthPage && (
       <nav className="border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -266,13 +268,15 @@ export default function Root() {
           )}
         </div>
       </nav>
+      )}
 
       {/* Main Content */}
-      <main>
+      <main className={isAuthPage ? "min-h-screen h-screen overflow-hidden" : undefined}>
         <Outlet />
       </main>
 
       {/* Footer */}
+      {!isAuthPage && (
       <footer className="border-t border-border bg-card/30 backdrop-blur-lg mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
@@ -325,6 +329,7 @@ export default function Root() {
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

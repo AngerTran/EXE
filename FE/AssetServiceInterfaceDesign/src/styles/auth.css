@@ -1,0 +1,148 @@
+/* GameGenius AI — scoped tokens for auth pages only */
+.auth-page {
+  --auth-container-max: 1440px;
+  --auth-form-max: 400px;
+
+  --auth-background: #0b1326;
+  --auth-surface-lowest: #060e20;
+  --auth-surface-container-low: #131b2e;
+  --auth-surface-container: #171f33;
+  --auth-surface-container-high: #222a3d;
+  --auth-on-surface: #dae2fd;
+  --auth-on-surface-variant: #cbc3d7;
+  --auth-primary: #d0bcff;
+  --auth-primary-container: #a078ff;
+  --auth-secondary: #4cd7f6;
+  --auth-tertiary: #4edea3;
+  --auth-outline: #958ea0;
+  --auth-purple-glow: #8b5cf6;
+  --auth-purple-deep: #7c3aed;
+
+  color: var(--auth-on-surface);
+  background-color: var(--auth-surface-lowest);
+}
+
+/* Full viewport on laptop/desktop */
+.auth-shell {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+}
+
+.auth-page .auth-display {
+  font-family: "Montserrat", "Space Grotesk", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.auth-page .auth-headline {
+  font-family: "Montserrat", "Space Grotesk", sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.auth-page .auth-body {
+  font-family: "Inter", sans-serif;
+  line-height: 1.5;
+}
+
+.auth-page .auth-label {
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--auth-on-surface-variant);
+}
+
+.auth-page .auth-code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+}
+
+.auth-grid-bg {
+  background-image:
+    linear-gradient(rgba(208, 188, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(76, 215, 246, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.auth-neon-glow:focus-within {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+  border-color: var(--auth-purple-glow);
+}
+
+.auth-btn-primary {
+  background: linear-gradient(135deg, var(--auth-purple-glow) 0%, var(--auth-purple-deep) 100%);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.35);
+  transition: all 0.3s ease;
+}
+
+.auth-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 30px rgba(139, 92, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.auth-btn-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.3s ease;
+}
+
+.auth-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--auth-secondary);
+}
+
+.auth-glass {
+  background: rgba(23, 31, 51, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.auth-input-surface {
+  background-color: var(--auth-surface-container);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auth-input-field {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+/* Laptop / short viewport: tighter rhythm so form fits without scroll */
+@media (max-height: 900px) {
+  .auth-page .auth-form-panel {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .auth-page .auth-form-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .auth-page .auth-form-stack {
+    gap: 0.875rem;
+  }
+
+  .auth-page .auth-hero-stats {
+    margin-top: 2rem;
+  }
+}
+
+.auth-hero-overlay-bottom {
+  background: linear-gradient(to top, var(--auth-surface-lowest) 0%, transparent 55%);
+}
+
+.auth-hero-overlay-side {
+  background: linear-gradient(to right, transparent 0%, var(--auth-surface-container-low) 100%);
+}
+
+.auth-hero-vignette {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(6, 14, 32, 0.45) 100%);
+}
