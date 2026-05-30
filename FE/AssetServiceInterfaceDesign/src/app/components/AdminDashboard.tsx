@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router";
 import {
   Users,
   Package,
@@ -22,7 +23,16 @@ import {
   PieChart,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { mockAssets } from "./AssetsMarketplace";
+import type { AssetRecord } from "../../types/asset";
+import { ASSET_CATEGORIES } from "../../types/asset";
+import {
+  getApprovedAssets,
+  getPendingAssets,
+  approveAsset,
+  rejectAsset,
+  deleteAsset,
+  updateAsset,
+} from "../../utils/assetStorage";
 import {
   AreaChart,
   Area,
@@ -73,15 +83,10 @@ interface PackageData {
   revenue: number;
 }
 
-interface AssetData {
-  id: string;
-  title: string;
-  category: string;
-  price: number;
-  rating: number;
-  downloads: number;
-  isFree: boolean;
-}
+interface AssetData extends Pick<
+  AssetRecord,
+  "id" | "title" | "category" | "price" | "rating" | "downloads" | "isFree"
+> {}
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -235,22 +240,13 @@ export default function AdminDashboard() {
     }
 
     // Load assets
-    const assetsData = localStorage.getItem("admin_assets");
-    if (assetsData) {
-      setAssets(JSON.parse(assetsData));
-    } else {
-      const initialAssets = mockAssets.map((asset) => ({
-        id: asset.id,
-        title: asset.title,
-        category: asset.category,
-        price: asset.price,
-        rating: asset.rating,
-        downloads: asset.downloads,
-        isFree: asset.isFree,
-      }));
-      setAssets(initialAssets);
-      localStorage.setItem("admin_assets", JSON.stringify(initialAssets));
-    }
+    setAssets(getApprovedAssets());
+  }, []);
+
+  useEffect(() => {
+    const reload = () => setAssets(getApprovedAssets());
+    window.addEventListener("assetsUpdated", reload);
+    return () => window.removeEventListener("assetsUpdated", reload);
   }, []);
 
   // Reload packages when switching to packages tab
@@ -1023,17 +1019,20 @@ function AssetsManagement({
   assets: AssetData[];
   setAssets: (assets: AssetData[]) => void;
 }) {
+  const [pendingAssets, setPendingAssets] = useState<AssetRecord[]>([]);
   const [editingAsset, setEditingAsset] = useState<AssetData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newAsset, setNewAsset] = useState<Partial<AssetData>>({
-    title: "",
-    category: "2D Characters",
-    price: 0,
-    rating: 4.5,
-    downloads: 0,
-    isFree: false,
-  });
+
+  const reload = () => {
+    setAssets(getApprovedAssets());
+    setPendingAssets(getPendingAssets());
+  };
+
+  useEffect(() => {
+    reload();
+    window.addEventListener("assetsUpdated", reload);
+    return () => window.removeEventListener("assetsUpdated", reload);
+  }, [setAssets]);
 
   const filteredAssets = assets.filter((asset) =>
     asset.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -1046,163 +1045,186 @@ function AssetsManagement({
 
   const handleSaveEdit = () => {
     if (!editingAsset) return;
-
-    const updatedAssets = assets.map((a) =>
-      a.id === editingAsset.id ? editingAsset : a
-    );
-    setAssets(updatedAssets);
-    localStorage.setItem("admin_assets", JSON.stringify(updatedAssets));
-
-    // Dispatch custom event to notify marketplace
-    window.dispatchEvent(new CustomEvent('assetsUpdated'));
-
+    updateAsset(editingAsset.id, {
+      title: editingAsset.title,
+      category: editingAsset.category as AssetRecord["category"],
+      price: editingAsset.price,
+      rating: editingAsset.rating,
+      isFree: editingAsset.isFree,
+      priceType: editingAsset.isFree ? "free" : "paid",
+    });
+    reload();
     setShowEditModal(false);
     setEditingAsset(null);
   };
 
   const handleDelete = (assetId: string) => {
     if (!confirm("Bạn có chắc muốn xóa asset này?")) return;
-
-    const updatedAssets = assets.filter((a) => a.id !== assetId);
-    setAssets(updatedAssets);
-    localStorage.setItem("admin_assets", JSON.stringify(updatedAssets));
-
-    // Dispatch custom event to notify marketplace
-    window.dispatchEvent(new CustomEvent('assetsUpdated'));
+    deleteAsset(assetId);
+    reload();
   };
 
-  const handleAddAsset = () => {
-    if (!newAsset.title) {
-      alert("Vui lòng nhập tên asset");
-      return;
-    }
+  const handleApprove = (id: string) => {
+    approveAsset(id);
+    reload();
+  };
 
-    const asset: AssetData = {
-      id: `asset-${Date.now()}`,
-      title: newAsset.title || "",
-      category: newAsset.category || "2D Characters",
-      price: newAsset.price || 0,
-      rating: newAsset.rating || 4.5,
-      downloads: newAsset.downloads || 0,
-      isFree: newAsset.isFree || false,
-    };
-
-    const updatedAssets = [...assets, asset];
-    setAssets(updatedAssets);
-    localStorage.setItem("admin_assets", JSON.stringify(updatedAssets));
-
-    // Dispatch custom event to notify marketplace
-    window.dispatchEvent(new CustomEvent('assetsUpdated'));
-
-    setShowAddModal(false);
-    setNewAsset({
-      title: "",
-      category: "2D Characters",
-      price: 0,
-      rating: 4.5,
-      downloads: 0,
-      isFree: false,
-    });
+  const handleReject = (id: string) => {
+    if (!confirm("Từ chối asset này?")) return;
+    rejectAsset(id);
+    reload();
   };
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-foreground">Quản lý Assets</h2>
-        <div className="flex gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-          </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
-          >
-            <Plus className="w-5 h-5" />
-            Thêm asset
-          </button>
-        </div>
-      </div>
-
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredAssets.map((asset) => (
-          <div
-            key={asset.id}
-            className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] transition-all"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="font-bold text-foreground mb-1">{asset.title}</h3>
-                <p className="text-sm text-muted-foreground">{asset.category}</p>
-              </div>
-              {asset.isFree && (
-                <span className="px-2 py-1 bg-success/20 text-success rounded-full text-xs font-bold">
-                  FREE
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-4 mb-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <Download className="w-4 h-4" />
-                {asset.downloads}
-              </div>
-              <div className="flex items-center gap-1">
-                <TrendingUp className="w-4 h-4" />
-                {asset.rating}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="font-bold text-foreground font-mono">
-                {asset.isFree
-                  ? "Miễn phí"
-                  : `${asset.price.toLocaleString("vi-VN")}đ`}
+    <div className="space-y-8">
+      {/* Pending Assets */}
+      {pendingAssets.length > 0 && (
+        <div className="bg-card/50 backdrop-blur-sm border border-warning/30 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">Pending Assets</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {pendingAssets.length} asset chờ duyệt — xem preview, approve hoặc reject
               </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleEdit(asset)}
-                  className="text-warning hover:text-warning/80 transition-colors"
-                >
-                  <Edit className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(asset.id)}
-                  className="text-destructive hover:text-destructive/80 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
             </div>
           </div>
-        ))}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pendingAssets.map((asset) => (
+              <div
+                key={asset.id}
+                className="bg-card border border-warning/20 rounded-xl p-4 hover:border-warning/40 transition-all"
+              >
+                {asset.thumbnailPreview && (
+                  <img
+                    src={asset.thumbnailPreview}
+                    alt={asset.title}
+                    className="w-full h-32 object-cover rounded-lg mb-3 border border-border"
+                  />
+                )}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-foreground truncate">{asset.title}</h3>
+                    <p className="text-sm text-muted-foreground">{asset.category}</p>
+                  </div>
+                  <span className="shrink-0 px-2 py-0.5 bg-warning/20 text-warning rounded-full text-xs font-bold">
+                    pending
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{asset.shortDescription}</p>
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {asset.tags.slice(0, 3).map((tag) => (
+                    <span key={tag} className="text-xs px-2 py-0.5 rounded bg-secondary/10 text-secondary">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground font-mono mb-1">
+                  ZIP: {asset.zipFileName || "—"}
+                </p>
+                <p className="text-xs text-muted-foreground mb-4">
+                  by {asset.creatorName || "Unknown"} · {new Date(asset.submittedAt).toLocaleDateString("vi-VN")}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleApprove(asset.id)}
+                    className="flex-1 bg-success/20 hover:bg-success/30 text-success py-2 rounded-lg text-sm font-bold transition-all"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => handleReject(asset.id)}
+                    className="flex-1 bg-destructive/20 hover:bg-destructive/30 text-destructive py-2 rounded-lg text-sm font-bold transition-all"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Approved Assets */}
+      <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <h2 className="text-2xl font-bold text-foreground">Quản lý Assets</h2>
+          <div className="flex gap-3 flex-wrap">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
+            <Link
+              to="/add-asset"
+              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
+            >
+              <Plus className="w-5 h-5" />
+              Add Asset
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredAssets.map((asset) => (
+            <div
+              key={asset.id}
+              className="bg-card border border-border rounded-xl p-4 hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] transition-all"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-foreground mb-1">{asset.title}</h3>
+                  <p className="text-sm text-muted-foreground">{asset.category}</p>
+                </div>
+                {asset.isFree && (
+                  <span className="px-2 py-1 bg-success/20 text-success rounded-full text-xs font-bold">
+                    FREE
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 mb-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <Download className="w-4 h-4" />
+                  {asset.downloads}
+                </div>
+                <div className="flex items-center gap-1">
+                  <TrendingUp className="w-4 h-4" />
+                  {asset.rating}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="font-bold text-foreground font-mono">
+                  {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")}đ`}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEdit(asset)}
+                    className="text-warning hover:text-warning/80 transition-colors"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(asset.id)}
+                    className="text-destructive hover:text-destructive/80 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {showEditModal && editingAsset && (
+          <Modal onClose={() => setShowEditModal(false)} title="Chỉnh sửa Asset">
+            <AssetForm asset={editingAsset} onChange={setEditingAsset} onSave={handleSaveEdit} />
+          </Modal>
+        )}
       </div>
-
-      {/* Edit Modal */}
-      {showEditModal && editingAsset && (
-        <Modal onClose={() => setShowEditModal(false)} title="Chỉnh sửa Asset">
-          <AssetForm
-            asset={editingAsset}
-            onChange={setEditingAsset}
-            onSave={handleSaveEdit}
-          />
-        </Modal>
-      )}
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)} title="Thêm Asset mới">
-          <AssetForm
-            asset={newAsset as AssetData}
-            onChange={(asset) => setNewAsset(asset)}
-            onSave={handleAddAsset}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
@@ -1230,18 +1252,15 @@ function AssetForm({
       <div>
         <label className="block text-sm font-medium text-muted-foreground mb-2">Danh mục</label>
         <select
-          value={asset.category || "2D Characters"}
+          value={asset.category || "3D Model"}
           onChange={(e) => onChange({ ...asset, category: e.target.value })}
           className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
         >
-          <option value="2D Characters">2D Characters</option>
-          <option value="2D Environments">2D Environments</option>
-          <option value="UI/UX">UI/UX</option>
-          <option value="Sound Effects">Sound Effects</option>
-          <option value="Music">Music</option>
-          <option value="3D Models">3D Models</option>
-          <option value="Animations">Animations</option>
-          <option value="Particles">Particles</option>
+          {ASSET_CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
         </select>
       </div>
       <div className="grid grid-cols-2 gap-4">

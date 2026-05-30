@@ -10,6 +10,7 @@ import AssetsMarketplace from "./components/AssetsMarketplace";
 import ProtectedAssetsCheckout from "./components/ProtectedAssetsCheckout";
 import ProtectedAdminDashboard from "./components/ProtectedAdminDashboard";
 import ProtectedMyAssets from "./components/ProtectedMyAssets";
+import ProtectedAddAsset from "./components/ProtectedAddAsset";
 import Terms from "./components/Terms";
 import Privacy from "./components/Privacy";
 
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "my-assets", Component: ProtectedMyAssets },
       { path: "checkout-assets", Component: ProtectedAssetsCheckout },
       { path: "admin", Component: ProtectedAdminDashboard },
+      { path: "add-asset", Component: ProtectedAddAsset },
       { path: "terms", Component: Terms },
       { path: "privacy", Component: Privacy },
     ],

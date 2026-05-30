@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getApprovedAssets } from "../../utils/assetStorage";
 import { Search, Filter, ShoppingCart, Star, Download, Eye, X, Trash2, Plus, ArrowRight, ShoppingBag, CheckCircle } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate, useSearchParams } from "react-router";
@@ -313,6 +314,24 @@ export default function AssetsMarketplace() {
 
   // Load assets from localStorage or use mockAssets as fallback
   const loadAssets = () => {
+    const approved = getApprovedAssets();
+    if (approved.length > 0) {
+      const formattedAssets: Asset[] = approved.map((a) => ({
+        id: a.id,
+        title: a.title,
+        category: a.category,
+        price: a.price,
+        rating: a.rating || 4.5,
+        downloads: a.downloads,
+        preview: a.shortDescription || a.title.toLowerCase(),
+        author: a.creatorName || "GameAssets Store",
+        tags: a.tags.length > 0 ? a.tags : [a.category],
+        isFree: a.isFree,
+      }));
+      setAssets(formattedAssets);
+      return;
+    }
+
     const savedAssets = localStorage.getItem("admin_assets");
     if (savedAssets) {
       try {
