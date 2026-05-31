@@ -1,0 +1,37 @@
+using Exe.Data;
+using Exe.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Exe.Repositories.Profile;
+
+public class ProfileRepository(AppDbContext db) : IProfileRepository
+{
+    private IQueryable<Models.Entities.Profile> ActiveProfilesQuery =>
+        db.Profiles.Where(p => p.DeletedAt == null);
+
+    public Task<Models.Entities.Profile?> GetActiveByIdWithDetailsAsync(
+        Guid id,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default)
+    {
+        var query = ActiveProfilesQuery
+            .Include(p => p.Wallet)
+            .Include(p => p.Subscriptions.Where(s => s.Status == SubscriptionStatus.Active))
+                .ThenInclude(s => s.Plan)
+            .Where(p => p.Id == id);
+
+        if (asNoTracking)
+            query = query.AsNoTracking();
+
+        return query.FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Models.Entities.Profile?> GetActiveByIdForUpdateAsync(
+        Guid id,
+        CancellationToken cancellationToken = default) =>
+        ActiveProfilesQuery
+            .Include(p => p.Wallet)
+            .Include(p => p.Subscriptions.Where(s => s.Status == SubscriptionStatus.Active))
+                .ThenInclude(s => s.Plan)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+}

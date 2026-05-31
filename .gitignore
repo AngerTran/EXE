@@ -10,6 +10,20 @@ build/
 ### Env files (secrets)
 .env
 .env.*
+BE/appsettings.Development.json
+
+### .NET / Backend
+BE/bin/
+BE/obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+project.lock.json
+project.fragment.lock.json
+artifacts/
 
 ### Logs
 npm-debug.log*
