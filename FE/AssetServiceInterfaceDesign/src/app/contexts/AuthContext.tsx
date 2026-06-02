@@ -12,6 +12,7 @@ interface User {
   role: UserRole;
   subscription: SubscriptionType;
   subscriptionExpiry?: string; // ISO date string
+  avatarDataUrl?: string; // base64 data URL
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   logout: () => void;
   updateCredits: (newCredits: number) => void;
   updateSubscription: (subscription: SubscriptionType, expiry?: string) => void;
+  updateProfile: (data: { name?: string; avatarDataUrl?: string | null }) => void;
   refreshUserData: () => void;
   isAdmin: () => boolean;
 }
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: users[email].role || "customer",
         subscription: users[email].subscription || "free",
         subscriptionExpiry: users[email].subscriptionExpiry,
+        avatarDataUrl: users[email].avatarDataUrl,
       };
       setUser(userData);
       localStorage.setItem("currentUser", JSON.stringify(userData));
@@ -81,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription: "free" as SubscriptionType,
       registeredAt: new Date().toISOString(),
       totalSpent: 0,
+      avatarDataUrl: null as string | null,
     };
 
     users[email] = newUser;
@@ -94,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       credits: newUser.credits,
       role: newUser.role,
       subscription: newUser.subscription,
+      avatarDataUrl: undefined,
     };
     setUser(userData);
     localStorage.setItem("currentUser", JSON.stringify(userData));
@@ -142,6 +147,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateProfile = (data: { name?: string; avatarDataUrl?: string | null }) => {
+    if (!user) return;
+
+    const updatedUser: User = {
+      ...user,
+      name: data.name ?? user.name,
+      avatarDataUrl:
+        data.avatarDataUrl === null
+          ? undefined
+          : (data.avatarDataUrl ?? user.avatarDataUrl),
+    };
+
+    setUser(updatedUser);
+    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+
+    const usersData = localStorage.getItem("users");
+    if (usersData) {
+      const users = JSON.parse(usersData);
+      if (users[user.email]) {
+        users[user.email].name = updatedUser.name;
+        users[user.email].avatarDataUrl = updatedUser.avatarDataUrl ?? null;
+        localStorage.setItem("users", JSON.stringify(users));
+      }
+    }
+  };
+
   const refreshUserData = () => {
     if (!user) return;
     
@@ -158,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           role: users[user.email].role || "customer",
           subscription: users[user.email].subscription || "free",
           subscriptionExpiry: users[user.email].subscriptionExpiry,
+          avatarDataUrl: users[user.email].avatarDataUrl ?? undefined,
         };
         setUser(freshUserData);
         localStorage.setItem("currentUser", JSON.stringify(freshUserData));
@@ -170,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateCredits, updateSubscription, refreshUserData, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateCredits, updateSubscription, updateProfile, refreshUserData, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

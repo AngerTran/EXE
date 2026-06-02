@@ -18,6 +18,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { getDemoAccounts } from "../../data/seedData";
 import authHero from "../../assets/auth-hero.png";
+import { toast } from "sonner";
 
 function GoogleIcon() {
   return (
@@ -208,25 +209,22 @@ export default function Auth() {
               </p>
             </header>
 
-            {/* Social (UI only) */}
+            {/* Social (Google only) */}
             {isLogin && (
               <>
-                <div className="grid grid-cols-3 gap-2.5 mb-4">
-                  {[
-                    { icon: <GoogleIcon />, label: "Google" },
-                    { icon: <DiscordIcon />, label: "Discord" },
-                    { icon: <GitHubIcon />, label: "GitHub" },
-                  ].map(({ icon, label }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      disabled
-                      title={`${label} — sắp ra mắt`}
-                      className="auth-btn-secondary flex items-center justify-center py-2.5 rounded-lg text-[#cbc3d7] opacity-60 cursor-not-allowed"
-                    >
-                      {icon}
-                    </button>
-                  ))}
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toast.message("Đăng nhập bằng Google", {
+                        description: "Hiện tại demo chưa kết nối OAuth. (BE sau này sẽ tích hợp Google Sign-In)",
+                      })
+                    }
+                    className="auth-btn-secondary w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-[#dae2fd] hover:bg-white/5 border border-white/10 hover:border-[#4cd7f6]/40 transition-all"
+                  >
+                    <GoogleIcon />
+                    <span className="text-sm font-semibold">Tiếp tục với Google</span>
+                  </button>
                 </div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-px bg-white/10 flex-1" />
@@ -338,7 +336,15 @@ export default function Auth() {
                     Mật khẩu
                   </label>
                   {isLogin && (
-                    <button type="button" className="text-xs text-[#4cd7f6] hover:underline">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toast.message("Quên mật khẩu", {
+                          description: "Hiện tại demo chưa hỗ trợ reset mật khẩu.",
+                        })
+                      }
+                      className="text-xs text-[#4cd7f6] hover:underline"
+                    >
                       Quên mật khẩu?
                     </button>
                   )}

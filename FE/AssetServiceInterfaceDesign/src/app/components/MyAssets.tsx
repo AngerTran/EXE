@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Package,
@@ -16,6 +16,10 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
 
 interface PurchasedAsset {
   id: string;
@@ -32,9 +36,13 @@ export default function MyAssets() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [page, setPage] = useState(1);
   const [purchasedAssets, setPurchasedAssets] = useState<PurchasedAsset[]>([]);
-  const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [selectedAsset, setSelectedAsset] = useState<PurchasedAsset | null>(null);
+  const [viewingAsset, setViewingAsset] = useState<PurchasedAsset | null>(null);
+  const [downloadProgressById, setDownloadProgressById] = useState<
+    Record<string, number>
+  >({});
+  const downloadIntervalsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (user) {
@@ -44,6 +52,16 @@ export default function MyAssets() {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    return () => {
+      const ids = Object.keys(downloadIntervalsRef.current);
+      ids.forEach((id) => {
+        window.clearInterval(downloadIntervalsRef.current[id]);
+      });
+      downloadIntervalsRef.current = {};
+    };
+  }, []);
 
   const categories = [
     { id: "all", label: "Tất cả", icon: <Folder className="w-4 h-4" /> },
@@ -65,9 +83,15 @@ export default function MyAssets() {
     return matchesSearch && matchesCategory;
   });
 
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, selectedCategory]);
+
+  const pageSize = 12;
+  const { paged: pagedAssets, totalPages } = getPageSlice(filteredAssets, page, pageSize);
+
   const handleDownload = (asset: PurchasedAsset) => {
-    setSelectedAsset(asset);
-    setShowDownloadModal(true);
+    if (downloadIntervalsRef.current[asset.id]) return;
 
     // Update download count
     const updatedAssets = purchasedAssets.map((a) =>
@@ -80,6 +104,37 @@ export default function MyAssets() {
         JSON.stringify(updatedAssets)
       );
     }
+
+    setDownloadProgressById((prev) => ({ ...prev, [asset.id]: 0 }));
+    toast.message(`Đang tải "${asset.title}"...`, {
+      description: `${asset.fileType} • ${asset.fileSize}`,
+    });
+
+    const intervalId = window.setInterval(() => {
+      setDownloadProgressById((prev) => {
+        const current = prev[asset.id] ?? 0;
+        const next = Math.min(100, current + 10);
+
+        if (next >= 100) {
+          window.clearInterval(downloadIntervalsRef.current[asset.id]);
+          delete downloadIntervalsRef.current[asset.id];
+
+          window.setTimeout(() => {
+            toast.success(`Đã tải "${asset.title}" thành công`, {
+              description: "Trong ứng dụng thực tế, file sẽ được tải về máy của bạn.",
+            });
+            setDownloadProgressById((after) => {
+              const { [asset.id]: _removed, ...rest } = after;
+              return rest;
+            });
+          }, 400);
+        }
+
+        return { ...prev, [asset.id]: next };
+      });
+    }, 200);
+
+    downloadIntervalsRef.current[asset.id] = intervalId;
   };
 
   const totalSpent = purchasedAssets.reduce((sum, asset) => sum + asset.price, 0);
@@ -151,7 +206,7 @@ export default function MyAssets() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tổng chi tiêu</p>
                   <p className="text-2xl font-bold text-foreground font-mono">
-                    {totalSpent.toLocaleString("vi-VN")}đ
+                    {totalSpent.toLocaleString("vi-VN")} xu
                   </p>
                 </div>
                 <div className="bg-success/20 border border-success/30 p-3 rounded-lg">
@@ -233,189 +288,241 @@ export default function MyAssets() {
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAssets.map((asset) => (
+            {pagedAssets.map((asset) => (
+              (() => {
+                const progress = downloadProgressById[asset.id];
+                const isDownloading = typeof progress === "number";
+
+                return (
               <div
                 key={asset.id}
-                className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-5 hover:scale-105 hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] transition-all"
+                className="bg-card/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
               >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-foreground mb-1 line-clamp-2">
+                {/* Preview Image (match Marketplace card) */}
+                <div
+                  className="relative aspect-video bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden cursor-pointer"
+                  onClick={() => setViewingAsset(asset)}
+                >
+                  <ImageWithFallback
+                    src={`https://source.unsplash.com/400x300/?${encodeURIComponent(
+                      asset.title
+                    )}`}
+                    alt={asset.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg">
+                      <ExternalLink className="w-4 h-4" />
+                      Xem chi tiết
+                    </div>
+                  </div>
+                  <div className="absolute top-3 left-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                    <CheckCircle className="w-3 h-3" />
+                    ĐÃ SỞ HỮU
+                  </div>
+                  <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground px-3 py-1 rounded-full text-xs flex items-center gap-1 font-mono">
+                    <Download className="w-3 h-3" />
+                    {asset.downloadCount}
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="p-4 space-y-3">
+                  <div>
+                    <h3 className="font-bold text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">
                       {asset.title}
                     </h3>
                     <p className="text-sm text-muted-foreground">{asset.category}</p>
                   </div>
-                  <span className="px-2 py-1 bg-success/10 border border-success/30 text-success rounded-full text-xs font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" />
-                    Đã mua
-                  </span>
-                </div>
 
-                {/* Info */}
-                <div className="space-y-2 mb-4 text-sm">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      Mua ngày:
-                    </span>
-                    <span className="font-medium text-foreground font-mono">{asset.purchaseDate}</span>
+                  {/* Purchased info (keep essentials) */}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        Mua ngày
+                      </span>
+                      <span className="font-medium text-foreground font-mono">
+                        {asset.purchaseDate}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Folder className="w-4 h-4" />
+                        File
+                      </span>
+                      <span className="font-medium text-foreground font-mono">
+                        {asset.fileType} • {asset.fileSize}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Download className="w-4 h-4" />
-                      Đã tải:
-                    </span>
-                    <span className="font-medium text-foreground font-mono">{asset.downloadCount} lần</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Dung lượng:</span>
-                    <span className="font-medium text-foreground font-mono">{asset.fileSize}</span>
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="space-y-2">
-                  <button
-                    onClick={() => handleDownload(asset)}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)] flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Tải xuống
-                  </button>
-                  <button className="w-full bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2">
-                    <ExternalLink className="w-4 h-4" />
-                    Xem chi tiết
-                  </button>
+                  {/* Actions (match Marketplace buttons) */}
+                  <div className="pt-3 border-t border-border">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDownload(asset)}
+                        disabled={isDownloading}
+                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:from-primary/50 disabled:to-secondary/50 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)] disabled:cursor-not-allowed disabled:hover:scale-100"
+                      >
+                        <Download className="w-4 h-4" />
+                        {isDownloading ? "Đang tải..." : "Tải xuống"}
+                      </button>
+                      <button
+                        onClick={() => setViewingAsset(asset)}
+                        className="flex-1 bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Chi tiết
+                      </button>
+                    </div>
+                  </div>
+
+                  {isDownloading && (
+                    <div className="bg-card/50 border border-border rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-muted-foreground">
+                          Tiến trình tải
+                        </span>
+                        <span className="text-xs font-bold text-primary font-mono">
+                          {progress}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-border rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-primary to-secondary h-full transition-all duration-300 shadow-[0_0_10px_rgba(0,217,255,0.35)]"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         )}
-      </div>
 
-      {/* Download Modal */}
-      {showDownloadModal && selectedAsset && (
-        <DownloadModal
-          asset={selectedAsset}
-          onClose={() => {
-            setShowDownloadModal(false);
-            setSelectedAsset(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function DownloadModal({
-  asset,
-  onClose,
-}: {
-  asset: PurchasedAsset;
-  onClose: () => void;
-}) {
-  const [downloading, setDownloading] = useState(false);
-  const [progress, setProgress] = useState(0);
-
-  const handleDownload = () => {
-    setDownloading(true);
-    setProgress(0);
-
-    // Simulate download progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setDownloading(false);
-            // In real app, trigger actual file download here
-            alert(
-              `✅ Đã tải xuống "${asset.title}" thành công!\n\nTrong ứng dụng thực tế, file sẽ được tải về máy của bạn.`
-            );
-            onClose();
-          }, 500);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
-  };
-
-  return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
-        onClick={onClose}
-      />
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-background border border-border rounded-xl p-6 z-50 shadow-2xl">
-        <h3 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-          <Download className="w-6 h-6 text-primary" />
-          Tải xuống Asset
-        </h3>
-
-        <div className="bg-card border border-border rounded-lg p-6 mb-6">
-          <h4 className="font-bold text-foreground text-lg mb-4">{asset.title}</h4>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Danh mục:</span>
-              <span className="text-foreground font-medium">{asset.category}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Định dạng:</span>
-              <span className="text-foreground font-medium font-mono">{asset.fileType}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Dung lượng:</span>
-              <span className="text-foreground font-medium font-mono">{asset.fileSize}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Ngày mua:</span>
-              <span className="text-foreground font-medium font-mono">{asset.purchaseDate}</span>
-            </div>
-          </div>
-        </div>
-
-        {downloading && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Đang tải xuống...</span>
-              <span className="text-sm font-bold text-primary font-mono">{progress}%</span>
-            </div>
-            <div className="w-full bg-border rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-primary to-secondary h-full transition-all duration-300 shadow-[0_0_10px_rgba(0,217,255,0.5)]"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
+        {filteredAssets.length > 0 && (
+          <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
-
-        <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 mb-6">
-          <p className="text-foreground text-sm">
-            💡 <strong>Lưu ý:</strong> Bạn có quyền sử dụng asset này cho dự án
-            cá nhân và thương mại. Không được phân phối lại hoặc bán asset này.
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={downloading}
-            className="flex-1 bg-card hover:bg-card/80 border border-border text-foreground py-3 rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Đóng
-          </button>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download className="w-5 h-5" />
-            {downloading ? "Đang tải..." : "Tải xuống"}
-          </button>
-        </div>
       </div>
-    </>
+
+      {/* Asset detail drawer (stay on MyAssets) */}
+      <Sheet
+        open={!!viewingAsset}
+        onOpenChange={(open) => {
+          if (!open) setViewingAsset(null);
+        }}
+      >
+        {viewingAsset && (
+          <SheetContent className="p-0 sm:max-w-2xl">
+            <div className="flex h-full flex-col">
+              <SheetHeader className="border-b border-border p-6">
+                <SheetTitle className="text-2xl font-bold text-foreground">
+                  {viewingAsset.title}
+                </SheetTitle>
+                <SheetDescription className="text-muted-foreground">
+                  Asset đã mua • {viewingAsset.category}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Preview (match Marketplace layout) */}
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
+                  <ImageWithFallback
+                    src={`https://source.unsplash.com/800x600/?${encodeURIComponent(
+                      viewingAsset.title
+                    )}`}
+                    alt={viewingAsset.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                    <CheckCircle className="w-4 h-4" />
+                    ĐÃ SỞ HỮU
+                  </div>
+                </div>
+
+                {/* Stats (keep only necessary for purchased asset) */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-2">
+                      <Download className="w-5 h-5 text-primary" />
+                      <span className="text-2xl font-bold text-foreground font-mono">
+                        {viewingAsset.downloadCount}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Lượt tải</p>
+                  </div>
+                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="mb-2">
+                      <span className="text-2xl font-bold text-foreground font-mono">
+                        {viewingAsset.fileSize}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Dung lượng</p>
+                  </div>
+                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="mb-2">
+                      <span className="text-2xl font-bold text-primary font-mono">
+                        {viewingAsset.price === 0
+                          ? "Miễn phí"
+                          : `${viewingAsset.price.toLocaleString("vi-VN")} xu`}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Giá</p>
+                  </div>
+                </div>
+
+                {/* Description (shortened) */}
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-3">Mô tả</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Bạn đã mua <span className="text-foreground font-semibold">{viewingAsset.title}</span>. Đây là phiên bản đã cấp quyền sử dụng cho mục đích cá nhân và thương mại.
+                  </p>
+                </div>
+
+                {/* Tags (keep minimal) */}
+                <div>
+                  <h3 className="text-lg font-bold text-foreground mb-3">Tags</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="px-3 py-1 bg-primary/10 border border-primary/30 text-primary rounded-full text-sm">
+                      {viewingAsset.category}
+                    </span>
+                    <span className="px-3 py-1 bg-card border border-border text-foreground rounded-full text-sm hover:border-primary/50 transition-colors">
+                      {viewingAsset.fileType}
+                    </span>
+                    <span className="px-3 py-1 bg-card border border-border text-foreground rounded-full text-sm hover:border-primary/50 transition-colors">
+                      Mua ngày: {viewingAsset.purchaseDate}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+                  <p className="text-foreground text-sm">
+                    <strong>Lưu ý:</strong> Bạn có quyền sử dụng asset này cho dự án
+                    cá nhân và thương mại. Không được phân phối lại hoặc bán asset này.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-border p-6">
+                <button
+                  onClick={() => handleDownload(viewingAsset)}
+                  disabled={typeof downloadProgressById[viewingAsset.id] === "number"}
+                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:from-primary/50 disabled:to-secondary/50 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-5 h-5" />
+                  {typeof downloadProgressById[viewingAsset.id] === "number"
+                    ? "Đang tải..."
+                    : "Tải xuống"}
+                </button>
+              </div>
+            </div>
+          </SheetContent>
+        )}
+      </Sheet>
+    </div>
   );
 }

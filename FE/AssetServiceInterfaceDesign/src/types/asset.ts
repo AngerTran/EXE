@@ -48,6 +48,7 @@ export interface AssetRecord {
   previewNames?: string[];
   zipFileName?: string;
   status: AssetStatus;
+  rejectedReason?: string;
   creatorId?: string;
   creatorName?: string;
   submittedAt: string;

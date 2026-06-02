@@ -11,6 +11,8 @@ import ProtectedAssetsCheckout from "./components/ProtectedAssetsCheckout";
 import ProtectedAdminDashboard from "./components/ProtectedAdminDashboard";
 import ProtectedMyAssets from "./components/ProtectedMyAssets";
 import ProtectedAddAsset from "./components/ProtectedAddAsset";
+import ProtectedMyOrders from "./components/ProtectedMyOrders";
+import ProtectedProfile from "./components/ProtectedProfile";
 import Terms from "./components/Terms";
 import Privacy from "./components/Privacy";
 
@@ -30,6 +32,8 @@ export const router = createBrowserRouter([
       { path: "checkout-assets", Component: ProtectedAssetsCheckout },
       { path: "admin", Component: ProtectedAdminDashboard },
       { path: "add-asset", Component: ProtectedAddAsset },
+      { path: "orders", Component: ProtectedMyOrders },
+      { path: "profile", Component: ProtectedProfile },
       { path: "terms", Component: Terms },
       { path: "privacy", Component: Privacy },
     ],

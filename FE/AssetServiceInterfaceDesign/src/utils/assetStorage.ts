@@ -2,6 +2,7 @@ import type { AssetRecord } from "../types/asset";
 
 const SUBMISSIONS_KEY = "asset_submissions";
 const LEGACY_KEY = "admin_assets";
+const AUTO_APPROVE_KEY = "admin_auto_approve";
 
 function readSubmissions(): AssetRecord[] {
   migrateLegacyIfNeeded();
@@ -111,13 +112,29 @@ export function getPendingAssets(): AssetRecord[] {
 export function submitAsset(
   data: Omit<AssetRecord, "id" | "status" | "submittedAt" | "rating" | "downloads">
 ): AssetRecord {
+  const autoApproveEnabled = localStorage.getItem(AUTO_APPROVE_KEY) === "true";
+  let shouldAutoApprove = false;
+  if (autoApproveEnabled) {
+    try {
+      const currentUserRaw = localStorage.getItem("currentUser");
+      const currentUser = currentUserRaw ? JSON.parse(currentUserRaw) : null;
+      shouldAutoApprove =
+        currentUser?.role === "admin" &&
+        !!data.creatorId &&
+        currentUser?.id === data.creatorId;
+    } catch {
+      shouldAutoApprove = false;
+    }
+  }
+
   const asset: AssetRecord = {
     ...data,
     id: `asset-${Date.now()}`,
-    status: "pending_review",
+    status: shouldAutoApprove ? "approved" : "pending_review",
     submittedAt: new Date().toISOString(),
     rating: 0,
     downloads: 0,
+    rejectedReason: undefined,
   };
 
   const all = [...readSubmissions(), asset];
@@ -128,15 +145,17 @@ export function submitAsset(
 
 export function approveAsset(id: string) {
   const all = readSubmissions().map((a) =>
-    a.id === id ? { ...a, status: "approved" as const } : a
+    a.id === id ? { ...a, status: "approved" as const, rejectedReason: undefined } : a
   );
   writeSubmissions(all);
   window.dispatchEvent(new CustomEvent("assetsUpdated"));
 }
 
-export function rejectAsset(id: string) {
+export function rejectAsset(id: string, reason?: string) {
   const all = readSubmissions().map((a) =>
-    a.id === id ? { ...a, status: "rejected" as const } : a
+    a.id === id
+      ? { ...a, status: "rejected" as const, rejectedReason: reason?.trim() || undefined }
+      : a
   );
   writeSubmissions(all);
   window.dispatchEvent(new CustomEvent("assetsUpdated"));

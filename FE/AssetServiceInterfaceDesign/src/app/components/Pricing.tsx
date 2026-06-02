@@ -7,7 +7,7 @@ export default function Pricing() {
   const packages = [
     {
       name: "Miễn Phí",
-      price: "0đ",
+      price: "10 xu",
       credits: 10,
       icon: <Sparkles className="w-8 h-8" />,
       color: "from-gray-600 to-gray-700",
@@ -25,7 +25,7 @@ export default function Pricing() {
     },
     {
       name: "STUDENT",
-      price: "29,000đ",
+      price: "100 xu",
       period: "/tháng",
       credits: 100,
       icon: <GraduationCap className="w-8 h-8" />,
@@ -45,7 +45,7 @@ export default function Pricing() {
     },
     {
       name: "INDIE",
-      price: "99,000đ",
+      price: "∞ xu",
       period: "/tháng",
       credits: -1, // unlimited
       icon: <Zap className="w-8 h-8" />,
@@ -63,7 +63,7 @@ export default function Pricing() {
     },
     {
       name: "PRO",
-      price: "199,000đ",
+      price: "∞ xu",
       period: "/tháng",
       credits: -1, // unlimited
       icon: <Crown className="w-8 h-8" />,

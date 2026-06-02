@@ -553,7 +553,7 @@ Trong khi đó, đây là một số assets phổ bin bạn có thể tham khả
                                   </p>
                                   <p className="text-xs text-muted-foreground truncate">{asset.category}</p>
                                   <p className="text-xs font-bold text-success mt-1">
-                                    {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")}đ`}
+                                    {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
                                   </p>
                                 </div>
                                 <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />

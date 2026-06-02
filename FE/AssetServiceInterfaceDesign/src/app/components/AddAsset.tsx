@@ -93,6 +93,7 @@ export default function AddAsset() {
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedStatus, setSubmittedStatus] = useState<"pending_review" | "approved">("pending_review");
 
   const [title, setTitle] = useState("");
   const [shortDescription, setShortDescription] = useState("");
@@ -174,7 +175,7 @@ export default function AddAsset() {
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 800));
 
-    submitAsset({
+    const created = submitAsset({
       title: title.trim(),
       shortDescription: shortDescription.trim(),
       fullDescription: fullDescription.trim(),
@@ -199,6 +200,7 @@ export default function AddAsset() {
     });
 
     setSubmitting(false);
+    setSubmittedStatus(created.status === "approved" ? "approved" : "pending_review");
     setSubmitted(true);
   };
 
@@ -209,10 +211,17 @@ export default function AddAsset() {
           <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Đã gửi asset thành công!</h1>
           <p className="text-muted-foreground mb-2">
-            Asset của bạn đang ở trạng thái <span className="text-warning font-mono">chờ duyệt</span>.
+            Asset của bạn đang ở trạng thái{" "}
+            {submittedStatus === "approved" ? (
+              <span className="text-success font-mono">đã duyệt</span>
+            ) : (
+              <span className="text-warning font-mono">chờ duyệt</span>
+            )}
           </p>
           <p className="text-sm text-muted-foreground mb-8">
-            Admin sẽ xem preview, duyệt hoặc từ chối. Sau khi được duyệt, asset sẽ hiện trên Marketplace.
+            {submittedStatus === "approved"
+              ? "Vì bạn là admin và đang bật Auto-approve, asset đã được duyệt và sẽ xuất hiện trên Marketplace."
+              : "Admin sẽ xem preview, duyệt hoặc từ chối. Sau khi được duyệt, asset sẽ hiện trên Marketplace."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link

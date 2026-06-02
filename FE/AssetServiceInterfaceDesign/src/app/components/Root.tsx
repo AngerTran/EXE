@@ -1,12 +1,15 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Sparkles, Menu, X, LogOut, User, Coins } from "lucide-react";
+import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { Toaster } from "./ui/sonner";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function Root() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === "/auth";
@@ -18,10 +21,11 @@ export default function Root() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Toaster />
       {/* Navigation */}
       {!isAuthPage && (
       <nav className="border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center gap-2 group">
               <div className="relative">
@@ -32,10 +36,10 @@ export default function Root() {
             </Link>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-5 flex-nowrap">
               <Link
                 to="/"
-                className={`text-sm font-medium transition-all relative group ${
+                className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
                   isActive("/") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -46,7 +50,7 @@ export default function Root() {
               </Link>
               <Link
                 to="/dashboard"
-                className={`text-sm font-medium transition-all relative group ${
+                className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
                   isActive("/dashboard") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -57,7 +61,7 @@ export default function Root() {
               </Link>
               <Link
                 to="/marketplace"
-                className={`text-sm font-medium transition-all relative group ${
+                className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
                   isActive("/marketplace") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -67,21 +71,25 @@ export default function Root() {
                 )}
               </Link>
               {user && (
-                <Link
-                  to="/my-assets"
-                  className={`text-sm font-medium transition-all relative group ${
-                    isActive("/my-assets") ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Thư viện
-                  {isActive("/my-assets") && (
-                    <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
-                  )}
-                </Link>
+                <>
+                  <Link
+                    to="/my-assets"
+                    className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
+                      isActive("/my-assets")
+                        ? "text-primary"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Thư viện
+                    {isActive("/my-assets") && (
+                      <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
+                    )}
+                  </Link>
+                </>
               )}
               <Link
                 to="/pricing"
-                className={`text-sm font-medium transition-all relative group ${
+                className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
                   isActive("/pricing") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -96,43 +104,70 @@ export default function Root() {
                   {user.role === "admin" && (
                     <Link
                       to="/admin"
-                      className={`text-sm font-medium transition-all relative group ${
-                        isActive("/admin") ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                      className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
+                        isActive("/admin")
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      🛡️ Admin
+                      Admin Dashboard
                       {isActive("/admin") && (
                         <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
                       )}
                     </Link>
                   )}
                   <div className="flex items-center gap-3 ml-2">
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:bg-card/80 hover:border-primary/50 transition-all"
+                      title={theme === "dark" ? "Chuyển sang sáng" : "Chuyển sang tối"}
+                    >
+                      {theme === "dark" ? (
+                        <Sun className="w-4 h-4 text-warning" />
+                      ) : (
+                        <Moon className="w-4 h-4 text-primary" />
+                      )}
+                    </button>
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full font-mono text-sm">
                       <Coins className="w-4 h-4 text-warning" />
                       <span className="text-foreground font-medium">{user.credits || 0}</span>
                     </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full">
-                      <User className="w-4 h-4 text-primary" />
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full hover:border-primary/50 hover:bg-card/80 transition-all whitespace-nowrap"
+                    >
+                      <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
+                        {user.avatarDataUrl ? (
+                          <img
+                            src={user.avatarDataUrl}
+                            alt={user.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
                       <span className="text-sm text-foreground">{user.name}</span>
                       {user.role === "admin" && (
                         <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full">
                           ADMIN
                         </span>
                       )}
-                    </div>
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="flex items-center gap-2 px-4 py-2 bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/30 rounded-lg transition-all hover:scale-105"
                     >
                       <LogOut className="w-4 h-4" />
-                      Đăng xuất
+                      <span className="whitespace-nowrap">Đăng xuất</span>
                     </button>
                   </div>
                 </>
               ) : (
                 <Link
                   to="/auth"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)] whitespace-nowrap"
                 >
                   Đăng nhập
                 </Link>
@@ -179,15 +214,17 @@ export default function Root() {
                 Marketplace
               </Link>
               {user && (
-                <Link
-                  to="/my-assets"
-                  className={`block text-sm font-medium ${
-                    isActive("/my-assets") ? "text-primary" : "text-muted-foreground"
-                  }`}
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Thư viện
-                </Link>
+                <>
+                  <Link
+                    to="/my-assets"
+                    className={`block text-sm font-medium ${
+                      isActive("/my-assets") ? "text-primary" : "text-muted-foreground"
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Thư viện
+                  </Link>
+                </>
               )}
               <Link
                 to="/pricing"
@@ -209,23 +246,54 @@ export default function Root() {
                       }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      🛡️ Admin
+                      Admin Dashboard
                     </Link>
                   )}
                   <div className="pt-3 border-t border-border space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleTheme();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+                    >
+                      {theme === "dark" ? (
+                        <Sun className="w-4 h-4 text-warning" />
+                      ) : (
+                        <Moon className="w-4 h-4 text-primary" />
+                      )}
+                      <span>
+                        {theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+                      </span>
+                    </button>
                     <div className="flex items-center gap-2 text-sm">
                       <Coins className="w-4 h-4 text-warning" />
                       <span className="text-foreground font-mono font-medium">{user.credits || 0} xu</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-primary" />
+                    <Link
+                      to="/profile"
+                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
+                        {user.avatarDataUrl ? (
+                          <img
+                            src={user.avatarDataUrl}
+                            alt={user.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="w-4 h-4 text-primary" />
+                        )}
+                      </div>
                       <span className="text-foreground">{user.name}</span>
                       {user.role === "admin" && (
                         <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full ml-1">
                           ADMIN
                         </span>
                       )}
-                    </div>
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="flex items-center gap-2 text-sm text-destructive"

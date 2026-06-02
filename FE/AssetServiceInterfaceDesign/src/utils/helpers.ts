@@ -6,11 +6,12 @@
 import { credits as creditsConfig } from '../constants/theme';
 
 /**
- * Format price in Vietnamese Dong
+ * Format price in "xu" (in-app credit)
+ * 1 xu = 1 lượt chat AI
  */
 export function formatPrice(price: number): string {
   if (price === 0) return 'Miễn phí';
-  return `${price.toLocaleString('vi-VN')}đ`;
+  return `${price.toLocaleString('vi-VN')} xu`;
 }
 
 /**

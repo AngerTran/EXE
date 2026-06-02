@@ -4,6 +4,8 @@ import { Search, Filter, ShoppingCart, Star, Download, Eye, X, Trash2, Plus, Arr
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
 
 interface Asset {
   id: string;
@@ -305,6 +307,7 @@ export default function AssetsMarketplace() {
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const [searchQuery, setSearchQuery] = useState("");
   const [priceFilter, setPriceFilter] = useState<"all" | "free" | "paid">("all");
+  const [page, setPage] = useState(1);
   const [cart, setCart] = useState<string[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [purchasedAssetIds, setPurchasedAssetIds] = useState<string[]>([]);
@@ -428,6 +431,15 @@ export default function AssetsMarketplace() {
     }
   }, [searchParams]);
 
+  // Auto-open asset detail from URL param
+  useEffect(() => {
+    const detailsId = searchParams.get("details");
+    if (!detailsId) return;
+
+    const found = assets.find((a) => a.id === detailsId) || null;
+    if (found) setSelectedAsset(found);
+  }, [assets, searchParams]);
+
   // Load cart from localStorage
   useEffect(() => {
     if (user) {
@@ -465,6 +477,13 @@ export default function AssetsMarketplace() {
 
     return matchesCategory && matchesSearch && matchesPrice;
   });
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, searchQuery, priceFilter]);
+
+  const pageSize = 12;
+  const { paged: pagedAssets, totalPages } = getPageSlice(filteredAssets, page, pageSize);
 
   const addToCart = (assetId: string) => {
     if (!cart.includes(assetId)) {
@@ -608,7 +627,7 @@ export default function AssetsMarketplace() {
 
         {/* Assets Grid */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredAssets.map((asset) => (
+          {pagedAssets.map((asset) => (
             <AssetCard
               key={asset.id}
               asset={asset}
@@ -622,6 +641,10 @@ export default function AssetsMarketplace() {
             />
           ))}
         </div>
+
+        {filteredAssets.length > 0 && (
+          <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        )}
 
         {/* No Results */}
         {filteredAssets.length === 0 && (
@@ -706,13 +729,13 @@ export default function AssetsMarketplace() {
                                 <p className="text-sm font-bold text-success">Miễn phí</p>
                                 {hasActiveSubscription && !asset.isFree && (
                                   <p className="text-xs text-muted-foreground line-through font-mono">
-                                    {asset.price.toLocaleString("vi-VN")}đ
+                                    {asset.price.toLocaleString("vi-VN")} xu
                                   </p>
                                 )}
                               </div>
                             ) : (
                               <p className="text-sm font-bold text-foreground font-mono">
-                                {displayPrice.toLocaleString("vi-VN")}đ
+                                {displayPrice.toLocaleString("vi-VN")} xu
                               </p>
                             )}
                           </div>
@@ -748,14 +771,14 @@ export default function AssetsMarketplace() {
                       <div className="flex justify-between text-muted-foreground">
                         <span>Tạm tính:</span>
                         <span className="font-medium text-foreground font-mono">
-                          {totalPrice.toLocaleString("vi-VN")}đ
+                          {totalPrice.toLocaleString("vi-VN")} xu
                         </span>
                       </div>
                       <div className="border-t border-border pt-2 mt-2">
                         <div className="flex justify-between text-xl font-bold text-foreground">
                           <span>Tổng cộng:</span>
                           <span className="text-primary font-mono">
-                            {totalPrice.toLocaleString("vi-VN")}đ
+                            {totalPrice.toLocaleString("vi-VN")} xu
                           </span>
                         </div>
                       </div>
@@ -783,29 +806,38 @@ export default function AssetsMarketplace() {
         </>
       )}
 
-      {/* Asset Detail Modal */}
-      {selectedAsset && (
-        <AssetDetailModal
-          asset={selectedAsset}
-          isInCart={cart.includes(selectedAsset.id)}
-          isPurchased={purchasedAssetIds.includes(selectedAsset.id)}
-          hasActiveSubscription={hasActiveSubscription || false}
-          onClose={() => setSelectedAsset(null)}
-          onAddToCart={() => {
-            addToCart(selectedAsset.id);
-            setSelectedAsset(null);
-          }}
-          onBuyNow={() => {
-            buyNow(selectedAsset.id);
-            setSelectedAsset(null);
-          }}
-        />
-      )}
+      {/* Asset Detail Drawer */}
+      <Sheet
+        open={!!selectedAsset}
+        onOpenChange={(open) => {
+          if (!open) setSelectedAsset(null);
+        }}
+      >
+        {selectedAsset && (
+          <SheetContent className="p-0 sm:max-w-2xl">
+            <AssetDetailDrawerContent
+              asset={selectedAsset}
+              isInCart={cart.includes(selectedAsset.id)}
+              isPurchased={purchasedAssetIds.includes(selectedAsset.id)}
+              hasActiveSubscription={hasActiveSubscription || false}
+              onClose={() => setSelectedAsset(null)}
+              onAddToCart={() => {
+                addToCart(selectedAsset.id);
+                setSelectedAsset(null);
+              }}
+              onBuyNow={() => {
+                buyNow(selectedAsset.id);
+                setSelectedAsset(null);
+              }}
+            />
+          </SheetContent>
+        )}
+      </Sheet>
     </div>
   );
 }
 
-interface AssetDetailModalProps {
+interface AssetDetailDrawerContentProps {
   asset: Asset;
   isInCart: boolean;
   isPurchased: boolean;
@@ -815,7 +847,15 @@ interface AssetDetailModalProps {
   onBuyNow: () => void;
 }
 
-function AssetDetailModal({ asset, isInCart, isPurchased, hasActiveSubscription, onClose, onAddToCart, onBuyNow }: AssetDetailModalProps) {
+function AssetDetailDrawerContent({
+  asset,
+  isInCart,
+  isPurchased,
+  hasActiveSubscription,
+  onClose,
+  onAddToCart,
+  onBuyNow,
+}: AssetDetailDrawerContentProps) {
   const displayAsFree = asset.isFree || hasActiveSubscription;
   const displayPrice = hasActiveSubscription ? 0 : asset.price;
 
@@ -838,31 +878,19 @@ function AssetDetailModal({ asset, isInCart, isPurchased, hasActiveSubscription,
     .slice(0, 3);
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
-        onClick={onClose}
-      />
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <SheetHeader className="border-b border-border p-6">
+        <SheetTitle className="text-2xl font-bold text-foreground">
+          {asset.title}
+        </SheetTitle>
+        <SheetDescription className="text-muted-foreground">
+          by {asset.author}
+        </SheetDescription>
+      </SheetHeader>
 
-      {/* Modal */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] bg-background border border-border rounded-2xl z-50 overflow-y-auto shadow-[0_0_50px_rgba(0,217,255,0.2)]">
-        {/* Header */}
-        <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b border-border p-6 flex items-center justify-between z-10">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-1">{asset.title}</h2>
-            <p className="text-muted-foreground">by {asset.author}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Preview Image */}
           <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
             <ImageWithFallback
@@ -902,7 +930,7 @@ function AssetDetailModal({ asset, isInCart, isPurchased, hasActiveSubscription,
             <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
               <div className="mb-2">
                 <span className="text-2xl font-bold text-primary font-mono">
-                  {displayAsFree ? "Free" : `${displayPrice.toLocaleString('vi-VN')}đ`}
+                  {displayAsFree ? "Miễn phí" : `${displayPrice.toLocaleString('vi-VN')} xu`}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">Price</p>
@@ -977,7 +1005,7 @@ function AssetDetailModal({ asset, isInCart, isPurchased, hasActiveSubscription,
                         <span className="text-xs text-foreground">{related.rating}</span>
                       </div>
                       <span className="text-xs font-bold text-primary font-mono">
-                        {related.isFree ? 'Free' : `${related.price.toLocaleString('vi-VN')}đ`}
+                        {related.isFree ? 'Miễn phí' : `${related.price.toLocaleString('vi-VN')} xu`}
                       </span>
                     </div>
                   </div>
@@ -987,38 +1015,37 @@ function AssetDetailModal({ asset, isInCart, isPurchased, hasActiveSubscription,
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t border-border p-6">
-          <div className="flex items-center gap-4">
-            {isPurchased ? (
-              <div className="flex-1 bg-primary/10 border border-primary/30 text-primary px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
-                <CheckCircle className="w-5 h-5" />
-                Bạn đã sở hữu asset này
-              </div>
-            ) : (
-              <>
-                {!isInCart && (
-                  <button
-                    onClick={onAddToCart}
-                    className="flex-1 bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-                  >
-                    <ShoppingCart className="w-5 h-5" />
-                    Thêm vào giỏ
-                  </button>
-                )}
+      {/* Footer Actions */}
+      <div className="border-t border-border p-6">
+        <div className="flex items-center gap-4">
+          {isPurchased ? (
+            <div className="flex-1 bg-primary/10 border border-primary/30 text-primary px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              Bạn đã sở hữu asset này
+            </div>
+          ) : (
+            <>
+              {!isInCart && (
                 <button
-                  onClick={onBuyNow}
-                  className={`${isInCart ? 'flex-1' : 'flex-1'} bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] flex items-center justify-center gap-2`}
+                  onClick={onAddToCart}
+                  className="flex-1 bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
                 >
-                  <ShoppingBag className="w-5 h-5" />
-                  {displayAsFree ? 'Tải về miễn phí' : 'Mua ngay'}
+                  <ShoppingCart className="w-5 h-5" />
+                  Thêm vào giỏ
                 </button>
-              </>
-            )}
-          </div>
+              )}
+              <button
+                onClick={onBuyNow}
+                className={`${isInCart ? 'flex-1' : 'flex-1'} bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] flex items-center justify-center gap-2`}
+              >
+                <ShoppingBag className="w-5 h-5" />
+                {displayAsFree ? 'Tải về miễn phí' : 'Mua ngay'}
+              </button>
+            </>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1117,13 +1144,13 @@ function AssetCard({ asset, isInCart, isPurchased, hasActiveSubscription, isHigh
               <p className="text-xl font-bold text-success mb-1">Miễn phí</p>
               {hasActiveSubscription && !asset.isFree && (
                 <p className="text-xs text-muted-foreground line-through font-mono">
-                  Giá gốc: {asset.price.toLocaleString("vi-VN")}đ
+                  Giá gốc: {asset.price.toLocaleString("vi-VN")} xu
                 </p>
               )}
             </div>
           ) : (
             <p className="text-xl font-bold text-foreground mb-3 font-mono">
-              {displayPrice.toLocaleString("vi-VN")}đ
+              {displayPrice.toLocaleString("vi-VN")} xu
             </p>
           )}
 

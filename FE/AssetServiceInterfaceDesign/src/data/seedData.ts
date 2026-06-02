@@ -99,7 +99,7 @@ export function seedDemoData() {
     },
     {
       role: 'assistant',
-      content: 'Tuyệt vời! Game platformer 2D như Celeste cần các loại assets sau:\n\n**Character & Animation:**\n🎨 Pixel Hero Character Pack - 2D Characters (120,000đ)\n🎨 Platformer Animation Set - Animations (85,000đ)\n\n**Environment:**\n🏞️ Mountain Tileset Collection - 2D Environments (150,000đ)\n🏞️ Platform Elements Pack - 2D Environments (75,000đ)\n\n**Effects:**\n✨ Jump & Dash Particles - Particles (Miễn phí)\n✨ Collectible Sparkles - Particles (45,000đ)\n\n**Audio:**\n🎵 Atmospheric Background Music - Music (95,000đ)\n🔊 Jump & Landing SFX Pack - Sound Effects (Miễn phí)\n\nBạn có thể bắt đầu với các assets miễn phí trước, sau đó nâng cấp dần!',
+      content: 'Tuyệt vời! Game platformer 2D như Celeste cần các loại assets sau:\n\n**Character & Animation:**\n🎨 Pixel Hero Character Pack - 2D Characters (120,000 xu)\n🎨 Platformer Animation Set - Animations (85,000 xu)\n\n**Environment:**\n🏞️ Mountain Tileset Collection - 2D Environments (150,000 xu)\n🏞️ Platform Elements Pack - 2D Environments (75,000 xu)\n\n**Effects:**\n✨ Jump & Dash Particles - Particles (Miễn phí)\n✨ Collectible Sparkles - Particles (45,000 xu)\n\n**Audio:**\n🎵 Atmospheric Background Music - Music (95,000 xu)\n🔊 Jump & Landing SFX Pack - Sound Effects (Miễn phí)\n\nBạn có thể bắt đầu với các assets miễn phí trước, sau đó nâng cấp dần!',
       timestamp: new Date().toISOString(),
       suggestions: [
         'Xem marketplace để chọn assets',
