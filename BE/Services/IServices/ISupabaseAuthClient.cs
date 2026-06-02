@@ -1,6 +1,6 @@
 using Exe.DTOs.Auth;
 
-namespace Exe.Services;
+namespace Exe.Services.IServices;
 
 public interface ISupabaseAuthClient
 {

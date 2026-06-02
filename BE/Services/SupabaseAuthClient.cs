@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Exe.Configuration;
 using Exe.DTOs.Auth;
+using Exe.Services.IServices;
 using Microsoft.Extensions.Options;
 
 namespace Exe.Services;
@@ -19,60 +20,28 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
 
     private readonly SupabaseOptions _options = options.Value;
 
-    public async Task<AuthSessionResponse> RegisterAsync(
-        RegisterRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task<AuthSessionResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default)
     {
         EnsureAnonKeyConfigured();
-
-        var username = string.IsNullOrWhiteSpace(request.Username)
-            ? request.Email.Split('@')[0]
-            : request.Username.Trim();
-
-        var payload = new
-        {
-            email = request.Email.Trim(),
-            password = request.Password,
-            data = new
-            {
-                name = request.Name.Trim(),
-                username
-            }
-        };
-
+        var username = string.IsNullOrWhiteSpace(request.Username) ? request.Email.Split('@')[0] : request.Username.Trim();
+        var payload = new { email = request.Email.Trim(), password = request.Password, data = new { name = request.Name.Trim(), username } };
         using var httpRequest = CreateRequest(HttpMethod.Post, "/auth/v1/signup", payload);
-        return await SendAuthRequestAsync(httpRequest, allowEmailConfirmationPending: true, cancellationToken);
+        return await SendAuthRequestAsync(httpRequest, true, cancellationToken);
     }
 
-    public async Task<AuthSessionResponse> LoginAsync(
-        LoginRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task<AuthSessionResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
     {
         EnsureAnonKeyConfigured();
-
-        var payload = new
-        {
-            email = request.Email.Trim(),
-            password = request.Password
-        };
-
-        using var httpRequest = CreateRequest(
-            HttpMethod.Post,
-            "/auth/v1/token?grant_type=password",
-            payload);
-        return await SendAuthRequestAsync(httpRequest, allowEmailConfirmationPending: false, cancellationToken);
+        var payload = new { email = request.Email.Trim(), password = request.Password };
+        using var httpRequest = CreateRequest(HttpMethod.Post, "/auth/v1/token?grant_type=password", payload);
+        return await SendAuthRequestAsync(httpRequest, false, cancellationToken);
     }
 
     private HttpRequestMessage CreateRequest(HttpMethod method, string path, object body)
     {
-        var request = new HttpRequestMessage(method, path)
-        {
-            Content = JsonContent.Create(body, options: JsonOptions)
-        };
-
+        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body, options: JsonOptions) };
         request.Headers.Add("apikey", _options.AnonKey);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.AnonKey);
-
         return request;
     }
 
@@ -95,7 +64,6 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
         }
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
-
         if (!response.IsSuccessStatusCode)
         {
             var message = TryExtractErrorMessage(content) ?? "Authentication request failed.";
@@ -118,19 +86,14 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
                     session.User.EmailConfirmedAt));
         }
 
-        if (allowEmailConfirmationPending
-            && !string.IsNullOrWhiteSpace(session.Id)
-            && !string.IsNullOrWhiteSpace(session.Email))
+        if (allowEmailConfirmationPending && !string.IsNullOrWhiteSpace(session.Id) && !string.IsNullOrWhiteSpace(session.Email))
         {
             return new AuthSessionResponse(
                 null,
                 null,
                 0,
                 "bearer",
-                new AuthUserResponse(
-                    Guid.Parse(session.Id),
-                    session.Email,
-                    session.EmailConfirmedAt),
+                new AuthUserResponse(Guid.Parse(session.Id), session.Email, session.EmailConfirmedAt),
                 RequiresEmailConfirmation: true);
         }
 
@@ -151,7 +114,6 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
         }
         catch (JsonException)
         {
-            // Ignore malformed error payloads.
         }
 
         return null;
@@ -159,11 +121,10 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
 
     private void EnsureAnonKeyConfigured()
     {
-        if (string.IsNullOrWhiteSpace(_options.AnonKey)
-            || _options.AnonKey.StartsWith("YOUR_", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(_options.AnonKey) || _options.AnonKey.StartsWith("YOUR_", StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                "Supabase:AnonKey is required for register/login endpoints. Copy anon key from Supabase Dashboard → Project Settings → API.");
+                "Supabase:AnonKey is required for register/login endpoints. Copy anon key from Supabase Dashboard -> Project Settings -> API.");
         }
     }
 
@@ -171,23 +132,16 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
     {
         [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
-
         [JsonPropertyName("refresh_token")]
         public string? RefreshToken { get; set; }
-
         [JsonPropertyName("expires_in")]
         public int? ExpiresIn { get; set; }
-
         [JsonPropertyName("token_type")]
         public string? TokenType { get; set; }
-
-        /// <summary>Signup response — user fields at root when email confirmation pending.</summary>
         public string? Id { get; set; }
         public string? Email { get; set; }
-
         [JsonPropertyName("email_confirmed_at")]
         public DateTime? EmailConfirmedAt { get; set; }
-
         public SupabaseUserPayload? User { get; set; }
     }
 
@@ -195,7 +149,6 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
     {
         public string? Id { get; set; }
         public string? Email { get; set; }
-
         [JsonPropertyName("email_confirmed_at")]
         public DateTime? EmailConfirmedAt { get; set; }
     }

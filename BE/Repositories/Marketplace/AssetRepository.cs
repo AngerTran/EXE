@@ -1,0 +1,173 @@
+using Exe.Data;
+using Exe.DTOs.Marketplace;
+using Exe.Models;
+using Exe.Models.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace Exe.Repositories.Marketplace;
+
+public class AssetRepository(AppDbContext db) : IAssetRepository
+{
+    private IQueryable<Asset> ApprovedAssetsQuery =>
+        db.Assets
+            .AsNoTracking()
+            .Where(a => a.Status == AssetStatus.Approved && a.DeletedAt == null);
+
+    public async Task<(IReadOnlyList<Asset> Items, int Total)> ListApprovedAsync(
+        AssetQueryParams query,
+        CancellationToken cancellationToken = default)
+    {
+        var q = ApprovedAssetsQuery
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim().ToLower();
+            q = q.Where(a =>
+                a.Title.ToLower().Contains(term)
+                || (a.ShortDescription != null && a.ShortDescription.ToLower().Contains(term))
+                || a.AssetTags.Any(at => at.Tag.Name.ToLower().Contains(term)));
+        }
+
+        if (query.CategoryId.HasValue)
+            q = q.Where(a => a.CategoryId == query.CategoryId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.PriceType))
+        {
+            if (Enum.TryParse<PriceType>(query.PriceType, ignoreCase: true, out var priceType))
+                q = q.Where(a => a.PriceType == priceType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Tag))
+        {
+            var tagSlug = query.Tag.Trim().ToLower();
+            q = q.Where(a => a.AssetTags.Any(at => at.Tag.Slug == tagSlug || at.Tag.Name.ToLower() == tagSlug));
+        }
+
+        q = ApplySort(q, query.Sort, query.Order);
+
+        var total = await q.CountAsync(cancellationToken);
+        var page = query.Page < 1 ? 1 : query.Page;
+        var pageSize = query.PageSize switch
+        {
+            < 1 => 20,
+            > 100 => 100,
+            _ => query.PageSize
+        };
+
+        var items = await q
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, total);
+    }
+
+    public Task<Asset?> GetApprovedByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        ApprovedAssetsQuery
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .Include(a => a.Files)
+            .Include(a => a.Images)
+            .Include(a => a.Reviews).ThenInclude(r => r.User)
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+    public Task<Asset?> GetApprovedBySlugAsync(string slug, CancellationToken cancellationToken = default) =>
+        ApprovedAssetsQuery
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .Include(a => a.Files)
+            .Include(a => a.Images)
+            .Include(a => a.Reviews).ThenInclude(r => r.User)
+            .FirstOrDefaultAsync(a => a.Slug == slug, cancellationToken);
+
+    public Task<Asset?> GetByIdForOwnerOrAdminAsync(
+        Guid id,
+        Guid? ownerId,
+        bool includeNonApproved,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets
+            .Where(a => a.DeletedAt == null && a.Id == id);
+
+        if (!includeNonApproved)
+            q = q.Where(a => a.Status == AssetStatus.Approved);
+
+        if (ownerId.HasValue)
+            q = q.Where(a => a.UploaderId == ownerId.Value);
+
+        return q
+            .Include(a => a.Category)
+            .Include(a => a.AssetTags)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Asset?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.Assets
+            .Include(a => a.AssetTags)
+            .FirstOrDefaultAsync(a => a.Id == id && a.DeletedAt == null, cancellationToken);
+
+    public Task<Asset?> GetWithDetailsByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.Assets
+            .AsNoTracking()
+            .Where(a => a.DeletedAt == null && a.Id == id)
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .Include(a => a.Files)
+            .Include(a => a.Images)
+            .Include(a => a.Reviews).ThenInclude(r => r.User)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<bool> SlugExistsAsync(
+        string slug,
+        Guid? excludeAssetId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets.Where(a => a.Slug == slug && a.DeletedAt == null);
+        if (excludeAssetId.HasValue)
+            q = q.Where(a => a.Id != excludeAssetId.Value);
+        return q.AnyAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<Asset> Items, int Total)> ListPendingReviewAsync(
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets
+            .AsNoTracking()
+            .Where(a => a.Status == AssetStatus.PendingReview && a.DeletedAt == null)
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .OrderByDescending(a => a.SubmittedAt);
+
+        var total = await q.CountAsync(cancellationToken);
+        var items = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return (items, total);
+    }
+
+    public void Add(Asset asset) => db.Assets.Add(asset);
+
+    public void RemoveAssetTags(Asset asset) => db.AssetTags.RemoveRange(asset.AssetTags);
+
+    public void AddAssetTags(IEnumerable<AssetTag> assetTags) => db.AssetTags.AddRange(assetTags);
+
+    private static IQueryable<Asset> ApplySort(IQueryable<Asset> q, string sort, string order)
+    {
+        var desc = string.Equals(order, "desc", StringComparison.OrdinalIgnoreCase);
+        return sort.ToLowerInvariant() switch
+        {
+            "downloadcount" => desc ? q.OrderByDescending(a => a.DownloadCount) : q.OrderBy(a => a.DownloadCount),
+            "ratingavg" => desc ? q.OrderByDescending(a => a.RatingAvg) : q.OrderBy(a => a.RatingAvg),
+            "pricevnd" => desc ? q.OrderByDescending(a => a.PriceVnd) : q.OrderBy(a => a.PriceVnd),
+            "title" => desc ? q.OrderByDescending(a => a.Title) : q.OrderBy(a => a.Title),
+            _ => desc ? q.OrderByDescending(a => a.CreatedAt) : q.OrderBy(a => a.CreatedAt)
+        };
+    }
+}

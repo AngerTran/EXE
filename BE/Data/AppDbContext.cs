@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Exe.Models.Entities;
 
@@ -125,7 +126,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<AuditLog>(e =>
         {
             e.ToTable("audit_logs");
-            e.Property(a => a.IpAddress).HasColumnType("inet");
+            e.Property(a => a.IpAddress)
+                .HasConversion(
+                    v => string.IsNullOrWhiteSpace(v) ? null : IPAddress.Parse(v),
+                    v => v == null ? null : v.ToString());
         });
     }
 }

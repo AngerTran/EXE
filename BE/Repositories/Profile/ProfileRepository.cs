@@ -34,4 +34,11 @@ public class ProfileRepository(AppDbContext db) : IProfileRepository
             .Include(p => p.Subscriptions.Where(s => s.Status == SubscriptionStatus.Active))
                 .ThenInclude(s => s.Plan)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+    public Task<UserRole?> GetRoleAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.Profiles
+            .AsNoTracking()
+            .Where(p => p.Id == id && p.DeletedAt == null)
+            .Select(p => (UserRole?)p.Role)
+            .FirstOrDefaultAsync(cancellationToken);
 }

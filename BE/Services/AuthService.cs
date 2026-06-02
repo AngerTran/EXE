@@ -2,6 +2,7 @@ using Exe.DTOs.Auth;
 using Exe.Models;
 using Exe.Repositories;
 using Exe.Repositories.Profile;
+using Exe.Services.IServices;
 
 namespace Exe.Services;
 
@@ -10,29 +11,19 @@ public class AuthService(
     IUnitOfWork unitOfWork,
     ISupabaseAuthClient supabaseAuthClient) : IAuthService
 {
-    public Task<AuthSessionResponse> RegisterAsync(
-        RegisterRequest request,
-        CancellationToken cancellationToken = default) =>
+    public Task<AuthSessionResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default) =>
         supabaseAuthClient.RegisterAsync(request, cancellationToken);
 
-    public Task<AuthSessionResponse> LoginAsync(
-        LoginRequest request,
-        CancellationToken cancellationToken = default) =>
+    public Task<AuthSessionResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
         supabaseAuthClient.LoginAsync(request, cancellationToken);
 
     public async Task<MeResponse?> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var profile = await profileRepository.GetActiveByIdWithDetailsAsync(
-            userId,
-            asNoTracking: true,
-            cancellationToken);
-
+        var profile = await profileRepository.GetActiveByIdWithDetailsAsync(userId, asNoTracking: true, cancellationToken);
         if (profile is null)
             return null;
-
         if (profile.Status == UserStatus.Banned)
             throw new AccountBannedException();
-
         return MapToMeResponse(profile);
     }
 
@@ -42,34 +33,27 @@ public class AuthService(
         CancellationToken cancellationToken = default)
     {
         var profile = await profileRepository.GetActiveByIdForUpdateAsync(userId, cancellationToken);
-
         if (profile is null)
             return null;
-
         if (profile.Status == UserStatus.Banned)
             throw new AccountBannedException();
 
-        var hasChanges = false;
-
+        var changed = false;
         if (request.Name is not null)
         {
             var name = request.Name.Trim();
-            if (string.IsNullOrEmpty(name))
+            if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Name cannot be empty.");
-
             profile.Name = name;
-            hasChanges = true;
+            changed = true;
         }
-
         if (request.AvatarUrl is not null)
         {
-            profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl)
-                ? null
-                : request.AvatarUrl.Trim();
-            hasChanges = true;
+            profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+            changed = true;
         }
 
-        if (hasChanges)
+        if (changed)
         {
             profile.UpdatedAt = DateTime.UtcNow;
             await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -84,10 +68,8 @@ public class AuthService(
             .Where(s => s.Status == SubscriptionStatus.Active)
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefault();
-
         var planTier = activeSubscription?.Plan.Slug ?? SubscriptionTier.Free;
         var isUnlimited = activeSubscription?.Plan.IsUnlimited ?? false;
-
         return new MeResponse(
             profile.Id,
             profile.Email,

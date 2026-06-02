@@ -3,11 +3,16 @@ using Exe.Data;
 using Exe.Extensions;
 using Exe.Repositories;
 using Exe.Services;
+using Exe.Services.IServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<SupabaseOptions>(
     builder.Configuration.GetSection(SupabaseOptions.SectionName));
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection(StorageOptions.SectionName));
+builder.Services.Configure<PaymentOptions>(
+    builder.Configuration.GetSection(PaymentOptions.SectionName));
 
 var supabase = builder.Configuration
     .GetSection(SupabaseOptions.SectionName)
@@ -21,6 +26,22 @@ builder.Services.AddRepositories();
 builder.Services.AddSupabaseAuthentication(supabase);
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<ILookupService, LookupService>();
+builder.Services.AddScoped<IAssetService, AssetService>();
+builder.Services.AddScoped<IAssetStorageService, AssetStorageService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<OrderFulfillmentService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IUserAssetService, UserAssetService>();
+builder.Services.AddScoped<IBookmarkService, BookmarkService>();
+builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IAiAdvisorService, AiAdvisorService>();
+builder.Services.AddScoped<ISubscriptionUserService, SubscriptionUserService>();
+builder.Services.AddScoped<IAdminService, AdminService>();
+builder.Services.AddHttpClient<IStorageService, SupabaseStorageService>();
 builder.Services.AddHttpClient<ISupabaseAuthClient, SupabaseAuthClient>(client =>
 {
     client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");
