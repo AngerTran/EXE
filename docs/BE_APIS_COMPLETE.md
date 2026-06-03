@@ -1,108 +1,129 @@
-# BE APIs — Bản đồ đầy đủ (map FE)
+# BE APIs — Bản đồ đầy đủ (cập nhật sau backlog)
 
 Base: `/api/v1` · Auth: `Authorization: Bearer <jwt>`
 
-## Đã có từ trước (§4.1–4.6)
+## §4.1 Auth & Profile
 
-| Module | Endpoints | Map FE |
-|--------|-----------|--------|
-| Auth | register, login, me, logout | Auth.tsx, AuthContext |
-| Plans | GET subscription-plans | Pricing, Checkout |
-| Wallet | me, transactions, admin patch | Navbar, Admin users |
-| Lookup | categories, tags, tag-groups | Marketplace, AddAsset |
-| Assets | CRUD, approve, pending | Marketplace, AddAsset, Admin |
-| Storage | upload-url, files, images, download | AddAsset, MyAssets |
+| Method | Path | Auth | Mô tả |
+|--------|------|------|--------|
+| POST | `/auth/register` | Public | Đăng ký Supabase |
+| POST | `/auth/login` | Public | Đăng nhập |
+| POST | `/auth/logout` | Bearer | Đăng xuất |
+| GET | `/auth/me` | Bearer | Profile + wallet + subscription |
+| PATCH | `/auth/me` | Bearer | `name`, `avatarUrl` |
+| POST | `/auth/forgot-password` | Public | Gửi email reset (Supabase recover) |
+| POST | `/auth/me/avatar/upload-url` | Bearer | Signed URL upload avatar |
+| POST | `/auth/me/avatar` | Bearer | Xác nhận path → cập nhật avatar |
 
-## Mới (§4.7–4.14)
+## §4.2 Subscription Plans (public)
 
-### 4.7 Cart — `AssetsMarketplace` giỏ hàng
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/subscription-plans` | Public |
+| GET | `/subscription-plans/slug/{slug}` | Public |
+| GET | `/subscription-plans/{id}` | Public |
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/cart` | Giỏ + preview asset |
-| POST | `/cart/items` | `{ assetId, quantity }` |
-| PATCH | `/cart/items/{id}` | Đổi số lượng |
-| DELETE | `/cart/items/{id}` | Xóa 1 dòng |
-| DELETE | `/cart` | Xóa hết (sau checkout) |
+## §4.3 Wallet
 
-### 4.8 Orders — `Checkout`, `AssetsCheckout`, Admin orders
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/wallets/me` | Bearer |
+| GET | `/wallets/me/transactions` | Bearer |
+| PATCH | `/wallets/{userId}` | Admin |
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/orders` | Đơn của user (`?status=`) |
-| GET | `/orders?all=true` | **Admin** tất cả đơn (`?userId=`) |
-| GET | `/orders/{id}` | Chi tiết đơn |
-| POST | `/orders/subscription` | Mua gói `{ planId, paymentMethod }` |
-| POST | `/orders/assets` | Checkout giỏ `{ paymentMethod, useSubscriptionFreeAssets }` |
-| PATCH | `/orders/{id}/status` | **Admin** đổi trạng thái |
+## §4.4 Lookup
 
-**MVP payment:** `Payment:AutoCompleteOnCreate=true` → thanh toán mock hoàn tất ngay (giống FE `setTimeout`).
+| GET | `/categories`, `/tags`, `/tag-groups` | Public |
 
-### 4.9 Payments
+## §4.5 Assets
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/payments` | Lịch sử user |
-| GET | `/payments/{id}` | Chi tiết |
-| POST | `/payments/webhook/momo` | Webhook (body: `transactionId` = payment UUID) |
-| POST | `/payments/webhook/vnpay` | Webhook VNPay |
+| Method | Path | Auth | Ghi chú |
+|--------|------|------|---------|
+| GET | `/assets` | Public | `?featured=true&limit=6` — home nổi bật |
+| GET | `/assets/me` | Bearer | Asset user đã upload (mọi status) |
+| GET | `/assets/pending` | Admin | Chờ duyệt |
+| GET | `/assets/{id}`, `/assets/slug/{slug}` | Public | Chi tiết |
+| POST/PATCH/DELETE | `/assets`, `/assets/{id}` | Bearer | Owner |
+| PATCH | `/assets/{id}/approve`, `/reject` | Admin | |
 
-### 4.10 User Assets — `MyAssets.tsx`
+**List item** có `priceXu` và `displayPrice` (cùng giá trị xu cho FE).
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/user-assets` | Thư viện đã mua/tải free |
-| GET | `/user-assets/{assetId}` | Chi tiết + download URL |
-| POST | `/user-assets/{assetId}/download` | Tải + tăng download_count |
+## §4.6 Storage
 
-### 4.11 Bookmarks & Reviews
+| POST | `/assets/{assetId}/upload-url` | Bearer (owner) |
+| POST | `/assets/{assetId}/files`, `/images` | Bearer |
+| GET | `/assets/{assetId}/download` | Bearer |
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET/POST/DELETE | `/bookmarks` | Yêu thích asset |
-| GET/POST | `/assets/{id}/reviews` | Xem / tạo review |
-| PATCH/DELETE | `/reviews/{id}` | Sửa/xóa review của mình |
+Bucket `avatars` cho profile avatar.
 
-### 4.12 AI Advisor — `Dashboard.tsx`
+## §4.7 Cart
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET/POST | `/ai/sessions` | Danh sách / tạo phiên |
-| GET/PATCH/DELETE | `/ai/sessions/{id}` | Chi tiết / đổi tên / archive / xóa |
-| POST | `/ai/sessions/{id}/messages` | Gửi prompt → trừ 1 xu (trừ unlimited) + gợi ý asset |
-| GET | `/ai/sessions/{id}/export` | Export markdown |
+`GET/POST/PATCH/DELETE` `/cart`, `/cart/items`, `/cart/items/{id}`
 
-### 4.13 Admin — `AdminDashboard.tsx`
+## §4.8 Orders
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/admin/overview` | Stats tổng quan |
-| GET | `/admin/users` | Danh sách user (`?search`, `?role`) |
-| PATCH | `/admin/users/{id}` | Ban, role, wallet balance |
+| Method | Path |
+|--------|------|
+| GET | `/orders`, `/orders/{id}` |
+| GET | `/orders/me/summary` |
+| GET | `/orders?all=true` | Admin |
+| POST | `/orders/subscription`, `/orders/assets` |
+| PATCH | `/orders/{id}/status` | Admin |
 
-### 4.14 Subscriptions (user)
+**Checkout response** thêm `paymentId`, `paymentRedirectUrl` khi `Payment:AutoCompleteOnCreate=false`.
 
-| Method | Path | Chức năng |
-|--------|------|-----------|
-| GET | `/subscriptions/me` | Gói đang active |
-| GET | `/subscriptions/me/history` | Lịch sử gói |
-| POST | `/subscriptions/cancel` | Hủy gói |
+`paymentMethod`: `momo`, `vnpay`, `bank`, `card`, `mock`.
 
-## Luồng FE → API (thay localStorage)
+`useSubscriptionFreeAssets`: gói active (student/indie/pro/unlimited) → giảm total asset order.
 
-```text
-cart_{userId}           → GET/POST /cart
-purchased_assets_*      → GET /user-assets + POST checkout
-checkout package        → POST /orders/subscription
-checkout-assets         → POST /orders/assets
-chat_history_*          → /ai/sessions + messages
-admin_orders            → GET /orders?all=true
-admin users             → GET /admin/users
+## §4.9 Payments
+
+| Method | Path |
+|--------|------|
+| GET | `/payments`, `/payments/{id}` |
+| POST | `/payments` | `{ orderId, paymentMethod }` |
+| GET | `/payments/by-order/{orderId}` |
+| POST | `/payments/{id}/cancel` |
+| POST | `/payments/webhook/momo`, `/vnpay` | Header `X-Webhook-Secret` nếu cấu hình |
+
+## §4.10–4.14
+
+Giữ nguyên: user-assets, bookmarks, reviews, ai/sessions, subscriptions/me.
+
+## §4.15 Admin (mở rộng)
+
+| Method | Path |
+|--------|------|
+| GET | `/admin/overview` |
+| GET/PATCH/DELETE | `/admin/users`, `/admin/users/{id}` |
+| GET/PATCH | `/admin/contact-inquiries` |
+| GET | `/admin/audit-logs` |
+| GET | `/admin/analytics/revenue`, `/users`, `/assets`, `/orders` |
+| GET/POST/PATCH/DELETE | `/admin/subscription-plans` |
+| GET/PATCH/DELETE | `/admin/assets` |
+
+## §4.16 Contact
+
+| POST | `/contact` | Public — form liên hệ |
+
+## Cấu hình (`appsettings`)
+
+```json
+{
+  "Cors": { "AllowedOrigins": ["http://localhost:5173", "..."] },
+  "Payment": {
+    "AutoCompleteOnCreate": true,
+    "WebhookSecret": "",
+    "PaymentRedirectUrlTemplate": "/checkout?paymentId={0}"
+  },
+  "Storage": { "AvatarsBucket": "avatars", "ServiceRoleKey": "..." }
+}
 ```
 
-## Chưa làm (ngoài scope plan chính)
+## DB migration
 
-- Contact form API
-- Admin analytics chi tiết (`/admin/analytics/*`)
-- Audit logs list
-- Tích hợp MoMo/VNPay thật (hiện webhook + auto-complete)
+Chạy `docs/sql/contact_inquiries.sql` trên Supabase trước khi dùng Contact API.
+
+## Map FE
+
+Xem `docs/FE_BE_API_BACKLOG.md` — Phần E.

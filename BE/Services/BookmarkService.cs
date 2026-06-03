@@ -28,6 +28,7 @@ public class BookmarkService(
                 a.PriceType.ToString().ToLowerInvariant(),
                 a.PriceVnd,
                 a.PriceXu,
+                a.PriceXu,
                 a.RatingAvg,
                 a.RatingCount,
                 a.DownloadCount,

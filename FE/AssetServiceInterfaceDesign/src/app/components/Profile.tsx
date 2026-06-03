@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Coins, Save, Shield, ShoppingCart, Upload, User } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router";
+import { ApiError } from "../../api/client";
+import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 
 function formatSubscription(sub: string | null | undefined) {
   if (!sub || sub === "free") return "FREE";
@@ -13,6 +14,7 @@ export default function Profile() {
   const { user, updateProfile, refreshUserData } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -24,13 +26,15 @@ export default function Profile() {
     [user?.subscription]
   );
 
+  const avatarSrc = getUserAvatarSrc(user);
+
   if (!user) return null;
 
   const handlePickAvatar = () => {
     fileInputRef.current?.click();
   };
 
-  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -42,27 +46,36 @@ export default function Profile() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        toast.error("Không đọc được ảnh");
-        return;
-      }
-      updateProfile({ avatarDataUrl: result });
-      refreshUserData();
+    setUploadingAvatar(true);
+    try {
+      await updateProfile({ avatarFile: file });
+      await refreshUserData();
       toast.success("Đã cập nhật avatar");
-    };
-    reader.readAsDataURL(file);
-
-    // allow re-pick same file
-    e.target.value = "";
+    } catch (error) {
+      const msg =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Không upload được avatar";
+      toast.error(msg);
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
   };
 
-  const handleRemoveAvatar = () => {
-    updateProfile({ avatarDataUrl: null });
-    refreshUserData();
-    toast.message("Đã xoá avatar");
+  const handleRemoveAvatar = async () => {
+    setUploadingAvatar(true);
+    try {
+      await updateProfile({ avatarUrl: "" });
+      await refreshUserData();
+      toast.message("Đã xoá avatar");
+    } catch {
+      toast.error("Không xoá được avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSave = async () => {
@@ -78,9 +91,11 @@ export default function Profile() {
 
     setSaving(true);
     try {
-      updateProfile({ name: trimmed });
-      refreshUserData();
+      await updateProfile({ name: trimmed });
+      await refreshUserData();
       toast.success("Đã cập nhật hồ sơ");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Lưu thất bại");
     } finally {
       setSaving(false);
     }
@@ -97,7 +112,7 @@ export default function Profile() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold text-foreground">Hồ sơ người dùng</h1>
               <p className="text-muted-foreground text-sm truncate">
-                Quản lý thông tin tài khoản của bạn
+                Đồng bộ với BE — PATCH /auth/me · upload avatar
               </p>
             </div>
           </div>
@@ -114,12 +129,8 @@ export default function Profile() {
                 </label>
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-card flex items-center justify-center">
-                    {user.avatarDataUrl ? (
-                      <img
-                        src={user.avatarDataUrl}
-                        alt={user.name}
-                        className="w-full h-full object-cover"
-                      />
+                    {avatarSrc ? (
+                      <img src={avatarSrc} alt={user.name} className="w-full h-full object-cover" />
                     ) : (
                       <User className="w-7 h-7 text-muted-foreground" />
                     )}
@@ -135,15 +146,16 @@ export default function Profile() {
                     <button
                       type="button"
                       onClick={handlePickAvatar}
-                      className="bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2"
+                      disabled={uploadingAvatar}
+                      className="bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50"
                     >
                       <Upload className="w-4 h-4" />
-                      Tải ảnh lên
+                      {uploadingAvatar ? "Đang tải..." : "Tải ảnh lên"}
                     </button>
                     <button
                       type="button"
                       onClick={handleRemoveAvatar}
-                      disabled={!user.avatarDataUrl}
+                      disabled={!avatarSrc || uploadingAvatar}
                       className="bg-card hover:bg-card/80 border border-border text-muted-foreground px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Xoá
@@ -203,7 +215,7 @@ export default function Profile() {
             </div>
 
             <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-sm text-muted-foreground mb-1">Credits</p>
+              <p className="text-sm text-muted-foreground mb-1">Credits (xu)</p>
               <div className="flex items-center gap-2">
                 <Coins className="w-5 h-5 text-warning" />
                 <p className="text-2xl font-bold text-foreground font-mono">
@@ -239,4 +251,3 @@ export default function Profile() {
     </div>
   );
 }
-

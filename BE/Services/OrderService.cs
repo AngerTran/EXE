@@ -18,6 +18,7 @@ public class OrderService(
     IAssetRepository assetRepository,
     ICartRepository cartRepository,
     ISubscriptionPlanRepository subscriptionPlanRepository,
+    ISubscriptionRepository subscriptionRepository,
     IUserAssetRepository userAssetRepository,
     IPaymentRepository paymentRepository,
     IProfileRepository profileRepository,
@@ -41,7 +42,7 @@ public class OrderService(
             cancellationToken);
 
         return new PagedResponse<OrderResponse>(
-            items.Select(MapOrder).ToList(),
+            items.Select(o => MapOrder(o)).ToList(),
             query.NormalizedPage,
             query.NormalizedPageSize,
             total);
@@ -65,7 +66,7 @@ public class OrderService(
             cancellationToken);
 
         return new PagedResponse<OrderResponse>(
-            items.Select(MapOrder).ToList(),
+            items.Select(o => MapOrder(o)).ToList(),
             query.NormalizedPage,
             query.NormalizedPageSize,
             total);
@@ -75,6 +76,14 @@ public class OrderService(
     {
         var order = await orderRepository.GetByIdForUserAsync(orderId, userId, cancellationToken);
         return order is null ? null : MapOrder(order);
+    }
+
+    public async Task<OrdersSummaryResponse> GetMyOrdersSummaryAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var (total, spent, completed, pending) = await orderRepository.GetSummaryForUserAsync(userId, cancellationToken);
+        return new OrdersSummaryResponse(total, spent, completed, pending);
     }
 
     public async Task<OrderResponse> CreateSubscriptionOrderAsync(
@@ -118,17 +127,7 @@ public class OrderService(
         orderRepository.AddItems(order.Items);
 
         var method = PaymentMethodParser.Parse(request.PaymentMethod);
-        var payment = new Payment
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            OrderId = order.Id,
-            AmountVnd = order.TotalVnd,
-            Method = method,
-            Status = PaymentStatus.Pending,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+        var payment = CreatePendingPayment(userId, order, method, now);
         paymentRepository.Add(payment);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -142,7 +141,7 @@ public class OrderService(
         }
 
         var saved = await orderRepository.GetByIdForUserAsync(order.Id, userId, cancellationToken) ?? order;
-        return MapOrder(saved);
+        return MapOrder(saved, payment, !_paymentOptions.AutoCompleteOnCreate);
     }
 
     public async Task<OrderResponse> CreateAssetOrderAsync(
@@ -189,8 +188,20 @@ public class OrderService(
         if (assets.Count == 0)
             throw new ArgumentException("All selected assets are already owned.");
 
+        var subscriptionFree = false;
+        if (request.UseSubscriptionFreeAssets)
+        {
+            var sub = await subscriptionRepository.GetActiveWithPlanAsync(userId, cancellationToken);
+            if (sub?.Plan is not null)
+            {
+                var slug = sub.Plan.Slug;
+                subscriptionFree = sub.Plan.IsUnlimited
+                    || slug is SubscriptionTier.Student or SubscriptionTier.Indie or SubscriptionTier.Pro;
+            }
+        }
+
         var now = DateTime.UtcNow;
-        var subtotal = assets.Sum(a => a.PriceVnd);
+        var subtotal = subscriptionFree ? 0 : assets.Sum(a => a.PriceVnd);
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -212,9 +223,9 @@ public class OrderService(
             OrderId = order.Id,
             AssetId = a.Id,
             ItemName = a.Title,
-            UnitPrice = a.PriceVnd,
+            UnitPrice = subscriptionFree ? 0 : a.PriceVnd,
             Quantity = 1,
-            LineTotal = a.PriceVnd,
+            LineTotal = subscriptionFree ? 0 : a.PriceVnd,
             CreatedAt = now,
             Asset = a
         }).ToList();
@@ -224,17 +235,7 @@ public class OrderService(
         orderRepository.AddItems(items);
 
         var method = PaymentMethodParser.Parse(request.PaymentMethod);
-        var payment = new Payment
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            OrderId = order.Id,
-            AmountVnd = order.TotalVnd,
-            Method = method,
-            Status = PaymentStatus.Pending,
-            CreatedAt = now,
-            UpdatedAt = now
-        };
+        var payment = CreatePendingPayment(userId, order, method, now);
         paymentRepository.Add(payment);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -259,7 +260,7 @@ public class OrderService(
         }
 
         var saved = await orderRepository.GetByIdForUserAsync(order.Id, userId, cancellationToken) ?? order;
-        return MapOrder(saved);
+        return MapOrder(saved, payment, !_paymentOptions.AutoCompleteOnCreate);
     }
 
     public async Task<OrderResponse?> AdminUpdateStatusAsync(
@@ -283,7 +284,20 @@ public class OrderService(
         return MapOrder(order);
     }
 
-    private static OrderResponse MapOrder(Order o) =>
+    private static Payment CreatePendingPayment(Guid userId, Order order, PaymentMethod method, DateTime now) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            OrderId = order.Id,
+            AmountVnd = order.TotalVnd,
+            Method = method,
+            Status = PaymentStatus.Pending,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+    private OrderResponse MapOrder(Order o, Payment? payment = null, bool includePaymentRedirect = false) =>
         new(
             o.Id,
             o.OrderCode,
@@ -302,7 +316,11 @@ public class OrderService(
                 i.ItemName,
                 i.UnitPrice,
                 i.Quantity,
-                i.LineTotal)).ToList());
+                i.LineTotal)).ToList(),
+            includePaymentRedirect && payment is not null ? payment.Id : null,
+            includePaymentRedirect && payment is not null
+                ? string.Format(_paymentOptions.PaymentRedirectUrlTemplate, payment.Id)
+                : null);
 
     private static string GenerateOrderCode(string prefix) =>
         $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";

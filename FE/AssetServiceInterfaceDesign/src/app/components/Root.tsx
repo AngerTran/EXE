@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { Toaster } from "./ui/sonner";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -15,9 +15,10 @@ export default function Root() {
   const isAuthPage = location.pathname === "/auth";
 
   const handleLogout = () => {
-    logout();
-    setMobileMenuOpen(false);
+    void logout().finally(() => setMobileMenuOpen(false));
   };
+
+  const avatarSrc = getUserAvatarSrc(user);
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,9 +139,9 @@ export default function Root() {
                       className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full hover:border-primary/50 hover:bg-card/80 transition-all whitespace-nowrap"
                     >
                       <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
-                        {user.avatarDataUrl ? (
+                        {avatarSrc ? (
                           <img
-                            src={user.avatarDataUrl}
+                            src={avatarSrc}
                             alt={user.name}
                             className="w-full h-full object-cover"
                           />
@@ -277,9 +278,9 @@ export default function Root() {
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
-                        {user.avatarDataUrl ? (
+                        {avatarSrc ? (
                           <img
-                            src={user.avatarDataUrl}
+                            src={avatarSrc}
                             alt={user.name}
                             className="w-full h-full object-cover"
                           />

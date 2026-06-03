@@ -47,16 +47,21 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
             q = q.Where(a => a.AssetTags.Any(at => at.Tag.Slug == tagSlug || at.Tag.Name.ToLower() == tagSlug));
         }
 
-        q = ApplySort(q, query.Sort, query.Order);
+        if (query.Featured)
+            q = q.OrderByDescending(a => a.DownloadCount);
+        else
+            q = ApplySort(q, query.Sort, query.Order);
 
         var total = await q.CountAsync(cancellationToken);
-        var page = query.Page < 1 ? 1 : query.Page;
+        var page = query.Featured ? 1 : query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize switch
         {
             < 1 => 20,
             > 100 => 100,
             _ => query.PageSize
         };
+        if (query.Featured && query.Limit is > 0)
+            pageSize = Math.Min(pageSize, query.Limit.Value);
 
         var items = await q
             .Skip((page - 1) * pageSize)
@@ -133,6 +138,57 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
         if (excludeAssetId.HasValue)
             q = q.Where(a => a.Id != excludeAssetId.Value);
         return q.AnyAsync(cancellationToken);
+    }
+
+    public async Task<(IReadOnlyList<Asset> Items, int Total)> ListByUploaderAsync(
+        Guid uploaderId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets
+            .AsNoTracking()
+            .Where(a => a.DeletedAt == null && a.UploaderId == uploaderId)
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .OrderByDescending(a => a.CreatedAt);
+
+        var total = await q.CountAsync(cancellationToken);
+        var items = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<Asset> Items, int Total)> ListAdminAsync(
+        string? search,
+        AssetStatus? status,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets
+            .AsNoTracking()
+            .Where(a => a.DeletedAt == null)
+            .Include(a => a.Category)
+            .Include(a => a.Uploader)
+            .Include(a => a.AssetTags).ThenInclude(at => at.Tag)
+            .AsQueryable();
+
+        if (status.HasValue)
+            q = q.Where(a => a.Status == status.Value);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            q = q.Where(a =>
+                a.Title.ToLower().Contains(term)
+                || (a.ShortDescription != null && a.ShortDescription.ToLower().Contains(term)));
+        }
+
+        q = q.OrderByDescending(a => a.CreatedAt);
+        var total = await q.CountAsync(cancellationToken);
+        var items = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        return (items, total);
     }
 
     public async Task<(IReadOnlyList<Asset> Items, int Total)> ListPendingReviewAsync(

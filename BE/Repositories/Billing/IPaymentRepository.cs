@@ -18,5 +18,7 @@ public interface IPaymentRepository
 
     Task<Payment?> GetByOrderIdForUpdateAsync(Guid orderId, CancellationToken cancellationToken = default);
 
+    Task<Payment?> GetByOrderIdForUserAsync(Guid orderId, Guid userId, CancellationToken cancellationToken = default);
+
     void Add(Payment payment);
 }

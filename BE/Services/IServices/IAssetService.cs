@@ -1,5 +1,6 @@
 using Exe.DTOs.Common;
 using Exe.DTOs.Marketplace;
+using Exe.Models;
 
 namespace Exe.Services.IServices;
 
@@ -14,4 +15,13 @@ public interface IAssetService
     Task<AssetDetailResponse?> ApproveAsync(Guid adminUserId, Guid assetId, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> RejectAsync(Guid adminUserId, Guid assetId, RejectAssetRequest request, CancellationToken cancellationToken = default);
     Task<PagedResponse<AssetListItemResponse>> ListPendingReviewAsync(Guid adminUserId, PagedQuery query, CancellationToken cancellationToken = default);
+    Task<PagedResponse<AssetListItemResponse>> ListMyUploadsAsync(Guid userId, PagedQuery query, CancellationToken cancellationToken = default);
+    Task<PagedResponse<AssetListItemResponse>> ListAdminAsync(
+        Guid adminUserId,
+        string? search,
+        AssetStatus? status,
+        PagedQuery query,
+        CancellationToken cancellationToken = default);
+    Task<AssetDetailResponse?> AdminUpdateAsync(Guid adminUserId, Guid assetId, UpdateAssetRequest request, CancellationToken cancellationToken = default);
+    Task<bool> AdminDeleteAsync(Guid adminUserId, Guid assetId, CancellationToken cancellationToken = default);
 }

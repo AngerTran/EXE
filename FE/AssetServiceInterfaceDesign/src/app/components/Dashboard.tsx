@@ -20,15 +20,14 @@ interface AssetSuggestion {
 }
 
 export default function Dashboard() {
-  const { user, updateCredits, refreshUserData } = useAuth();
+  const { user, isLoading: authLoading, updateCredits, refreshUserData } = useAuth();
   const navigate = useNavigate();
   
-  // Redirect to auth if not logged in
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       navigate("/auth");
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Refresh user data when component mounts to get latest subscription info
   useEffect(() => {

@@ -12,7 +12,10 @@ namespace Exe.Controllers.V1;
 [Route("api/v1/auth")]
 [Tags("4.1 Auth & Profile")]
 [Produces("application/json")]
-public class AuthController(IAuthService authService) : ControllerBase
+public class AuthController(
+    IAuthService authService,
+    ISupabaseAuthClient supabaseAuthClient,
+    IProfileAvatarService profileAvatarService) : ControllerBase
 {
     /// <summary>Đăng ký qua Supabase Auth (tuỳ chọn — FE có thể gọi Supabase client trực tiếp).</summary>
     [HttpPost("register")]
@@ -161,6 +164,77 @@ public class AuthController(IAuthService authService) : ControllerBase
         catch (AccountBannedException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(ex.Message, "account_banned"));
+        }
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        try
+        {
+            await supabaseAuthClient.ForgotPasswordAsync(request, cancellationToken);
+            return NoContent();
+        }
+        catch (SupabaseAuthException ex)
+        {
+            return StatusCode(ex.StatusCode, new ErrorResponse(ex.Message, "forgot_password_failed"));
+        }
+    }
+
+    [HttpPost("me/avatar/upload-url")]
+    [Authorize]
+    [ProducesResponseType(typeof(Exe.DTOs.Marketplace.UploadUrlResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateAvatarUploadUrl(
+        [FromBody] AvatarUploadUrlRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var userId = User.GetUserId();
+        if (userId is null)
+            return Unauthorized(new ErrorResponse("Invalid token.", "invalid_token"));
+
+        try
+        {
+            var result = await profileAvatarService.CreateAvatarUploadUrlAsync(userId.Value, request, cancellationToken);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+    }
+
+    [HttpPost("me/avatar")]
+    [Authorize]
+    [ProducesResponseType(typeof(MeResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ConfirmAvatar(
+        [FromBody] ConfirmAvatarRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var userId = User.GetUserId();
+        if (userId is null)
+            return Unauthorized(new ErrorResponse("Invalid token.", "invalid_token"));
+
+        try
+        {
+            var me = await profileAvatarService.ConfirmAvatarAsync(userId.Value, request, cancellationToken);
+            return me is null ? NotFound() : Ok(me);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
         }
     }
 

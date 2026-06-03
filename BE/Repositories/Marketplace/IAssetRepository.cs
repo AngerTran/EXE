@@ -31,6 +31,19 @@ public interface IAssetRepository
         int take,
         CancellationToken cancellationToken = default);
 
+    Task<(IReadOnlyList<Asset> Items, int Total)> ListByUploaderAsync(
+        Guid uploaderId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<Asset> Items, int Total)> ListAdminAsync(
+        string? search,
+        AssetStatus? status,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
     void Add(Asset asset);
 
     void RemoveAssetTags(Asset asset);

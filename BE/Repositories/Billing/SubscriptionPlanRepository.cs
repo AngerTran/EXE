@@ -31,4 +31,9 @@ public class SubscriptionPlanRepository(AppDbContext db) : ISubscriptionPlanRepo
         bool activeOnly = true,
         CancellationToken cancellationToken = default) =>
         PlansQuery(activeOnly).FirstOrDefaultAsync(p => p.Slug == slug, cancellationToken);
+
+    public Task<SubscriptionPlan?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default) =>
+        db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+    public void Add(SubscriptionPlan plan) => db.SubscriptionPlans.Add(plan);
 }

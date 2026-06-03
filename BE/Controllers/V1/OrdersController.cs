@@ -54,6 +54,15 @@ public class OrdersController(IOrderService orderService) : ControllerBase
             cancellationToken));
     }
 
+    [HttpGet("me/summary")]
+    [ProducesResponseType(typeof(OrdersSummaryResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMySummary(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        return Ok(await orderService.GetMyOrdersSummaryAsync(userId.Value, cancellationToken));
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken)
     {

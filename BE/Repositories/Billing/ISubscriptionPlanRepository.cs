@@ -18,4 +18,8 @@ public interface ISubscriptionPlanRepository
         SubscriptionTier slug,
         bool activeOnly = true,
         CancellationToken cancellationToken = default);
+
+    Task<SubscriptionPlan?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    void Add(SubscriptionPlan plan);
 }

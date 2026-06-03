@@ -15,10 +15,10 @@ internal static class PaymentMethodParser
         var normalized = paymentMethod.Trim().ToLowerInvariant().Replace("-", "_");
         return normalized switch
         {
-            "momo" => PaymentMethod.Momo,
+            "momo" or "mock" => PaymentMethod.Momo,
             "vnpay" => PaymentMethod.Vnpay,
-            "bank_transfer" or "banktransfer" => PaymentMethod.BankTransfer,
-            "credit_card" or "creditcard" => PaymentMethod.CreditCard,
+            "bank" or "bank_transfer" or "banktransfer" => PaymentMethod.BankTransfer,
+            "card" or "credit_card" or "creditcard" => PaymentMethod.CreditCard,
             _ => throw new ArgumentException($"Unsupported payment method '{paymentMethod}'.")
         };
     }

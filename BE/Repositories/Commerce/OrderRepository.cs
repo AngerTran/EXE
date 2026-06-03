@@ -55,6 +55,20 @@ public class OrderRepository(AppDbContext db) : IOrderRepository
         return (items, total);
     }
 
+    public async Task<(int TotalOrders, long TotalSpentVnd, int CompletedOrders, int PendingOrders)> GetSummaryForUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var orders = db.Orders.AsNoTracking().Where(o => o.UserId == userId);
+        var total = await orders.CountAsync(cancellationToken);
+        var spent = await orders
+            .Where(o => o.Status == OrderStatus.Completed)
+            .SumAsync(o => o.TotalVnd, cancellationToken);
+        var completed = await orders.CountAsync(o => o.Status == OrderStatus.Completed, cancellationToken);
+        var pending = await orders.CountAsync(o => o.Status == OrderStatus.Pending, cancellationToken);
+        return (total, spent, completed, pending);
+    }
+
     public void Add(Order order) => db.Orders.Add(order);
 
     public void AddItems(IEnumerable<OrderItem> items) => db.OrderItems.AddRange(items);

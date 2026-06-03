@@ -119,6 +119,14 @@ public partial class AssetService(
         if (asset.Status is not (AssetStatus.Draft or AssetStatus.PendingReview))
             throw new InvalidOperationException("Only draft or pending assets can be updated.");
 
+        return await ApplyUpdateAsync(asset, request, cancellationToken);
+    }
+
+    private async Task<AssetDetailResponse?> ApplyUpdateAsync(
+        Asset asset,
+        UpdateAssetRequest request,
+        CancellationToken cancellationToken)
+    {
         if (request.Title is not null)
             asset.Title = request.Title.Trim();
         if (request.ShortDescription is not null)
@@ -182,7 +190,7 @@ public partial class AssetService(
 
         asset.UpdatedAt = DateTime.UtcNow;
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        var reloaded = await assetRepository.GetWithDetailsByIdAsync(assetId, cancellationToken);
+        var reloaded = await assetRepository.GetWithDetailsByIdAsync(asset.Id, cancellationToken);
         return reloaded is null ? null : MapDetail(reloaded);
     }
 
@@ -244,6 +252,77 @@ public partial class AssetService(
         return reloaded is null ? null : MapDetail(reloaded);
     }
 
+    public async Task<PagedResponse<AssetListItemResponse>> ListMyUploadsAsync(
+        Guid userId,
+        PagedQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var (items, total) = await assetRepository.ListByUploaderAsync(
+            userId,
+            query.Skip,
+            query.NormalizedPageSize,
+            cancellationToken);
+        return new PagedResponse<AssetListItemResponse>(
+            items.Select(MapListItem).ToList(),
+            query.NormalizedPage,
+            query.NormalizedPageSize,
+            total);
+    }
+
+    public async Task<PagedResponse<AssetListItemResponse>> ListAdminAsync(
+        Guid adminUserId,
+        string? search,
+        AssetStatus? status,
+        PagedQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        var (items, total) = await assetRepository.ListAdminAsync(
+            search,
+            status,
+            query.Skip,
+            query.NormalizedPageSize,
+            cancellationToken);
+        return new PagedResponse<AssetListItemResponse>(
+            items.Select(MapListItem).ToList(),
+            query.NormalizedPage,
+            query.NormalizedPageSize,
+            total);
+    }
+
+    public async Task<AssetDetailResponse?> AdminUpdateAsync(
+        Guid adminUserId,
+        Guid assetId,
+        UpdateAssetRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        var asset = await assetRepository.GetByIdForUpdateAsync(assetId, cancellationToken);
+        if (asset is null || asset.DeletedAt is not null)
+            return null;
+
+        if (asset.Status != AssetStatus.Approved)
+            throw new InvalidOperationException("Only approved assets can be updated by admin.");
+
+        return await ApplyUpdateAsync(asset, request, cancellationToken);
+    }
+
+    public async Task<bool> AdminDeleteAsync(
+        Guid adminUserId,
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        var asset = await assetRepository.GetByIdForUpdateAsync(assetId, cancellationToken);
+        if (asset is null)
+            return false;
+
+        asset.DeletedAt = DateTime.UtcNow;
+        asset.UpdatedAt = DateTime.UtcNow;
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<PagedResponse<AssetListItemResponse>> ListPendingReviewAsync(
         Guid adminUserId,
         PagedQuery query,
@@ -296,6 +375,7 @@ public partial class AssetService(
             a.Uploader?.Name ?? "",
             a.PriceType.ToString().ToLowerInvariant(),
             a.PriceVnd,
+            a.PriceXu,
             a.PriceXu,
             a.RatingAvg,
             a.RatingCount,

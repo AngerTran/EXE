@@ -26,6 +26,24 @@ public class AssetsController(IAssetService assetService) : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(PagedResponse<AssetListItemResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListMine(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+            return Unauthorized(new ErrorResponse("Invalid token.", "invalid_token"));
+
+        return Ok(await assetService.ListMyUploadsAsync(
+            userId.Value,
+            new PagedQuery(page, pageSize),
+            cancellationToken));
+    }
+
     [HttpGet("pending")]
     [Authorize]
     [ProducesResponseType(typeof(PagedResponse<AssetListItemResponse>), StatusCodes.Status200OK)]

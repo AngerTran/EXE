@@ -1,208 +1,224 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { ApiError, clearAuthTokens, getAccessToken, setAuthTokens } from "../../api/client";
+import {
+  fetchMe,
+  login as apiLogin,
+  logout as apiLogout,
+  mapMeToUser,
+  register as apiRegister,
+  updateProfile as apiUpdateProfile,
+  uploadAvatar,
+  type AppUser,
+} from "../../api/auth";
+import type { SubscriptionPlan } from "../../api/types/auth";
 
-type UserRole = "customer" | "admin";
+export type { AppUser as User };
+export type SubscriptionType = SubscriptionPlan | null;
 
-type SubscriptionType = "free" | "student" | "indie" | "pro" | null;
-
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  credits: number;
-  role: UserRole;
-  subscription: SubscriptionType;
-  subscriptionExpiry?: string; // ISO date string
-  avatarDataUrl?: string; // base64 data URL
-}
+export type AuthResult =
+  | { ok: true; role: AppUser["role"] }
+  | { ok: false; message: string };
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (email: string, password: string, name: string) => Promise<boolean>;
-  logout: () => void;
+  user: AppUser | null;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (email: string, password: string, name: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
   updateCredits: (newCredits: number) => void;
   updateSubscription: (subscription: SubscriptionType, expiry?: string) => void;
-  updateProfile: (data: { name?: string; avatarDataUrl?: string | null }) => void;
-  refreshUserData: () => void;
+  updateProfile: (data: {
+    name?: string;
+    avatarUrl?: string | null;
+    avatarFile?: File;
+  }) => Promise<void>;
+  refreshUserData: () => Promise<void>;
   isAdmin: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function authErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.code === "invalid_credentials") {
+      return "Email hoặc mật khẩu không đúng";
+    }
+    if (error.code === "email_already_exists") {
+      return "Email đã được sử dụng";
+    }
+    if (error.code === "rate_limit_exceeded") {
+      return "Quá nhiều lần thử — vui lòng đợi vài phút";
+    }
+    if (error.code === "account_banned") {
+      return "Tài khoản đã bị khóa";
+    }
+    if (error.code === "configuration_error") {
+      return "BE chưa cấu hình Supabase — kiểm tra appsettings";
+    }
+    return error.message;
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+}
+
+async function hydrateFromToken(): Promise<AppUser | null> {
+  if (!getAccessToken()) return null;
+  try {
+    const me = await fetchMe();
+    return mapMeToUser(me);
+  } catch {
+    clearAuthTokens();
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user from localStorage on mount
-    const savedUser = localStorage.getItem("currentUser");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    let cancelled = false;
+    (async () => {
+      const hydrated = await hydrateFromToken();
+      if (!cancelled) {
+        setUser(hydrated);
+        setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const applySession = useCallback(async (accessToken: string, refreshToken?: string | null) => {
+    setAuthTokens(accessToken, refreshToken);
+    const me = await fetchMe();
+    const mapped = mapMeToUser(me);
+    setUser(mapped);
+    return mapped;
+  }, []);
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<AuthResult> => {
+      try {
+        const session = await apiLogin(email, password);
+        if (!session.accessToken) {
+          return {
+            ok: false,
+            message: "Đăng nhập thất bại — không nhận được token",
+          };
+        }
+        const mapped = await applySession(session.accessToken, session.refreshToken);
+        return { ok: true, role: mapped.role };
+      } catch (error) {
+        return { ok: false, message: authErrorMessage(error, "Đăng nhập thất bại") };
+      }
+    },
+    [applySession]
+  );
+
+  const register = useCallback(
+    async (email: string, password: string, name: string): Promise<AuthResult> => {
+      try {
+        const session = await apiRegister(email, password, name);
+        if (session.requiresEmailConfirmation || !session.accessToken) {
+          return {
+            ok: false,
+            message:
+              "Đăng ký thành công — vui lòng xác nhận email trong hộp thư (Supabase) rồi đăng nhập.",
+          };
+        }
+        const mapped = await applySession(session.accessToken, session.refreshToken);
+        return { ok: true, role: mapped.role };
+      } catch (error) {
+        return { ok: false, message: authErrorMessage(error, "Đăng ký thất bại") };
+      }
+    },
+    [applySession]
+  );
+
+  const logout = useCallback(async () => {
+    await apiLogout();
+    clearAuthTokens();
+    setUser(null);
+  }, []);
+
+  const updateCredits = useCallback((newCredits: number) => {
+    setUser((prev) => (prev ? { ...prev, credits: newCredits } : prev));
+  }, []);
+
+  const updateSubscription = useCallback(
+    (subscription: SubscriptionType, expiry?: string) => {
+      setUser((prev) =>
+        prev ? { ...prev, subscription, subscriptionExpiry: expiry } : prev
+      );
+    },
+    []
+  );
+
+  const refreshUserData = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) {
+      setUser(null);
+      return;
+    }
+    try {
+      const me = await fetchMe();
+      setUser(mapMeToUser(me));
+    } catch {
+      clearAuthTokens();
+      setUser(null);
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Get all users from localStorage
-    const usersData = localStorage.getItem("users");
-    const users = usersData ? JSON.parse(usersData) : {};
+  const updateProfile = useCallback(
+    async (data: {
+      name?: string;
+      avatarUrl?: string | null;
+      avatarFile?: File;
+    }) => {
+      if (!getAccessToken()) return;
 
-    // Check if user exists and password matches
-    if (users[email] && users[email].password === password) {
-      const userData: User = {
-        id: users[email].id,
-        email: email,
-        name: users[email].name,
-        credits: users[email].credits || 20,
-        role: users[email].role || "customer",
-        subscription: users[email].subscription || "free",
-        subscriptionExpiry: users[email].subscriptionExpiry,
-        avatarDataUrl: users[email].avatarDataUrl,
-      };
-      setUser(userData);
-      localStorage.setItem("currentUser", JSON.stringify(userData));
-      return true;
-    }
-    return false;
-  };
-
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
-    // Get all users from localStorage
-    const usersData = localStorage.getItem("users");
-    const users = usersData ? JSON.parse(usersData) : {};
-
-    // Check if user already exists
-    if (users[email]) {
-      return false;
-    }
-
-    // Create new user
-    const newUser = {
-      id: Date.now().toString(),
-      password: password,
-      name: name,
-      credits: 10, // 20 free credits for new users (as per BMC)
-      role: "customer" as UserRole,
-      subscription: "free" as SubscriptionType,
-      registeredAt: new Date().toISOString(),
-      totalSpent: 0,
-      avatarDataUrl: null as string | null,
-    };
-
-    users[email] = newUser;
-    localStorage.setItem("users", JSON.stringify(users));
-
-    // Auto login after registration
-    const userData: User = {
-      id: newUser.id,
-      email: email,
-      name: name,
-      credits: newUser.credits,
-      role: newUser.role,
-      subscription: newUser.subscription,
-      avatarDataUrl: undefined,
-    };
-    setUser(userData);
-    localStorage.setItem("currentUser", JSON.stringify(userData));
-    return true;
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("currentUser");
-  };
-
-  const updateCredits = (newCredits: number) => {
-    if (user) {
-      const updatedUser = { ...user, credits: newCredits };
-      setUser(updatedUser);
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-
-      // Also update in users storage
-      const usersData = localStorage.getItem("users");
-      if (usersData) {
-        const users = JSON.parse(usersData);
-        if (users[user.email]) {
-          users[user.email].credits = newCredits;
-          localStorage.setItem("users", JSON.stringify(users));
-        }
+      let me;
+      if (data.avatarFile) {
+        me = await uploadAvatar(data.avatarFile);
+      } else {
+        const patch: { name?: string; avatarUrl?: string | null } = {};
+        if (data.name !== undefined) patch.name = data.name;
+        if (data.avatarUrl !== undefined) patch.avatarUrl = data.avatarUrl;
+        if (Object.keys(patch).length === 0) return;
+        me = await apiUpdateProfile(patch);
       }
-    }
-  };
 
-  const updateSubscription = (subscription: SubscriptionType, expiry?: string) => {
-    if (user) {
-      const updatedUser = { ...user, subscription, subscriptionExpiry: expiry };
-      setUser(updatedUser);
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      setUser(mapMeToUser(me));
+    },
+    []
+  );
 
-      // Also update in users storage
-      const usersData = localStorage.getItem("users");
-      if (usersData) {
-        const users = JSON.parse(usersData);
-        if (users[user.email]) {
-          users[user.email].subscription = subscription;
-          users[user.email].subscriptionExpiry = expiry;
-          localStorage.setItem("users", JSON.stringify(users));
-        }
-      }
-    }
-  };
-
-  const updateProfile = (data: { name?: string; avatarDataUrl?: string | null }) => {
-    if (!user) return;
-
-    const updatedUser: User = {
-      ...user,
-      name: data.name ?? user.name,
-      avatarDataUrl:
-        data.avatarDataUrl === null
-          ? undefined
-          : (data.avatarDataUrl ?? user.avatarDataUrl),
-    };
-
-    setUser(updatedUser);
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-
-    const usersData = localStorage.getItem("users");
-    if (usersData) {
-      const users = JSON.parse(usersData);
-      if (users[user.email]) {
-        users[user.email].name = updatedUser.name;
-        users[user.email].avatarDataUrl = updatedUser.avatarDataUrl ?? null;
-        localStorage.setItem("users", JSON.stringify(users));
-      }
-    }
-  };
-
-  const refreshUserData = () => {
-    if (!user) return;
-    
-    // Read from users storage (source of truth) instead of just currentUser
-    const usersData = localStorage.getItem("users");
-    if (usersData) {
-      const users = JSON.parse(usersData);
-      if (users[user.email]) {
-        const freshUserData: User = {
-          id: users[user.email].id,
-          email: user.email,
-          name: users[user.email].name,
-          credits: users[user.email].credits || 20,
-          role: users[user.email].role || "customer",
-          subscription: users[user.email].subscription || "free",
-          subscriptionExpiry: users[user.email].subscriptionExpiry,
-          avatarDataUrl: users[user.email].avatarDataUrl ?? undefined,
-        };
-        setUser(freshUserData);
-        localStorage.setItem("currentUser", JSON.stringify(freshUserData));
-      }
-    }
-  };
-
-  const isAdmin = () => {
-    return user?.role === "admin";
-  };
+  const isAdmin = useCallback(() => user?.role === "admin", [user?.role]);
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateCredits, updateSubscription, updateProfile, refreshUserData, isAdmin }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        updateCredits,
+        updateSubscription,
+        updateProfile,
+        refreshUserData,
+        isAdmin,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -214,4 +230,10 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+/** URL hiển thị avatar (BE public URL hoặc legacy base64). */
+export function getUserAvatarSrc(user: AppUser | null | undefined): string | undefined {
+  if (!user) return undefined;
+  return user.avatarUrl;
 }

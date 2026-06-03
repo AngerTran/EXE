@@ -34,5 +34,8 @@ public class PaymentRepository(AppDbContext db) : IPaymentRepository
     public Task<Payment?> GetByOrderIdForUpdateAsync(Guid orderId, CancellationToken cancellationToken = default) =>
         db.Payments.FirstOrDefaultAsync(p => p.OrderId == orderId, cancellationToken);
 
+    public Task<Payment?> GetByOrderIdForUserAsync(Guid orderId, Guid userId, CancellationToken cancellationToken = default) =>
+        db.Payments.AsNoTracking().FirstOrDefaultAsync(p => p.OrderId == orderId && p.UserId == userId, cancellationToken);
+
     public void Add(Payment payment) => db.Payments.Add(payment);
 }

@@ -10,6 +10,9 @@ public class StorageOptions
     /// <summary>Bucket ảnh preview / thumbnail (public read).</summary>
     public string AssetImagesBucket { get; set; } = "asset-images";
 
+    /// <summary>Bucket avatar profile.</summary>
+    public string AvatarsBucket { get; set; } = "avatars";
+
     public int UploadUrlExpiresSeconds { get; set; } = 7200;
 
     public int DownloadUrlExpiresSeconds { get; set; } = 3600;

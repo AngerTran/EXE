@@ -14,6 +14,7 @@ public record AssetListItemResponse(
     string PriceType,
     long PriceVnd,
     int PriceXu,
+    int DisplayPrice,
     decimal RatingAvg,
     int RatingCount,
     int DownloadCount,
@@ -132,6 +133,8 @@ public record AssetQueryParams
     public Guid? CategoryId { get; init; }
     public string? PriceType { get; init; }
     public string? Tag { get; init; }
+    public bool Featured { get; init; }
+    public int? Limit { get; init; }
     public string Sort { get; init; } = "createdAt";
     public string Order { get; init; } = "desc";
     public int Page { get; init; } = 1;

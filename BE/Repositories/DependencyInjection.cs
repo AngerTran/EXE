@@ -1,4 +1,5 @@
 using Exe.Repositories.Admin;
+using Exe.Repositories.Support;
 using Exe.Repositories.Ai;
 using Exe.Repositories.Billing;
 using Exe.Repositories.Commerce;
@@ -29,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<IReviewRepository, ReviewRepository>();
         services.AddScoped<IAiRepository, AiRepository>();
         services.AddScoped<IAdminRepository, AdminRepository>();
+        services.AddScoped<IContactInquiryRepository, ContactInquiryRepository>();
 
         return services;
     }

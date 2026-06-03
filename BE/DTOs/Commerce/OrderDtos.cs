@@ -23,7 +23,15 @@ public record OrderResponse(
     int TotalXu,
     DateTime? CompletedAt,
     DateTime CreatedAt,
-    IReadOnlyList<OrderItemResponse> Items);
+    IReadOnlyList<OrderItemResponse> Items,
+    Guid? PaymentId = null,
+    string? PaymentRedirectUrl = null);
+
+public record OrdersSummaryResponse(
+    int TotalOrders,
+    long TotalSpentVnd,
+    int CompletedOrders,
+    int PendingOrders);
 
 public record CreateSubscriptionOrderRequest(
     [Required] Guid PlanId,

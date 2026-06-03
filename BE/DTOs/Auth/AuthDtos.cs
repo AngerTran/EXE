@@ -54,4 +54,15 @@ public record UpdateProfileRequest(
     [MaxLength(100)] string? Name,
     [MaxLength(2048)] string? AvatarUrl);
 
+public record ForgotPasswordRequest(
+    [Required, EmailAddress] string Email);
+
+public record AvatarUploadUrlRequest(
+    [Required, MaxLength(255)] string FileName,
+    [Required, MaxLength(128)] string ContentType,
+    [Range(1, 10485760)] long FileSizeBytes);
+
+public record ConfirmAvatarRequest(
+    [Required, MaxLength(1024)] string StoragePath);
+
 public record ErrorResponse(string Message, string? Code = null);

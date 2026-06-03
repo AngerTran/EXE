@@ -29,6 +29,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AiMessage> AiMessages => Set<AiMessage>();
     public DbSet<AiMessageAsset> AiMessageAssets => Set<AiMessageAsset>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ContactInquiry> ContactInquiries => Set<ContactInquiry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +131,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion(
                     v => string.IsNullOrWhiteSpace(v) ? null : IPAddress.Parse(v),
                     v => v == null ? null : v.ToString());
+        });
+
+        modelBuilder.Entity<ContactInquiry>(e =>
+        {
+            e.ToTable("contact_inquiries");
+            e.Property(c => c.Status).HasMaxLength(20);
         });
     }
 }

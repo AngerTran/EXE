@@ -1,4 +1,5 @@
 using Exe.Models;
+using Exe.Models.Entities;
 using ProfileEntity = Exe.Models.Entities.Profile;
 
 namespace Exe.Repositories.Admin;
@@ -22,4 +23,39 @@ public interface IAdminRepository
     Task<ProfileEntity?> GetUserForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<ProfileEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<(int OrderCount, int AssetCount)> GetUserCountsDetailAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<ContactInquiry> Items, int Total)> ListContactInquiriesAsync(
+        string? status,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    Task<ContactInquiry?> GetContactInquiryForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<(IReadOnlyList<AuditLog> Items, int Total)> ListAuditLogsAsync(
+        Guid? userId,
+        string? action,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    Task<long> GetRevenueInRangeAsync(DateTime? from, DateTime? to, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(DateTime Day, long Amount)>> GetRevenueByDayAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(DateTime Day, int Count)>> GetUserRegistrationsByDayAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(Guid CategoryId, string CategoryName, int AssetCount, int DownloadCount)>> GetAssetStatsByCategoryAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(OrderStatus Status, int Count)>> GetOrderCountsByStatusAsync(
+        CancellationToken cancellationToken = default);
 }

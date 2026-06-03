@@ -37,6 +37,32 @@ public class SupabaseAuthClient(HttpClient http, IOptions<SupabaseOptions> optio
         return await SendAuthRequestAsync(httpRequest, false, cancellationToken);
     }
 
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        EnsureAnonKeyConfigured();
+        var payload = new { email = request.Email.Trim() };
+        using var httpRequest = CreateRequest(HttpMethod.Post, "/auth/v1/recover", payload);
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(httpRequest, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new SupabaseAuthException(
+                "Cannot reach Supabase Auth. Check Supabase:Url and network connection.",
+                StatusCodes.Status503ServiceUnavailable,
+                ex);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            var message = TryExtractErrorMessage(content) ?? "Password recovery request failed.";
+            throw new SupabaseAuthException(message, (int)response.StatusCode);
+        }
+    }
+
     private HttpRequestMessage CreateRequest(HttpMethod method, string path, object body)
     {
         var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body, options: JsonOptions) };

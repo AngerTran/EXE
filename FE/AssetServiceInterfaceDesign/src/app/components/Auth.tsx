@@ -94,33 +94,34 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const ok = await login(formData.email, formData.password);
-        if (ok) {
+        const result = await login(formData.email, formData.password);
+        if (result.ok) {
           didSucceed = true;
           setSuccess(true);
-          const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
           setTimeout(() => {
-            navigate(currentUser.role === "admin" ? "/admin" : "/dashboard");
+            navigate(result.role === "admin" ? "/admin" : "/dashboard");
           }, 600);
         } else {
-          setError("Email hoặc mật khẩu không đúng");
+          setError(result.message);
         }
       } else {
         if (!formData.name.trim()) {
           setError("Vui lòng nhập tên của bạn");
           return;
         }
-        const ok = await register(formData.email, formData.password, formData.name);
-        if (ok) {
+        const result = await register(formData.email, formData.password, formData.name);
+        if (result.ok) {
           didSucceed = true;
           setSuccess(true);
-          setTimeout(() => navigate("/dashboard"), 600);
+          setTimeout(() => {
+            navigate(result.role === "admin" ? "/admin" : "/dashboard");
+          }, 600);
         } else {
-          setError("Email đã được sử dụng");
+          setError(result.message);
         }
       }
     } catch {
-      setError("Có lỗi xảy ra, vui lòng thử lại");
+      setError("Không kết nối được BE — chạy API tại http://localhost:5180");
     } finally {
       if (!didSucceed) setLoading(false);
     }
@@ -246,7 +247,7 @@ export default function Auth() {
                 >
                   <span className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[#d0bcff]" />
-                    Demo — dùng thử nhanh
+                    Demo (local cũ — cần tài khoản Supabase/BE)
                   </span>
                   <ChevronDown
                     className={`w-4 h-4 text-muted-foreground transition-transform ${demoOpen ? "rotate-180" : ""}`}
@@ -254,6 +255,9 @@ export default function Auth() {
                 </button>
                 {demoOpen && (
                   <div className="px-4 pb-4 space-y-2 border-t border-white/10">
+                    <p className="text-xs text-[#958ea0] pt-2">
+                      Đăng nhập qua API BE — dùng email đã đăng ký trên Supabase, không còn mock localStorage.
+                    </p>
                     {demoAccounts.map((account) => (
                       <div
                         key={account.email}

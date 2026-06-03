@@ -25,6 +25,10 @@ public interface IOrderRepository
         int take,
         CancellationToken cancellationToken = default);
 
+    Task<(int TotalOrders, long TotalSpentVnd, int CompletedOrders, int PendingOrders)> GetSummaryForUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     void Add(Order order);
 
     void AddItems(IEnumerable<OrderItem> items);

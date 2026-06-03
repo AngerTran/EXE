@@ -18,6 +18,7 @@ public interface IOrderService
         PagedQuery query,
         CancellationToken cancellationToken = default);
     Task<OrderResponse?> GetMyOrderAsync(Guid userId, Guid orderId, CancellationToken cancellationToken = default);
+    Task<OrdersSummaryResponse> GetMyOrdersSummaryAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<OrderResponse> CreateSubscriptionOrderAsync(
         Guid userId,
         CreateSubscriptionOrderRequest request,
