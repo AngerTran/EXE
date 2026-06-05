@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Activity,
   PieChart,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -28,13 +29,22 @@ import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
 import type { AssetRecord } from "../../types/asset";
 import { ASSET_CATEGORIES, TAG_GROUPS, type AssetCategory } from "../../types/asset";
 import {
-  getApprovedAssets,
-  getPendingAssets,
-  approveAsset,
-  rejectAsset,
-  deleteAsset,
-  updateAsset,
-} from "../../utils/assetStorage";
+  fetchAdminOverview,
+  fetchAdminSubscriptionPlans,
+  fetchAdminUsers,
+  fetchAdminAssets,
+  patchWalletBalance,
+  updateAdminUser,
+  deleteAdminUser,
+} from "../../api/admin";
+import { fetchAllOrders } from "../../api/orders";
+import {
+  approveAsset as apiApproveAsset,
+  rejectAsset as apiRejectAsset,
+  deleteAsset as apiDeleteAsset,
+  fetchPendingAssets,
+} from "../../api/assets";
+import { mapAssetListItem } from "../../api/mappers";
 import {
   AreaChart,
   Area,
@@ -113,147 +123,104 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    // Load users
-    const usersData = localStorage.getItem("users");
-    if (usersData) {
-      const usersObj = JSON.parse(usersData);
-      const usersList = Object.keys(usersObj).map((email) => ({
-        id: usersObj[email].id,
-        email: email,
-        name: usersObj[email].name,
-        credits: usersObj[email].credits || 0,
-        role: usersObj[email].role || "customer",
-        registeredAt: usersObj[email].registeredAt || "2024-01-01",
-        totalSpent: usersObj[email].totalSpent || 0,
-        subscription: usersObj[email].subscription,
-        subscriptionExpiry: usersObj[email].subscriptionExpiry,
-        avatarDataUrl: usersObj[email].avatarDataUrl ?? null,
-      }));
-      setUsers(usersList);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [overview, usersRes, ordersRes, plans, assetsRes, pendingRes] = await Promise.all([
+          fetchAdminOverview(),
+          fetchAdminUsers(1, 100),
+          fetchAllOrders(1, 100),
+          fetchAdminSubscriptionPlans(),
+          fetchAdminAssets(1, 100, "approved"),
+          fetchPendingAssets(1, 100),
+        ]);
+        if (cancelled) return;
 
-    // Load orders
-    const ordersData = localStorage.getItem("admin_orders");
-    if (ordersData) {
-      setOrders(JSON.parse(ordersData));
-    } else {
-      const initialOrders = [
-        {
-          id: "ORD-001",
-          userId: "1",
-          userName: "Nguyễn Văn A",
-          items: ["Fantasy Character Pack", "Modern UI Kit"],
-          total: 248000,
-          status: "completed" as const,
-          date: "2024-02-23",
-        },
-        {
-          id: "ORD-002",
-          userId: "2",
-          userName: "Trần Thị B",
-          items: ["Gói Pro"],
-          total: 299000,
-          status: "completed" as const,
-          date: "2024-02-24",
-        },
-      ];
-      setOrders(initialOrders);
-      localStorage.setItem("admin_orders", JSON.stringify(initialOrders));
-    }
+        setUsers(
+          usersRes.data.map((u) => ({
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            credits: u.walletBalance,
+            role: u.role,
+            registeredAt: u.createdAt.split("T")[0],
+            totalSpent: u.totalSpentVnd,
+            subscription: u.subscriptionPlan as UserData["subscription"],
+          }))
+        );
 
-    // Load packages
-    const packagesData = localStorage.getItem("admin_packages");
-    if (packagesData) {
-      const existingPackages = JSON.parse(packagesData);
-      // Check if we need to update to the new package structure
-      if (existingPackages.length !== 4 || !existingPackages.find((p: PackageData) => p.name === "STUDENT")) {
-        // Update to new packages
-        const initialPackages = [
-          {
-            id: "PKG-001",
-            name: "FREE",
-            price: 0,
-            credits: 10,
-            sales: 150,
+        setOrders(
+          ordersRes.data.map((o) => ({
+            id: o.orderCode,
+            userId: "",
+            userName: o.items[0]?.itemName ?? "—",
+            items: o.items.map((i) => i.itemName),
+            total: o.totalVnd,
+            status: o.status.toLowerCase() as Order["status"],
+            date: o.createdAt.split("T")[0],
+          }))
+        );
+
+        setPackages(
+          plans.map((p) => ({
+            id: p.id,
+            name: p.name.toUpperCase(),
+            price: p.priceVnd,
+            credits: p.isUnlimited ? -1 : p.creditsMonthly ?? 0,
+            sales: 0,
             revenue: 0,
-          },
-          {
-            id: "PKG-002",
-            name: "STUDENT",
-            price: 29000,
-            credits: 100,
-            sales: 89,
-            revenue: 2581000,
-          },
-          {
-            id: "PKG-003",
-            name: "INDIE",
-            price: 99000,
-            credits: -1, // unlimited
-            sales: 34,
-            revenue: 3366000,
-          },
-          {
-            id: "PKG-004",
-            name: "PRO",
-            price: 199000,
-            credits: -1, // unlimited
-            sales: 12,
-            revenue: 2388000,
-          },
-        ];
-        setPackages(initialPackages);
-        localStorage.setItem("admin_packages", JSON.stringify(initialPackages));
-      } else {
-        setPackages(existingPackages);
-      }
-    } else {
-      const initialPackages = [
-        {
-          id: "PKG-001",
-          name: "FREE",
-          price: 0,
-          credits: 20,
-          sales: 150,
-          revenue: 0,
-        },
-        {
-          id: "PKG-002",
-          name: "STUDENT",
-          price: 29000,
-          credits: 100,
-          sales: 89,
-          revenue: 2581000,
-        },
-        {
-          id: "PKG-003",
-          name: "INDIE",
-          price: 99000,
-          credits: -1, // unlimited
-          sales: 34,
-          revenue: 3366000,
-        },
-        {
-          id: "PKG-004",
-          name: "PRO",
-          price: 199000,
-          credits: -1, // unlimited
-          sales: 12,
-          revenue: 2388000,
-        },
-      ];
-      setPackages(initialPackages);
-      localStorage.setItem("admin_packages", JSON.stringify(initialPackages));
-    }
+          }))
+        );
 
-    // Load assets
-    setAssets(getApprovedAssets());
+        const approved = assetsRes.data.map(mapAssetListItem);
+        const pending = pendingRes.data.map(mapAssetListItem);
+        setAssets(
+          [...pending, ...approved].map((a) => ({
+            id: a.id,
+            title: a.title,
+            category: a.category as AssetCategory,
+            price: a.price,
+            rating: a.rating,
+            downloads: a.downloads,
+            isFree: a.isFree,
+          }))
+        );
+      } catch {
+        toast.error("Không tải được dữ liệu admin — kiểm tra BE và quyền admin");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    const reload = () => setAssets(getApprovedAssets());
-    window.addEventListener("assetsUpdated", reload);
-    return () => window.removeEventListener("assetsUpdated", reload);
+    const reload = async () => {
+      try {
+        const [assetsRes, pendingRes] = await Promise.all([
+          fetchAdminAssets(1, 100, "approved"),
+          fetchPendingAssets(1, 100),
+        ]);
+        const approved = assetsRes.data.map(mapAssetListItem);
+        const pending = pendingRes.data.map(mapAssetListItem);
+        setAssets(
+          [...pending, ...approved].map((a) => ({
+            id: a.id,
+            title: a.title,
+            category: a.category as AssetCategory,
+            price: a.price,
+            rating: a.rating,
+            downloads: a.downloads,
+            isFree: a.isFree,
+          }))
+        );
+      } catch {
+        /* ignore */
+      }
+    };
+    const handler = () => reload();
+    window.addEventListener("assetsUpdated", handler);
+    return () => window.removeEventListener("assetsUpdated", handler);
   }, []);
 
   // Reload packages when switching to packages tab
@@ -1318,10 +1285,54 @@ function AssetsManagement({
   const pendingPageSize = 6;
   const approvedPageSize = 12;
 
-  const reload = () => {
-    setAssets(getApprovedAssets());
-    setPendingAssets(getPendingAssets());
-    setApprovedAssetRecords(getApprovedAssets());
+  const reload = async () => {
+    try {
+      const [pendingRes, approvedRes] = await Promise.all([
+        fetchPendingAssets(1, 100),
+        fetchAdminAssets(1, 100, "approved"),
+      ]);
+      const toRecord = (a: ReturnType<typeof mapAssetListItem>): AssetRecord => ({
+        id: a.id,
+        title: a.title,
+        shortDescription: a.title,
+        fullDescription: "",
+        category: a.category as AssetRecord["category"],
+        tags: a.tags,
+        engineSupport: { unity: true, unreal: false, godot: false },
+        version: "1.0.0",
+        fileSize: "—",
+        features: { rigged: false, animated: false, pbr: false, vrReady: false },
+        priceType: a.isFree ? "free" : "paid",
+        price: a.price,
+        license: "Standard License",
+        isFree: a.isFree,
+        rating: a.rating,
+        downloads: a.downloads,
+        status: "pending_review",
+        submittedAt: new Date().toISOString(),
+        creatorName: a.author,
+      });
+      const pending = pendingRes.data.map(mapAssetListItem).map(toRecord);
+      const approved = approvedRes.data.map(mapAssetListItem).map((a) => ({
+        ...toRecord(a),
+        status: "approved" as const,
+      }));
+      setPendingAssets(pending);
+      setApprovedAssetRecords(approved);
+      setAssets(
+        [...pending, ...approved].map((a) => ({
+          id: a.id,
+          title: a.title,
+          category: a.category,
+          price: a.price,
+          rating: a.rating,
+          downloads: a.downloads,
+          isFree: a.isFree,
+        }))
+      );
+    } catch {
+      toast.error("Không tải lại danh sách asset");
+    }
   };
 
   useEffect(() => {
@@ -1350,33 +1361,30 @@ function AssetsManagement({
   };
 
   const handleSaveEdit = () => {
-    if (!editingAsset) return;
-    updateAsset(editingAsset.id, {
-      title: editingAsset.title,
-      shortDescription: editingAsset.shortDescription,
-      fullDescription: editingAsset.fullDescription,
-      category: editingAsset.category,
-      tags: editingAsset.tags,
-      price: editingAsset.isFree ? 0 : editingAsset.price,
-      rating: editingAsset.rating,
-      downloads: editingAsset.downloads,
-      isFree: editingAsset.isFree,
-      priceType: editingAsset.isFree ? "free" : "paid",
-    });
-    reload();
+    toast.message("Sửa asset qua Admin API — đang phát triển");
     setShowEditModal(false);
     setEditingAsset(null);
   };
 
-  const handleDelete = (assetId: string) => {
+  const handleDelete = async (assetId: string) => {
     if (!confirm("Bạn có chắc muốn xóa asset này?")) return;
-    deleteAsset(assetId);
-    reload();
+    try {
+      await apiDeleteAsset(assetId);
+      toast.success("Đã xóa asset");
+      reload();
+    } catch {
+      toast.error("Xóa asset thất bại");
+    }
   };
 
-  const handleApprove = (id: string) => {
-    approveAsset(id);
-    reload();
+  const handleApprove = async (id: string) => {
+    try {
+      await apiApproveAsset(id);
+      toast.success("Đã duyệt asset");
+      window.dispatchEvent(new CustomEvent("assetsUpdated"));
+    } catch {
+      toast.error("Duyệt asset thất bại");
+    }
   };
 
   const handleReject = (id: string) => {
@@ -1544,12 +1552,17 @@ function AssetsManagement({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    rejectAsset(rejectingAsset.id, rejectReason);
-                    toast.success("Đã từ chối asset");
-                    setRejectingAsset(null);
-                    setRejectReason("");
-                    reload();
+                  onClick={async () => {
+                    if (!rejectingAsset) return;
+                    try {
+                      await apiRejectAsset(rejectingAsset.id, rejectReason || "Không đạt yêu cầu");
+                      toast.success("Đã từ chối asset");
+                      setRejectingAsset(null);
+                      setRejectReason("");
+                      reload();
+                    } catch {
+                      toast.error("Từ chối asset thất bại");
+                    }
                   }}
                   className="flex-1 bg-destructive hover:bg-destructive/90 text-primary-foreground py-3 rounded-lg font-bold transition-all"
                 >

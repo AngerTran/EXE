@@ -13,7 +13,7 @@ Swagger: http://localhost:5180/swagger (tự mở khi `dotnet run`)
 
 ## Cấu hình
 
-Tạo `appsettings.Development.json` (đã gitignore) — copy từ `appsettings.Development.example.json`:
+Chỉnh `appsettings.json` (mẫu: `appsettings.Development.example.json`):
 
 | Key | Nguồn (Supabase Dashboard) |
 |-----|----------------------------|

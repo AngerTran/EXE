@@ -12,8 +12,14 @@ import {
   AlertCircle,
   Download,
   Package,
+  Loader2,
 } from "lucide-react";
-import { mockAssets } from "./AssetsMarketplace";
+import { toast } from "sonner";
+import { ApiError } from "../../api/client";
+import { fetchCart, clearCart } from "../../api/cart";
+import { createAssetOrder } from "../../api/orders";
+import { fetchAssets } from "../../api/assets";
+import { mapAssetListItem, type MarketplaceAsset } from "../../api/mappers";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 export default function AssetsCheckout() {
@@ -38,29 +44,52 @@ export default function AssetsCheckout() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Check if user has an active subscription (STUDENT, INDIE, or PRO)
-  const hasActiveSubscription = user?.subscription && ["student", "indie", "pro"].includes(user.subscription);
+  const [selectedAssets, setSelectedAssets] = useState<MarketplaceAsset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [orderCode, setOrderCode] = useState<string | null>(null);
 
-  // Get selected assets
-  const selectedAssets = mockAssets.filter((asset) => assetIds.includes(asset.id));
-  
-  // If user has subscription, all assets are free
-  const totalPrice = hasActiveSubscription 
-    ? 0 
+  const hasActiveSubscription =
+    user?.subscription && ["student", "indie", "pro"].includes(user.subscription);
+
+  const totalPrice = hasActiveSubscription
+    ? 0
     : selectedAssets.reduce((sum, asset) => sum + asset.price, 0);
-  
-  const freeItemsCount = hasActiveSubscription 
-    ? selectedAssets.length 
+
+  const freeItemsCount = hasActiveSubscription
+    ? selectedAssets.length
     : selectedAssets.filter((asset) => asset.isFree).length;
 
   useEffect(() => {
     if (!user) {
       navigate("/auth");
+      return;
     }
-    if (assetIds.length === 0) {
-      navigate("/marketplace");
-    }
-  }, [user, assetIds, navigate]);
+    let cancelled = false;
+    (async () => {
+      setLoadingAssets(true);
+      try {
+        let ids = assetIds;
+        if (ids.length === 0) {
+          const cart = await fetchCart();
+          ids = cart.items.map((i) => i.assetId);
+        }
+        if (ids.length === 0) {
+          navigate("/marketplace");
+          return;
+        }
+        const res = await fetchAssets({ pageSize: 100 });
+        const mapped = res.data.filter((a) => ids.includes(a.id)).map(mapAssetListItem);
+        if (!cancelled) setSelectedAssets(mapped);
+      } catch {
+        if (!cancelled) toast.error("Không tải được danh sách asset");
+      } finally {
+        if (!cancelled) setLoadingAssets(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, assetIdsParam, navigate]);
 
   const normalizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 11);
   const isValidPhone = (digits: string) =>
@@ -84,71 +113,46 @@ export default function AssetsCheckout() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPhoneTouched(true);
-    if (!phoneOk) return;
+    if (!phoneOk || selectedAssets.length === 0) return;
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setShowSuccess(true);
+    try {
+      const order = await createAssetOrder(
+        paymentMethod,
+        true,
+        assetIds.length > 0 ? assetIds : undefined
+      );
+      setOrderCode(order.orderCode);
 
-      // Save purchased assets to localStorage
-      if (user) {
-        const existingAssets = localStorage.getItem(`purchased_assets_${user.id}`);
-        const purchasedAssets = existingAssets ? JSON.parse(existingAssets) : [];
-        
-        const newPurchases = selectedAssets.map((asset) => ({
-          id: asset.id,
-          title: asset.title,
-          category: asset.category,
-          price: hasActiveSubscription ? 0 : asset.price, // If has subscription, price = 0
-          purchaseDate: new Date().toISOString().split('T')[0],
-          downloadCount: 0,
-          fileSize: "120 MB",
-          fileType: asset.category === "Sound Effects" || asset.category === "Music" ? "MP3, WAV" : asset.category === "UI/UX" ? "PSD, AI, SVG" : "PNG, PSD",
-        }));
-
-        const updatedAssets = [...purchasedAssets, ...newPurchases];
-        localStorage.setItem(`purchased_assets_${user.id}`, JSON.stringify(updatedAssets));
-
-        // Update total spent in users data (only if actually paid)
-        if (totalPrice > 0) {
-          const usersData = localStorage.getItem("users");
-          if (usersData) {
-            const users = JSON.parse(usersData);
-            if (users[user.email]) {
-              users[user.email].totalSpent = (users[user.email].totalSpent || 0) + totalPrice;
-              localStorage.setItem("users", JSON.stringify(users));
-            }
-          }
-
-          // Record order in admin_orders (only if actually paid)
-          const ordersData = localStorage.getItem("admin_orders");
-          const orders = ordersData ? JSON.parse(ordersData) : [];
-          orders.push({
-            id: `ORD-${Date.now()}`,
-            userId: user.id,
-            userName: user.name,
-            items: selectedAssets.map(a => a.title),
-            total: totalPrice,
-            status: "completed",
-            date: new Date().toISOString().split('T')[0],
-          });
-          localStorage.setItem("admin_orders", JSON.stringify(orders));
-        }
-
-        // Clear cart
-        localStorage.removeItem(`cart_${user.id}`);
+      if (order.paymentRedirectUrl) {
+        window.location.href = order.paymentRedirectUrl;
+        return;
       }
 
-      // Redirect after 3 seconds
-      setTimeout(() => {
-        navigate("/my-assets");
-      }, 3000);
-    }, 2000);
+      try {
+        await clearCart();
+      } catch {
+        /* cart có thể đã trống */
+      }
+
+      setIsProcessing(false);
+      setShowSuccess(true);
+      setTimeout(() => navigate("/my-assets"), 3000);
+    } catch (error) {
+      setIsProcessing(false);
+      toast.error(error instanceof ApiError ? error.message : "Thanh toán thất bại");
+    }
   };
 
-  if (!user || assetIds.length === 0) {
+  if (!user || loadingAssets) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (selectedAssets.length === 0) {
     return null;
   }
 

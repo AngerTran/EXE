@@ -1,26 +1,26 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Sparkles, Coins, AlertCircle, Loader2, Lock, ShoppingBag, ExternalLink, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
+import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import { mockAssets } from "./AssetsMarketplace";
+import { ApiError } from "../../api/client";
+import {
+  createAiSession,
+  deleteAiSession,
+  sendAiMessage,
+} from "../../api/ai";
+import type { AiSuggestedAsset } from "../../api/types/ai";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  suggestedAssets?: string[]; // IDs of suggested assets
-}
-
-interface AssetSuggestion {
-  name: string;
-  type: string;
-  description: string;
-  source: string;
+  suggestedAssets?: AiSuggestedAsset[];
 }
 
 export default function Dashboard() {
-  const { user, isLoading: authLoading, updateCredits, refreshUserData } = useAuth();
+  const { user, isLoading: authLoading, refreshUserData } = useAuth();
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -58,49 +58,34 @@ export default function Dashboard() {
   const [input, setInput] = useState("");
   const [credits, setCredits] = useState(user?.credits || 0);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load chat history from localStorage on mount
-  useEffect(() => {
-    if (user) {
-      const savedMessages = localStorage.getItem(`chat_history_${user.id}`);
-      if (savedMessages) {
-        try {
-          const parsed = JSON.parse(savedMessages);
-          // Convert timestamp strings back to Date objects
-          const messagesWithDates = parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-          setMessages(messagesWithDates);
-        } catch (error) {
-          console.error("Error loading chat history:", error);
-          // If error, set welcome message
-          setMessages([{
-            id: "welcome",
-            role: "assistant",
-            content: `Xin chào ${user?.name || "bạn"}! Tôi là AI Assistant của GameAssets. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
-            timestamp: new Date(),
-          }]);
-        }
-      } else {
-        // No saved history, show welcome message
-        setMessages([{
-          id: "welcome",
-          role: "assistant",
-          content: `Xin chào ${user?.name || "bạn"}! Tôi là AI Assistant của GameAssets. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
-          timestamp: new Date(),
-        }]);
-      }
-    }
-  }, [user]);
+  const welcomeMessage = (): Message => ({
+    id: "welcome",
+    role: "assistant",
+    content: `Xin chào ${user?.name || "bạn"}! Tôi là AI Assistant của GameAssets. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
+    timestamp: new Date(),
+  });
 
-  // Save messages to localStorage whenever they change
   useEffect(() => {
-    if (user && messages.length > 0) {
-      localStorage.setItem(`chat_history_${user.id}`, JSON.stringify(messages));
-    }
-  }, [messages, user]);
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await createAiSession("GameAssets Chat");
+        if (!cancelled) {
+          setSessionId(session.id);
+          setMessages([welcomeMessage()]);
+        }
+      } catch {
+        if (!cancelled) setMessages([welcomeMessage()]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Update credits when user changes
   useEffect(() => {
@@ -113,281 +98,55 @@ export default function Dashboard() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const generateAIResponse = (userMessage: string): { text: string; assetIds: string[] } => {
-    const lowerMessage = userMessage.toLowerCase();
-    
-    // Detect city/urban environment
-    if (lowerMessage.includes("thành phố") || lowerMessage.includes("urban") || lowerMessage.includes("city")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "2D Environments" || 
-        a.title.toLowerCase().includes("ui") ||
-        a.title.toLowerCase().includes("modern")
-      );
-      
-      return {
-        text: `Tuyệt vời! Để xây dựng một **thành phố trong game**, bạn sẽ cần các loại assets sau:
-
-🏙️ **Environment Assets:**
-- Tileset cho đường phố, tòa nhà
-- Background layers (buildings, sky)
-- Props: đèn đường, biển báo, cây xanh đô thị
-
-🚗 **Objects & Vehicles:**
-- Xe hơi, xe buýt (nếu có traffic)
-- NPC sprites (người đi bộ)
-- Animated objects (đèn giao thông, biển quảng cáo)
-
-🎨 **UI Elements:**
-- Mini-map cho navigation
-- Urban-themed UI (modern style)
-- Icons cho các building/locations
-
-💡 **Gợi ý từ Marketplace:**
-Tôi đã tìm thấy một số assets phù hợp trong marketplace của chúng tôi - xem bên dưới!
-
-**Lưu ý:** Kết hợp với sound effects của thành phố (tiếng xe cộ, tiếng người) để tạo không khí sống động hơn!`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-
-    // Detect fantasy theme
-    if (lowerMessage.includes("fantasy") || lowerMessage.includes("phép thuật") || lowerMessage.includes("magic")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.title.toLowerCase().includes("fantasy") || 
-        a.category === "Particles" ||
-        a.category === "2D Characters"
-      );
-      
-      return {
-        text: `Thế giới fantasy rất thú vị! Đây là những gì bạn cần:
-
-⚔️ **Characters:**
-- Heroes với các class khác nhau (warrior, mage, archer)
-- Monsters và enemies
-- NPCs (merchants, quest givers)
-
-🏰 **Environment:**
-- Medieval tileset (stone, grass, wood)
-- Fantasy structures (castles, towers, dungeons)
-- Magical effects và atmospheric props
-
-✨ **VFX & Magic:**
-- Spell effects (fire, ice, lightning)
-- Particle systems cho magic
-- UI elements với fantasy theme
-
-Tôi đã tìm thấy một số assets phù hợp - check list bên dưới!`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-
-    // Detect character request
-    if (lowerMessage.includes("nhân vật") || lowerMessage.includes("character") || lowerMessage.includes("hero")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "2D Characters"
-      );
-      
-      return {
-        text: `Để tạo nhân vật cho game, bạn cần lưu ý:
-
-👤 **Character Sprites:**
-- Idle animation (đứng yên)
-- Walk/Run cycle
-- Jump & fall (nếu platformer)
-- Attack animations
-- Death animation
-
-🎨 **Style Considerations:**
-- Độ phân giải phù hợp với game
-- Color palette nhất quán
-- Số frames animation (4-8 frames là ổn)
-
-💡 **Tips:**
-- Bắt đầu với character pack có sẵn
-- Đảm bảo có đủ các direction cần thiết (4-way hoặc 8-way)
-
-Check các character packs trong marketplace nhé!`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-
-    // Detect UI request
-    if (lowerMessage.includes("ui") || lowerMessage.includes("interface") || lowerMessage.includes("menu")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "UI/UX"
-      );
-      
-      return {
-        text: `UI là phần quan trọng để game professional! Cần có:
-
-🎮 **Essential UI Elements:**
-- Buttons (normal, hover, pressed states)
-- Health/Mana bars
-- Inventory slots
-- Dialog boxes
-
-📱 **Modern UI Features:**
-- Animated transitions
-- Icon sets (weapons, items, skills)
-- Progress bars & loaders
-- Settings menu components
-
-🎨 **Design Tips:**
-- Giữ UI simple và clean
-- Contrast tốt với game background
-- Responsive cho nhiều screen sizes
-
-Tôi tìm thấy một số UI kits chất lượng trong marketplace!`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-
-    // Detect sound/music request
-    if (lowerMessage.includes("âm thanh") || lowerMessage.includes("sound") || lowerMessage.includes("music") || lowerMessage.includes("nhạc")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "Sound Effects" || a.category === "Music"
-      );
-      
-      return {
-        text: `Audio rất quan trọng cho trải nghiệm game!
-
-🎵 **Background Music:**
-- Theme music cho main menu
-- In-game background loops
-- Boss battle music
-- Victory/defeat jingles
-
-🔊 **Sound Effects:**
-- Character actions (jump, attack, footsteps)
-- UI sounds (click, hover)
-- Environmental sounds
-- Item pickup sounds
-
-💡 **Best Practices:**
-- File format: OGG hoặc MP3
-- Loop points rõ ràng cho BGM
-- Normalize volume levels
-- Có multiple variations cho repetitive sounds
-
-Check audio assets có sẵn:`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-    
-    // Detect game genre
-    if (lowerMessage.includes("rpg") || lowerMessage.includes("nhập vai")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "2D Characters" || a.category === "UI/UX"
-      );
-      
-      return {
-        text: `Tuyệt vời! Cho game RPG, tôi gợi ý các assets sau:
-
-📦 **Character Assets:**
-- Sprite sheets cho nhân vật (8-direction movement)
-- Portrait cho dialog system
-- Equipment và armor sprites
-
-🗺️ **Environment:**
-- Tileset cho terrain (grass, stone, water)
-- Props: cây, đá, nhà cửa
-- Dungeon tileset với lighting effects
-
-⚔️ **UI Elements:**
-- Health/Mana bars
-- Inventory system icons
-- Dialog boxes và menu
-
-Xem các assets phù hợp trong marketplace:`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-    
-    if (lowerMessage.includes("platformer") || lowerMessage.includes("mario")) {
-      const relevantAssets = mockAssets.filter(a => 
-        a.category === "2D Characters" || a.category === "2D Environments"
-      );
-      
-      return {
-        text: `Game platformer rất phổ biến! Đây là các assets bạn cần:
-
-🎮 **Core Assets:**
-- Player character sprite sheet (idle, run, jump, fall)
-- Enemy sprites với animation
-- Collectibles (coins, gems, power-ups)
-
-🌍 **Level Design:**
-- Platform tiles (ground, floating platforms)
-- Background layers (parallax scrolling)
-- Hazards (spikes, moving platforms, traps)
-
-✨ **Effects:**
-- Particle effects cho jump, land
-- Coin collection animations
-
-Assets phù hợp từ marketplace:`,
-        assetIds: relevantAssets.slice(0, 4).map(a => a.id)
-      };
-    }
-    
-    // Default response with general suggestions
-    const randomAssets = mockAssets.slice(0, 4);
-    return {
-      text: `Cảm ơn bạn đã chia sẻ! Để tôi gợi ý assets tốt nhất, hãy cho tôi biết thêm:
-
-🎮 **Thể loại game:** RPG, Platformer, Puzzle, Action...
-🎨 **Style:** Pixel art, 2D cartoon, 3D realistic, Low-poly...
-📱 **Platform:** Mobile, PC, Web...
-👥 **Target audience:** Trẻ em, người lớn...
-
-**Hoặc bạn có thể hỏi cụ thể như:**
-- "Tôi muốn làm game thành phố"
-- "Assets cho nhân vật chiến binh"
-- "UI elements cho mobile game"
-- "Âm thanh cho game fantasy"
-
-Trong khi đó, đây là một số assets phổ bin bạn có thể tham khảo:`,
-      assetIds: randomAssets.map(a => a.id)
-    };
-  };
-
   const handleSend = async () => {
-    if (!input.trim()) return;
-    
+    const text = input.trim();
+    if (!text) return;
+
     if (credits <= 0) {
-      alert("Bạn đã hết lượt sử dụng! Vui lòng nạp thêm để tiếp tục.");
+      toast.error("Bạn đã hết xu! Vui lòng nạp thêm để tiếp tục.");
       return;
+    }
+
+    let activeSessionId = sessionId;
+    if (!activeSessionId) {
+      try {
+        const session = await createAiSession("GameAssets Chat");
+        activeSessionId = session.id;
+        setSessionId(session.id);
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "Không tạo được phiên chat");
+        return;
+      }
     }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: text,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-    
-    // Update credits
-    const newCredits = credits - 1;
-    setCredits(newCredits);
-    updateCredits(newCredits);
 
-    // Simulate AI processing
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
+    try {
+      const result = await sendAiMessage(activeSessionId, text);
+      const assistantMessage: Message = {
+        id: result.assistantMessage.id,
         role: "assistant",
-        content: generateAIResponse(input).text,
-        timestamp: new Date(),
-        suggestedAssets: generateAIResponse(input).assetIds
+        content: result.assistantMessage.content,
+        timestamp: new Date(result.assistantMessage.createdAt),
+        suggestedAssets: result.assistantMessage.suggestedAssets ?? undefined,
       };
-
-      setMessages((prev) => [...prev, aiResponse]);
+      setMessages((prev) => [...prev, assistantMessage]);
+      setCredits(result.walletBalance);
+      await refreshUserData();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Gửi tin nhắn thất bại");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -397,18 +156,15 @@ Trong khi đó, đây là một số assets phổ bin bạn có thể tham khả
     }
   };
 
-  const clearChatHistory = () => {
-    if (confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) {
-      const welcomeMessage: Message = {
-        id: "welcome",
-        role: "assistant",
-        content: `Xin chào ${user?.name || "bạn"}! Tôi là AI Assistant của GameAssets. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
-        timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
-      if (user) {
-        localStorage.removeItem(`chat_history_${user.id}`);
-      }
+  const clearChatHistory = async () => {
+    if (!confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) return;
+    try {
+      if (sessionId) await deleteAiSession(sessionId);
+      const session = await createAiSession("GameAssets Chat");
+      setSessionId(session.id);
+      setMessages([welcomeMessage()]);
+    } catch {
+      setMessages([welcomeMessage()]);
     }
   };
 
@@ -534,32 +290,36 @@ Trong khi đó, đây là một số assets phổ bin bạn có thể tham khả
                         <span>Assets được gợi ý từ Marketplace:</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {message.suggestedAssets.map((assetId) => {
-                          const asset = mockAssets.find(a => a.id === assetId);
-                          if (!asset) return null;
-
-                          return (
+                        {message.suggestedAssets.map((asset) => (
                             <Link
-                              key={asset.id}
-                              to={`/marketplace?highlight=${asset.id}`}
+                              key={asset.assetId}
+                              to={`/marketplace?details=${asset.assetId}`}
                               className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-lg p-3 transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
                             >
                               <div className="flex items-start gap-3">
-                                <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex-shrink-0" />
+                                {asset.thumbnailUrl ? (
+                                  <img
+                                    src={asset.thumbnailUrl}
+                                    alt={asset.title}
+                                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex-shrink-0" />
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-bold text-foreground text-sm group-hover:text-primary transition-colors truncate">
                                     {asset.title}
                                   </p>
-                                  <p className="text-xs text-muted-foreground truncate">{asset.category}</p>
-                                  <p className="text-xs font-bold text-success mt-1">
-                                    {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
-                                  </p>
+                                  {asset.relevanceScore != null && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Phù hợp: {Math.round(asset.relevanceScore * 100)}%
+                                    </p>
+                                  )}
                                 </div>
                                 <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
                               </div>
                             </Link>
-                          );
-                        })}
+                        ))}
                       </div>
                       <Link
                         to="/marketplace"

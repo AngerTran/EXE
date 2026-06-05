@@ -100,10 +100,9 @@ public partial class AssetService(
         assetRepository.Add(asset);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        asset.Category = category;
-        asset.Uploader = await profileRepository.GetActiveByIdWithDetailsAsync(userId, cancellationToken: cancellationToken)
-            ?? new Profile { Id = userId, Username = "", Email = "", Name = "" };
-        return MapDetail(asset);
+        var reloaded = await assetRepository.GetWithDetailsByIdAsync(asset.Id, cancellationToken)
+            ?? throw new InvalidOperationException("Asset was created but could not be loaded.");
+        return MapDetail(reloaded);
     }
 
     public async Task<AssetDetailResponse?> UpdateAsync(
@@ -381,7 +380,7 @@ public partial class AssetService(
             a.RatingCount,
             a.DownloadCount,
             a.ThumbnailUrl,
-            a.AssetTags.Select(at => at.Tag.Name).ToList(),
+            a.AssetTags.Select(at => at.Tag?.Name ?? "").Where(n => n.Length > 0).ToList(),
             a.PriceType == PriceType.Free);
 
     private AssetDetailResponse MapDetail(Asset a) =>
@@ -413,7 +412,7 @@ public partial class AssetService(
             a.RatingCount,
             a.DownloadCount,
             a.ThumbnailUrl,
-            a.AssetTags.Select(at => at.Tag.Name).ToList(),
+            a.AssetTags.Select(at => at.Tag?.Name ?? "").Where(n => n.Length > 0).ToList(),
             a.Files.Select(f => new AssetFileResponse(f.Id, f.FileName, f.FileType, f.FileSizeBytes, f.IsPrimary)).ToList(),
             a.Images.Select(i => new AssetImageResponse(i.Id, ResolveImagePublicUrl(i.StoragePath), i.AltText, i.IsThumbnail, i.SortOrder)).ToList(),
             a.Reviews.Select(r => new AssetReviewResponse(r.Id, r.User?.Name ?? "", r.Rating, r.Comment, r.CreatedAt)).ToList(),

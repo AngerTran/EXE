@@ -1,38 +1,23 @@
-import { useState, useEffect } from "react";
-import { getApprovedAssets } from "../../utils/assetStorage";
-import { Search, Filter, ShoppingCart, Star, Download, Eye, X, Trash2, Plus, ArrowRight, ShoppingBag, CheckCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Search, Filter, ShoppingCart, Star, Download, Eye, X, Trash2, Plus, ArrowRight, ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
-import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
+import { ClientPagination } from "./ui/ClientPagination";
+import { toast } from "sonner";
+import { ApiError } from "../../api/client";
+import { fetchAssets, fetchAssetById } from "../../api/assets";
+import { fetchCategories } from "../../api/lookup";
+import { fetchCart, addCartItem, removeCartItem } from "../../api/cart";
+import { fetchUserAssets } from "../../api/userAssets";
+import { mapAssetListItem, type MarketplaceAsset } from "../../api/mappers";
+import type { CategoryItem } from "../../api/types/marketplace";
+import type { CartItem } from "../../api/types/commerce";
 
-interface Asset {
-  id: string;
-  title: string;
-  category: string;
-  price: number;
-  rating: number;
-  downloads: number;
-  preview: string;
-  author: string;
-  tags: string[];
-  isFree: boolean;
-}
+export type Asset = MarketplaceAsset;
 
-const categories = [
-  "Tất cả",
-  "2D Characters",
-  "2D Environments",
-  "UI/UX",
-  "Sound Effects",
-  "Music",
-  "3D Models",
-  "Animations",
-  "Particles",
-];
-
-// Mock data
+// Mock data (fallback / legacy export)
 export const mockAssets: Asset[] = [
   {
     id: "1",
@@ -308,104 +293,89 @@ export default function AssetsMarketplace() {
   const [searchQuery, setSearchQuery] = useState("");
   const [priceFilter, setPriceFilter] = useState<"all" | "free" | "paid">("all");
   const [page, setPage] = useState(1);
-  const [cart, setCart] = useState<string[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [purchasedAssetIds, setPurchasedAssetIds] = useState<string[]>([]);
   const [highlightedAssetId, setHighlightedAssetId] = useState<string | null>(null);
-  const [assets, setAssets] = useState<Asset[]>(mockAssets);
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<MarketplaceAsset | null>(null);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const pageSize = 12;
 
-  // Load assets from localStorage or use mockAssets as fallback
-  const loadAssets = () => {
-    const approved = getApprovedAssets();
-    if (approved.length > 0) {
-      const formattedAssets: Asset[] = approved.map((a) => ({
-        id: a.id,
-        title: a.title,
-        category: a.category,
-        price: a.price,
-        rating: a.rating || 4.5,
-        downloads: a.downloads,
-        preview: a.shortDescription || a.title.toLowerCase(),
-        author: a.creatorName || "GameAssets Store",
-        tags: a.tags.length > 0 ? a.tags : [a.category],
-        isFree: a.isFree,
-      }));
-      setAssets(formattedAssets);
+  const categoryNames = ["Tất cả", ...categories.map((c) => c.name)];
+
+  const loadAssets = useCallback(async () => {
+    setLoading(true);
+    try {
+      const categoryId =
+        selectedCategory === "Tất cả"
+          ? undefined
+          : categories.find((c) => c.name === selectedCategory)?.id;
+      const res = await fetchAssets({
+        search: searchQuery || undefined,
+        categoryId,
+        priceType: priceFilter === "free" ? "free" : priceFilter === "paid" ? "paid" : undefined,
+        page,
+        pageSize,
+        sort: "createdAt",
+        order: "desc",
+      });
+      setAssets(res.data.map(mapAssetListItem));
+      setTotalPages(Math.max(1, Math.ceil(res.total / res.pageSize)));
+    } catch {
+      toast.error("Không tải được danh sách assets");
+      setAssets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, searchQuery, priceFilter, page, categories]);
+
+  useEffect(() => {
+    fetchCategories()
+      .then(setCategories)
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (categories.length === 0 && selectedCategory === "Tất cả") {
+      loadAssets();
+    } else if (categories.length > 0) {
+      loadAssets();
+    }
+  }, [loadAssets, categories.length]);
+
+  const loadCart = useCallback(async () => {
+    if (!user) {
+      setCartItems([]);
       return;
     }
-
-    const savedAssets = localStorage.getItem("admin_assets");
-    if (savedAssets) {
-      try {
-        const parsedAssets = JSON.parse(savedAssets);
-        // Convert admin format to marketplace format
-        const formattedAssets: Asset[] = parsedAssets.map((a: any) => ({
-          id: a.id,
-          title: a.title,
-          category: a.category,
-          price: a.price,
-          rating: a.rating,
-          downloads: a.downloads,
-          preview: a.title.toLowerCase(), // Use title as preview query
-          author: "GameAssets Store",
-          tags: [a.category.split(" ")[0], "Quality", "Pro"],
-          isFree: a.isFree,
-        }));
-        setAssets(formattedAssets);
-      } catch (error) {
-        console.error("Error loading assets:", error);
-        setAssets(mockAssets);
-      }
-    } else {
-      // Initialize admin_assets with mockAssets if not exists
-      const initialAssets = mockAssets.map((asset) => ({
-        id: asset.id,
-        title: asset.title,
-        category: asset.category,
-        price: asset.price,
-        rating: asset.rating,
-        downloads: asset.downloads,
-        isFree: asset.isFree,
-      }));
-      localStorage.setItem("admin_assets", JSON.stringify(initialAssets));
-      setAssets(mockAssets);
+    try {
+      const cart = await fetchCart();
+      setCartItems(cart.items);
+    } catch {
+      setCartItems([]);
     }
-  };
+  }, [user]);
 
-  // Load assets on mount
-  useEffect(() => {
-    loadAssets();
-  }, []);
+  const loadPurchased = useCallback(async () => {
+    if (!user) {
+      setPurchasedAssetIds([]);
+      return;
+    }
+    try {
+      const items = await fetchUserAssets();
+      setPurchasedAssetIds(items.map((i) => i.assetId));
+    } catch {
+      setPurchasedAssetIds([]);
+    }
+  }, [user]);
 
-  // Listen for storage changes (cross-tab updates)
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'admin_assets') {
-        loadAssets();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  // Listen for custom events (same-window updates)
-  useEffect(() => {
-    const handleAssetsUpdate = () => {
-      loadAssets();
-    };
-    window.addEventListener('assetsUpdated', handleAssetsUpdate);
-    return () => window.removeEventListener('assetsUpdated', handleAssetsUpdate);
-  }, []);
-
-  // Auto-reload when window regains focus
-  useEffect(() => {
-    const handleFocus = () => {
-      loadAssets();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+    loadCart();
+    loadPurchased();
+  }, [loadCart, loadPurchased]);
 
   // Check if user has an active subscription (STUDENT, INDIE, or PRO)
   const hasActiveSubscription = user?.subscription && ["student", "indie", "pro"].includes(user.subscription);
@@ -437,81 +407,71 @@ export default function AssetsMarketplace() {
     if (!detailsId) return;
 
     const found = assets.find((a) => a.id === detailsId) || null;
-    if (found) setSelectedAsset(found);
+    if (found) {
+      setSelectedAsset(found);
+      return;
+    }
+    fetchAssetById(detailsId)
+      .then((d) => setSelectedAsset(mapAssetListItem(d)))
+      .catch(() => {});
   }, [assets, searchParams]);
-
-  // Load cart from localStorage
-  useEffect(() => {
-    if (user) {
-      const savedCart = localStorage.getItem(`cart_${user.id}`);
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
-      }
-
-      // Load purchased assets
-      const purchasedAssets = localStorage.getItem(`purchased_assets_${user.id}`);
-      if (purchasedAssets) {
-        const assets = JSON.parse(purchasedAssets);
-        setPurchasedAssetIds(assets.map((a: any) => a.id));
-      }
-    }
-  }, [user]);
-
-  // Save cart to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`cart_${user.id}`, JSON.stringify(cart));
-    }
-  }, [cart, user]);
-
-  const filteredAssets = assets.filter((asset) => {
-    const matchesCategory =
-      selectedCategory === "Tất cả" || asset.category === selectedCategory;
-    const matchesSearch =
-      asset.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      asset.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesPrice =
-      priceFilter === "all" ||
-      (priceFilter === "free" && asset.isFree) ||
-      (priceFilter === "paid" && !asset.isFree);
-
-    return matchesCategory && matchesSearch && matchesPrice;
-  });
 
   useEffect(() => {
     setPage(1);
   }, [selectedCategory, searchQuery, priceFilter]);
-
-  const pageSize = 12;
-  const { paged: pagedAssets, totalPages } = getPageSlice(filteredAssets, page, pageSize);
-
-  const addToCart = (assetId: string) => {
-    if (!cart.includes(assetId)) {
-      setCart([...cart, assetId]);
+  const addToCart = async (assetId: string) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    if (cartItems.some((i) => i.assetId === assetId)) return;
+    try {
+      const item = await addCartItem(assetId);
+      setCartItems((prev) => [...prev, item]);
+      toast.success("Đã thêm vào giỏ");
+    } catch (error) {
+      const msg = error instanceof ApiError ? error.message : "Không thêm được vào giỏ";
+      toast.error(msg);
     }
   };
 
-  const removeFromCart = (assetId: string) => {
-    setCart(cart.filter((id) => id !== assetId));
+  const removeFromCart = async (cartItemId: string) => {
+    try {
+      await removeCartItem(cartItemId);
+      setCartItems((prev) => prev.filter((i) => i.id !== cartItemId));
+    } catch {
+      toast.error("Không xóa được khỏi giỏ");
+    }
   };
 
+  const cartAssetIds = cartItems.map((i) => i.assetId);
+  const cartDisplayItems: MarketplaceAsset[] = cartItems.map((item) => ({
+    id: item.assetId,
+    title: item.asset.title,
+    category: item.asset.categoryName,
+    price: item.asset.isFree ? 0 : item.lineTotalVnd,
+    rating: 0,
+    downloads: 0,
+    preview: item.asset.thumbnailUrl || item.asset.title,
+    author: "",
+    tags: [],
+    isFree: item.asset.isFree,
+    thumbnailUrl: item.asset.thumbnailUrl,
+  }));
   const buyNow = (assetId: string) => {
-    // Navigate to checkout with single asset
     navigate(`/checkout-assets?assets=${assetId}`);
   };
 
-  const cartItems = assets.filter((asset) => cart.includes(asset.id));
-  // Calculate total price considering subscription
-  const totalPrice = hasActiveSubscription 
-    ? 0 
-    : cartItems.reduce((sum, asset) => sum + asset.price, 0);
-  const freeItemsCount = hasActiveSubscription 
-    ? cartItems.length 
-    : cartItems.filter((asset) => asset.isFree).length;
+  const totalPrice = hasActiveSubscription
+    ? 0
+    : cartDisplayItems.reduce((sum, asset) => sum + asset.price, 0);
+  const freeItemsCount = hasActiveSubscription
+    ? cartDisplayItems.length
+    : cartDisplayItems.filter((asset) => asset.isFree).length;
 
   const handleCheckout = () => {
-    if (cart.length === 0) return;
-    const assetIds = cart.join(",");
+    if (cartItems.length === 0) return;
+    const assetIds = cartAssetIds.join(",");
     navigate(`/checkout-assets?assets=${assetIds}`);
   };
 
@@ -590,9 +550,9 @@ export default function AssetsMarketplace() {
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
               Giỏ hàng
-              {cart.length > 0 && (
+              {cartItems.length > 0 && (
                 <span className="absolute -top-2 -right-2 bg-secondary text-white w-6 h-6 rounded-full text-xs flex items-center justify-center font-bold shadow-lg">
-                  {cart.length}
+                  {cartItems.length}
                 </span>
               )}
             </button>
@@ -602,7 +562,7 @@ export default function AssetsMarketplace() {
         {/* Categories */}
         <div className="mb-8 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
           <div className="flex gap-3 pb-2">
-            {categories.map((category) => (
+            {categoryNames.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
@@ -621,17 +581,22 @@ export default function AssetsMarketplace() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-muted-foreground">
-            Tìm thấy <span className="font-bold text-primary font-mono">{filteredAssets.length}</span> assets
+            Tìm thấy <span className="font-bold text-primary font-mono">{assets.length}</span> assets
           </p>
         </div>
 
-        {/* Assets Grid */}
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          </div>
+        ) : (
+        <>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {pagedAssets.map((asset) => (
+          {assets.map((asset) => (
             <AssetCard
               key={asset.id}
               asset={asset}
-              isInCart={cart.includes(asset.id)}
+              isInCart={cartAssetIds.includes(asset.id)}
               isPurchased={purchasedAssetIds.includes(asset.id)}
               hasActiveSubscription={hasActiveSubscription || false}
               isHighlighted={highlightedAssetId === asset.id}
@@ -642,12 +607,11 @@ export default function AssetsMarketplace() {
           ))}
         </div>
 
-        {filteredAssets.length > 0 && (
+        {assets.length > 0 && (
           <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
 
-        {/* No Results */}
-        {filteredAssets.length === 0 && (
+        {assets.length === 0 && (
           <div className="text-center py-20">
             <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-foreground mb-2">
@@ -657,6 +621,8 @@ export default function AssetsMarketplace() {
               Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
             </p>
           </div>
+        )}
+        </>
         )}
       </div>
 
@@ -698,10 +664,10 @@ export default function AssetsMarketplace() {
               ) : (
                 <>
                   <div className="space-y-4 mb-6">
-                    {cartItems.map((asset) => {
-                      // Calculate display price based on subscription
+                    {cartDisplayItems.map((asset) => {
                       const displayPrice = hasActiveSubscription ? 0 : asset.price;
                       const displayAsFree = asset.isFree || hasActiveSubscription;
+                      const cartRow = cartItems.find((i) => i.assetId === asset.id);
 
                       return (
                         <div
@@ -710,9 +676,10 @@ export default function AssetsMarketplace() {
                         >
                           <div className="w-20 h-20 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg overflow-hidden flex-shrink-0">
                             <ImageWithFallback
-                              src={`https://source.unsplash.com/200x200/?${encodeURIComponent(
-                                asset.preview
-                              )}`}
+                              src={
+                                asset.thumbnailUrl ||
+                                `https://source.unsplash.com/200x200/?${encodeURIComponent(asset.preview)}`
+                              }
                               alt={asset.title}
                               className="w-full h-full object-cover"
                             />
@@ -740,7 +707,7 @@ export default function AssetsMarketplace() {
                             )}
                           </div>
                           <button
-                            onClick={() => removeFromCart(asset.id)}
+                            onClick={() => cartRow && removeFromCart(cartRow.id)}
                             className="text-muted-foreground hover:text-destructive transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -817,7 +784,8 @@ export default function AssetsMarketplace() {
           <SheetContent className="p-0 sm:max-w-2xl">
             <AssetDetailDrawerContent
               asset={selectedAsset}
-              isInCart={cart.includes(selectedAsset.id)}
+              allAssets={assets}
+              isInCart={cartAssetIds.includes(selectedAsset.id)}
               isPurchased={purchasedAssetIds.includes(selectedAsset.id)}
               hasActiveSubscription={hasActiveSubscription || false}
               onClose={() => setSelectedAsset(null)}
@@ -839,6 +807,7 @@ export default function AssetsMarketplace() {
 
 interface AssetDetailDrawerContentProps {
   asset: Asset;
+  allAssets: Asset[];
   isInCart: boolean;
   isPurchased: boolean;
   hasActiveSubscription: boolean;
@@ -849,6 +818,7 @@ interface AssetDetailDrawerContentProps {
 
 function AssetDetailDrawerContent({
   asset,
+  allAssets,
   isInCart,
   isPurchased,
   hasActiveSubscription,
@@ -873,8 +843,8 @@ function AssetDetailDrawerContent({
   ];
 
   // Related assets (same category, excluding current)
-  const relatedAssets = mockAssets
-    .filter(a => a.category === asset.category && a.id !== asset.id)
+  const relatedAssets = allAssets
+    .filter((a) => a.category === asset.category && a.id !== asset.id)
     .slice(0, 3);
 
   return (

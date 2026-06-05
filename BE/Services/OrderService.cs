@@ -172,10 +172,10 @@ public class OrderService(
         }
 
         assets = assets
-            .Where(a => a.PriceType == PriceType.Paid && a.DeletedAt == null && a.Status == AssetStatus.Approved)
+            .Where(a => a.DeletedAt == null && a.Status == AssetStatus.Approved)
             .ToList();
         if (assets.Count == 0)
-            throw new ArgumentException("No paid assets available for checkout.");
+            throw new ArgumentException("No assets available for checkout.");
 
         var ownedIds = new HashSet<Guid>();
         foreach (var asset in assets.ToList())

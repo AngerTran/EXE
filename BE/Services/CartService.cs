@@ -26,9 +26,6 @@ public class CartService(
         var asset = await assetRepository.GetApprovedByIdAsync(request.AssetId, cancellationToken)
             ?? throw new ArgumentException("Asset not found.");
 
-        if (asset.PriceType == PriceType.Free)
-            throw new ArgumentException("Free asset does not need cart checkout.");
-
         var existing = await cartRepository.GetItemByAssetAsync(userId, request.AssetId, cancellationToken);
         if (existing is not null)
         {

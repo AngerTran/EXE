@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router";
 import {
   ArrowLeft,
@@ -11,25 +11,26 @@ import {
   Loader2,
   CheckCircle2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { LICENSE_OPTIONS, type LicenseType, type PriceType } from "../../types/asset";
+import { formatFileSize } from "../../utils/assetStorage";
+import { fetchCategories, fetchTagGroups } from "../../api/lookup";
 import {
-  ASSET_CATEGORIES,
-  LICENSE_OPTIONS,
-  TAG_GROUPS,
-  type AssetCategory,
-  type LicenseType,
-  type PriceType,
-} from "../../types/asset";
-import { submitAsset, formatFileSize } from "../../utils/assetStorage";
+  approveAsset,
+  createAsset,
+  getAssetUploadUrl,
+  registerAssetFile,
+  registerAssetImage,
+  uploadToSignedUrl,
+} from "../../api/assets";
+import type { CategoryItem, TagGroupItem } from "../../api/types/marketplace";
+import { ApiError } from "../../api/client";
 
-const CATEGORY_LABELS: Record<AssetCategory, string> = {
-  "3D Model": "Mô hình 3D",
-  UI: "Giao diện (UI)",
-  Audio: "Âm thanh",
-  Animation: "Hoạt ảnh",
-  Shader: "Shader",
-  VFX: "Hiệu ứng (VFX)",
-  Template: "Mẫu dự án",
+const LICENSE_MAP: Record<LicenseType, string> = {
+  "Standard License": "standard",
+  CC0: "cc0",
+  "Royalty Free": "royaltyFree",
 };
 
 const LICENSE_LABELS: Record<LicenseType, string> = {
@@ -85,7 +86,7 @@ const inputClass =
   "w-full bg-background/60 border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all";
 
 export default function AddAsset() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const thumbnailRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
@@ -98,7 +99,9 @@ export default function AddAsset() {
   const [title, setTitle] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [fullDescription, setFullDescription] = useState("");
-  const [category, setCategory] = useState<AssetCategory>("3D Model");
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [tagGroups, setTagGroups] = useState<TagGroupItem[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [engineSupport, setEngineSupport] = useState({ unity: true, unreal: false, godot: false });
   const [version, setVersion] = useState("1.0.0");
@@ -110,10 +113,23 @@ export default function AddAsset() {
   const [price, setPrice] = useState(0);
   const [license, setLicense] = useState<LicenseType>("Standard License");
 
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailName, setThumbnailName] = useState("");
   const [thumbnailPreview, setThumbnailPreview] = useState("");
+  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
   const [previewNames, setPreviewNames] = useState<string[]>([]);
+  const [zipFile, setZipFile] = useState<File | null>(null);
   const [zipFileName, setZipFileName] = useState("");
+
+  useEffect(() => {
+    Promise.all([fetchCategories(), fetchTagGroups()])
+      .then(([cats, groups]) => {
+        setCategories(cats);
+        setTagGroups(groups);
+        if (cats.length > 0) setCategoryId(cats[0].id);
+      })
+      .catch(() => toast.error("Không tải được danh mục/tags"));
+  }, []);
 
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -126,6 +142,7 @@ export default function AddAsset() {
       setErrors(["Thumbnail phải là PNG, JPG hoặc WEBP"]);
       return;
     }
+    setThumbnailFile(file);
     setThumbnailName(file.name);
     const reader = new FileReader();
     reader.onload = () => setThumbnailPreview(reader.result as string);
@@ -137,6 +154,7 @@ export default function AddAsset() {
     const list = Array.from(files).slice(0, 10);
     const allowed = ["image/png", "image/jpeg", "image/webp"];
     const valid = list.filter((f) => allowed.includes(f.type));
+    setPreviewFiles(valid);
     setPreviewNames(valid.map((f) => f.name));
   };
 
@@ -146,6 +164,7 @@ export default function AddAsset() {
       setErrors(["File asset phải là định dạng .zip"]);
       return;
     }
+    setZipFile(file);
     setZipFileName(file.name);
     setFileSize(formatFileSize(file.size));
   };
@@ -158,9 +177,10 @@ export default function AddAsset() {
     if (tags.length === 0) errs.push("Chọn ít nhất 1 tag");
     if (!engineSupport.unity && !engineSupport.unreal && !engineSupport.godot)
       errs.push("Chọn ít nhất 1 engine hỗ trợ");
-    if (!thumbnailName) errs.push("Tải lên ảnh thumbnail (PNG/JPG/WEBP)");
-    if (previewNames.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
-    if (!zipFileName) errs.push("Tải lên file asset.zip");
+    if (!categoryId) errs.push("Chọn danh mục asset");
+    if (!thumbnailFile) errs.push("Tải lên ảnh thumbnail (PNG/JPG/WEBP)");
+    if (previewFiles.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
+    if (!zipFile) errs.push("Tải lên file asset.zip");
     if (!version.trim()) errs.push("Nhập phiên bản");
     if (priceType === "paid" && price <= 0) errs.push("Nhập giá hợp lệ cho gói trả phí");
     return errs;
@@ -170,38 +190,99 @@ export default function AddAsset() {
     e.preventDefault();
     const errs = validate();
     setErrors(errs);
-    if (errs.length > 0) return;
+    if (errs.length > 0 || !thumbnailFile || !zipFile) return;
 
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const tagIds: string[] = [];
+      for (const group of tagGroups) {
+        for (const t of group.tags) {
+          if (tags.includes(t.name)) tagIds.push(t.id);
+        }
+      }
 
-    const created = submitAsset({
-      title: title.trim(),
-      shortDescription: shortDescription.trim(),
-      fullDescription: fullDescription.trim(),
-      category,
-      tags,
-      engineSupport,
-      version: version.trim(),
-      fileSize: fileSize || "—",
-      polygonCount: polygonCount.trim() || undefined,
-      textureResolution: textureResolution.trim() || undefined,
-      features,
-      priceType,
-      price: priceType === "free" ? 0 : price,
-      license,
-      isFree: priceType === "free",
-      thumbnailName,
-      thumbnailPreview: thumbnailPreview || undefined,
-      previewNames,
-      zipFileName,
-      creatorId: user?.id,
-      creatorName: user?.name,
-    });
+      const priceVnd = priceType === "free" ? 0 : price;
+      const created = await createAsset({
+        title: title.trim(),
+        shortDescription: shortDescription.trim(),
+        fullDescription: fullDescription.trim(),
+        categoryId,
+        tagIds,
+        priceType,
+        priceVnd,
+        priceXu: priceType === "free" ? 0 : Math.max(1, Math.round(price / 1000)),
+        license: LICENSE_MAP[license],
+        engineUnity: engineSupport.unity,
+        engineUnreal: engineSupport.unreal,
+        engineGodot: engineSupport.godot,
+        featureRigged: features.rigged,
+        featureAnimated: features.animated,
+        featurePbr: features.pbr,
+        featureVrReady: features.vrReady,
+        version: version.trim(),
+        fileSizeBytes: zipFile.size,
+        polygonCount: polygonCount.trim() || undefined,
+        textureResolution: textureResolution.trim() || undefined,
+      });
 
-    setSubmitting(false);
-    setSubmittedStatus(created.status === "approved" ? "approved" : "pending_review");
-    setSubmitted(true);
+      const assetId = created.id;
+
+      const thumbMeta = await getAssetUploadUrl(
+        assetId,
+        "Image",
+        thumbnailFile.name,
+        thumbnailFile.type,
+        thumbnailFile.size
+      );
+      await uploadToSignedUrl(thumbMeta.uploadUrl, thumbnailFile, thumbnailFile.type);
+      await registerAssetImage(assetId, {
+        storagePath: thumbMeta.storagePath,
+        altText: title.trim(),
+        sortOrder: 0,
+        isThumbnail: true,
+      });
+
+      for (let i = 0; i < previewFiles.length; i++) {
+        const file = previewFiles[i];
+        const meta = await getAssetUploadUrl(assetId, "Image", file.name, file.type, file.size);
+        await uploadToSignedUrl(meta.uploadUrl, file, file.type);
+        await registerAssetImage(assetId, {
+          storagePath: meta.storagePath,
+          altText: `${title} preview ${i + 1}`,
+          sortOrder: i + 1,
+          isThumbnail: false,
+        });
+      }
+
+      const zipMeta = await getAssetUploadUrl(
+        assetId,
+        "File",
+        zipFile.name,
+        "application/zip",
+        zipFile.size
+      );
+      await uploadToSignedUrl(zipMeta.uploadUrl, zipFile, "application/zip");
+      await registerAssetFile(assetId, {
+        storagePath: zipMeta.storagePath,
+        fileName: zipFile.name,
+        fileType: "zip",
+        fileSizeBytes: zipFile.size,
+        isPrimary: true,
+      });
+
+      let finalStatus = created.status;
+      if (isAdmin()) {
+        const approved = await approveAsset(assetId);
+        finalStatus = approved.status;
+      }
+
+      setSubmittedStatus(finalStatus === "approved" ? "approved" : "pending_review");
+      setSubmitted(true);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Gửi asset thất bại");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -322,20 +403,20 @@ export default function AddAsset() {
                 <FieldLabel htmlFor="category">Danh mục</FieldLabel>
                 <select
                   id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as AssetCategory)}
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
                   className={inputClass}
                 >
-                  {ASSET_CATEGORIES.map((c) => (
-                    <option key={c} value={c} className="bg-card">
-                      {CATEGORY_LABELS[c]}
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id} className="bg-card">
+                      {c.name}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <FieldLabel hint="Nhấn để chọn/bỏ chọn — danh sách cố định (demo, chưa kết nối API)">
+                <FieldLabel hint="Nhấn để chọn/bỏ chọn tag từ BE">
                   Tags
                 </FieldLabel>
 
@@ -346,19 +427,19 @@ export default function AddAsset() {
                 )}
 
                 <div className="space-y-4 rounded-xl border border-border bg-background/40 p-4 max-h-[420px] overflow-y-auto">
-                  {TAG_GROUPS.map((group) => (
-                    <div key={group.label}>
+                  {tagGroups.map((group) => (
+                    <div key={group.id}>
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                         {group.label}
                       </p>
                       <div className="flex flex-wrap gap-2">
                         {group.tags.map((tag) => {
-                          const selected = tags.includes(tag);
+                          const selected = tags.includes(tag.name);
                           return (
                             <button
-                              key={tag}
+                              key={tag.id}
                               type="button"
-                              onClick={() => toggleTag(tag)}
+                              onClick={() => toggleTag(tag.name)}
                               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-all ${
                                 selected
                                   ? "bg-primary/20 text-primary border-primary/50 shadow-[0_0_12px_rgba(0,217,255,0.15)]"
@@ -366,7 +447,7 @@ export default function AddAsset() {
                               }`}
                             >
                               {selected && <Check className="w-3 h-3" />}
-                              {tag}
+                              {tag.name}
                             </button>
                           );
                         })}

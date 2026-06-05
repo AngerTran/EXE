@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Exe.Configuration;
 using Exe.Data;
 using Exe.Extensions;
@@ -63,6 +64,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase));
     });
 
 builder.Services.AddSwaggerDocumentation();

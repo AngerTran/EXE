@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Mail, MessageSquare, Calendar, Send, CheckCircle } from "lucide-react";
+import { Mail, MessageSquare, Calendar, Send, CheckCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { ApiError } from "../../api/client";
+import { submitContact } from "../../api/contact";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -11,25 +14,37 @@ export default function Contact() {
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate form submission
-    console.log("Form submitted:", formData);
-    setSubmitted(true);
-    
-    // Reset after 3 seconds
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        gameIdea: "",
-        consultType: "basic",
-        message: "",
+    setSubmitting(true);
+    try {
+      await submitContact({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        gameIdea: formData.gameIdea.trim() || undefined,
+        consultType: formData.consultType,
+        message: formData.message.trim(),
       });
-    }, 3000);
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({
+          name: "",
+          email: "",
+          phone: "",
+          gameIdea: "",
+          consultType: "basic",
+          message: "",
+        });
+      }, 3000);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Gửi yêu cầu thất bại");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -206,10 +221,15 @@ export default function Contact() {
 
                 <button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-4 rounded-xl font-bold transition-all hover:scale-105 flex items-center justify-center gap-2"
+                  disabled={submitting}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-60 text-white py-4 rounded-xl font-bold transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
-                  <Send className="w-5 h-5" />
-                  Gửi Yêu Cầu
+                  {submitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                  {submitting ? "Đang gửi..." : "Gửi Yêu Cầu"}
                 </button>
 
                 <p className="text-sm text-gray-400 text-center">

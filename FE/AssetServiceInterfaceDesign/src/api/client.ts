@@ -81,8 +81,14 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const err = data as ApiErrorBody | null;
+    const validation = data as { errors?: Record<string, string[]>; title?: string } | null;
+    const validationMessage = validation?.errors
+      ? Object.entries(validation.errors)
+          .flatMap(([field, messages]) => messages.map((m) => `${field}: ${m}`))
+          .join("; ")
+      : undefined;
     throw new ApiError(
-      err?.message ?? response.statusText ?? "Request failed",
+      err?.message ?? validationMessage ?? validation?.title ?? response.statusText ?? "Request failed",
       response.status,
       err?.code
     );

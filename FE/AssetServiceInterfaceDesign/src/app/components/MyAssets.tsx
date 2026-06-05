@@ -14,12 +14,16 @@ import {
   Video,
   Folder,
   CheckCircle,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
+import { fetchUserAssets, downloadUserAsset } from "../../api/userAssets";
+import { mapUserAssetToUi } from "../../api/mappers";
+import { ApiError } from "../../api/client";
 
 interface PurchasedAsset {
   id: string;
@@ -44,13 +48,27 @@ export default function MyAssets() {
   >({});
   const downloadIntervalsRef = useRef<Record<string, number>>({});
 
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    if (user) {
-      const saved = localStorage.getItem(`purchased_assets_${user.id}`);
-      if (saved) {
-        setPurchasedAssets(JSON.parse(saved));
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const items = await fetchUserAssets();
+        if (!cancelled) setPurchasedAssets(items.map(mapUserAssetToUi));
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof ApiError ? error.message : "Không tải được thư viện");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   useEffect(() => {
@@ -90,51 +108,41 @@ export default function MyAssets() {
   const pageSize = 12;
   const { paged: pagedAssets, totalPages } = getPageSlice(filteredAssets, page, pageSize);
 
-  const handleDownload = (asset: PurchasedAsset) => {
+  const handleDownload = async (asset: PurchasedAsset) => {
     if (downloadIntervalsRef.current[asset.id]) return;
 
-    // Update download count
-    const updatedAssets = purchasedAssets.map((a) =>
-      a.id === asset.id ? { ...a, downloadCount: a.downloadCount + 1 } : a
-    );
-    setPurchasedAssets(updatedAssets);
-    if (user) {
-      localStorage.setItem(
-        `purchased_assets_${user.id}`,
-        JSON.stringify(updatedAssets)
-      );
-    }
-
     setDownloadProgressById((prev) => ({ ...prev, [asset.id]: 0 }));
-    toast.message(`Đang tải "${asset.title}"...`, {
-      description: `${asset.fileType} • ${asset.fileSize}`,
-    });
+    toast.message(`Đang tải "${asset.title}"...`);
 
-    const intervalId = window.setInterval(() => {
-      setDownloadProgressById((prev) => {
-        const current = prev[asset.id] ?? 0;
-        const next = Math.min(100, current + 10);
+    try {
+      const detail = await downloadUserAsset(asset.id);
+      setPurchasedAssets((prev) =>
+        prev.map((a) =>
+          a.id === asset.id ? { ...a, downloadCount: a.downloadCount + 1 } : a
+        )
+      );
+      setDownloadProgressById((prev) => ({ ...prev, [asset.id]: 100 }));
 
-        if (next >= 100) {
-          window.clearInterval(downloadIntervalsRef.current[asset.id]);
-          delete downloadIntervalsRef.current[asset.id];
+      if (detail.downloadUrl) {
+        window.open(detail.downloadUrl, "_blank", "noopener,noreferrer");
+        toast.success(`Đã mở link tải "${asset.title}"`);
+      } else {
+        toast.success(`Đã ghi nhận tải "${asset.title}"`);
+      }
 
-          window.setTimeout(() => {
-            toast.success(`Đã tải "${asset.title}" thành công`, {
-              description: "Trong ứng dụng thực tế, file sẽ được tải về máy của bạn.",
-            });
-            setDownloadProgressById((after) => {
-              const { [asset.id]: _removed, ...rest } = after;
-              return rest;
-            });
-          }, 400);
-        }
-
-        return { ...prev, [asset.id]: next };
+      window.setTimeout(() => {
+        setDownloadProgressById((after) => {
+          const { [asset.id]: _removed, ...rest } = after;
+          return rest;
+        });
+      }, 400);
+    } catch (error) {
+      setDownloadProgressById((after) => {
+        const { [asset.id]: _removed, ...rest } = after;
+        return rest;
       });
-    }, 200);
-
-    downloadIntervalsRef.current[asset.id] = intervalId;
+      toast.error(error instanceof ApiError ? error.message : "Tải xuống thất bại");
+    }
   };
 
   const totalSpent = purchasedAssets.reduce((sum, asset) => sum + asset.price, 0);

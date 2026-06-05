@@ -11,66 +11,24 @@ import {
   Sparkles,
   Clock,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
-
-interface Package {
-  id: string;
-  name: string;
-  price: number;
-  credits: number;
-  features: string[];
-}
-
-const packages: Record<string, Package> = {
-  student: {
-    id: "student",
-    name: "Gói STUDENT",
-    price: 29000,
-    credits: 100,
-    features: [
-      "100 lượt hỏi AI/tháng",
-      "Full Asset Unity/Godot",
-      "Gợi ý assets chi tiết",
-      "Hỗ trợ ưu tiên",
-      "Tài liệu hướng dẫn tiếng Việt",
-    ],
-  },
-  indie: {
-    id: "indie",
-    name: "Gói INDIE",
-    price: 99000,
-    credits: -1, // unlimited
-    features: [
-      "Không giới hạn lượt hỏi AI",
-      "Gợi ý assets tùy chỉnh",
-      "Full library assets",
-      "Review assets miễn phí",
-      "Hỗ trợ 24/7",
-    ],
-  },
-  pro: {
-    id: "pro",
-    name: "Gói PRO",
-    price: 199000,
-    credits: -1, // unlimited
-    features: [
-      "Không giới hạn lượt hỏi AI",
-      "Hỗ trợ Team (nhiều thành viên)",
-      "Source code mẫu chất lượng cao",
-      "Review dự án game",
-      "Priority support 24/7",
-      "Asset packs độc quyền",
-    ],
-  },
-};
+import { toast } from "sonner";
+import { ApiError } from "../../api/client";
+import { fetchSubscriptionPlanBySlug } from "../../api/subscriptionPlans";
+import { createSubscriptionOrder } from "../../api/orders";
+import type { SubscriptionPlan } from "../../api/types/billing";
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
-  const packageId = searchParams.get("package") || "student";
-  const selectedPackage = packages[packageId] || packages.student;
+  const packageSlug = searchParams.get("package") || "student";
 
-  const { user, updateCredits, updateSubscription } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
+
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [orderCode, setOrderCode] = useState<string | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<"momo" | "bank" | "card">("momo");
   const [formData, setFormData] = useState({
@@ -91,6 +49,27 @@ export default function Checkout() {
       navigate("/auth");
     }
   }, [user, navigate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPlanLoading(true);
+      try {
+        const plan = await fetchSubscriptionPlanBySlug(packageSlug);
+        if (!cancelled) setSelectedPlan(plan);
+      } catch {
+        if (!cancelled) {
+          toast.error("Không tải được thông tin gói");
+          navigate("/pricing");
+        }
+      } finally {
+        if (!cancelled) setPlanLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [packageSlug, navigate]);
 
   const normalizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 11);
   const isValidPhone = (digits: string) =>
@@ -114,86 +93,41 @@ export default function Checkout() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPhoneTouched(true);
-    if (!phoneOk) return;
+    if (!phoneOk || !selectedPlan) return;
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      const order = await createSubscriptionOrder(selectedPlan.id, paymentMethod);
+      setOrderCode(order.orderCode);
+
+      if (order.paymentRedirectUrl) {
+        window.location.href = order.paymentRedirectUrl;
+        return;
+      }
+
+      await refreshUserData();
       setIsProcessing(false);
       setShowSuccess(true);
 
-      // Update user data based on package type
-      if (user) {
-        // Calculate subscription expiry (30 days from now)
-        const expiry = new Date();
-        expiry.setDate(expiry.getDate() + 30);
-        const expiryString = expiry.toISOString();
-
-        // Update subscription
-        updateSubscription(packageId as any, expiryString);
-
-        // For unlimited packages (indie, pro), set a high number
-        if (selectedPackage.credits === -1) {
-          const newCredits = user.credits + 999999; // Effectively unlimited
-          updateCredits(newCredits);
-        } else {
-          // For other packages: Add credits
-          const newCredits = user.credits + selectedPackage.credits;
-          updateCredits(newCredits);
-        }
-
-        // Update total spent
-        const usersData = localStorage.getItem("users");
-        if (usersData) {
-          const users = JSON.parse(usersData);
-          if (users[user.email]) {
-            users[user.email].totalSpent = (users[user.email].totalSpent || 0) + selectedPackage.price;
-            localStorage.setItem("users", JSON.stringify(users));
-          }
-        }
-
-        // Record order
-        const ordersData = localStorage.getItem("admin_orders");
-        const orders = ordersData ? JSON.parse(ordersData) : [];
-        orders.push({
-          id: `ORD-${Date.now()}`,
-          userId: user.id,
-          userName: user.name,
-          items: [selectedPackage.name],
-          total: selectedPackage.price,
-          status: "completed",
-          date: new Date().toISOString().split('T')[0],
-        });
-        localStorage.setItem("admin_orders", JSON.stringify(orders));
-
-        // Update package sales count in admin_packages
-        const packagesData = localStorage.getItem("admin_packages");
-        if (packagesData) {
-          const adminPackages = JSON.parse(packagesData);
-          // Match by packageId (student, indie, pro) with package name (STUDENT, INDIE, PRO)
-          const packageToUpdate = adminPackages.find((p: any) => 
-            p.name.toUpperCase() === packageId.toUpperCase()
-          );
-          if (packageToUpdate) {
-            packageToUpdate.sales = (packageToUpdate.sales || 0) + 1;
-            packageToUpdate.revenue = (packageToUpdate.revenue || 0) + selectedPackage.price;
-            localStorage.setItem("admin_packages", JSON.stringify(adminPackages));
-            
-            // Dispatch custom event to notify admin dashboard
-            window.dispatchEvent(new CustomEvent('packageUpdated'));
-          }
-        }
-      }
-
-      // Redirect after 3 seconds
       setTimeout(() => {
         navigate("/dashboard");
       }, 3000);
-    }, 2000);
+    } catch (error) {
+      setIsProcessing(false);
+      toast.error(error instanceof ApiError ? error.message : "Thanh toán thất bại");
+    }
   };
 
   if (!user) {
     return null;
+  }
+
+  if (planLoading || !selectedPlan) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
   }
 
   if (showSuccess) {
@@ -207,11 +141,14 @@ export default function Checkout() {
             <h2 className="text-3xl font-bold text-foreground mb-4">
               Thanh toán thành công
             </h2>
+            {orderCode && (
+              <p className="text-sm text-muted-foreground mb-2 font-mono">Mã đơn: {orderCode}</p>
+            )}
             <p className="text-muted-foreground mb-2">
               Bạn đã mua{" "}
-              <span className="font-bold text-primary">{selectedPackage.name}</span>
+              <span className="font-bold text-primary">{selectedPlan.name}</span>
             </p>
-            {selectedPackage.credits === -1 ? (
+            {selectedPlan.isUnlimited ? (
               <p className="text-muted-foreground mb-6">
                 <span className="text-2xl font-bold text-success">Không giới hạn ∞</span>{" "}
                 lượt hỏi AI
@@ -221,9 +158,9 @@ export default function Checkout() {
             ) : (
               <p className="text-muted-foreground mb-6">
                 <span className="text-2xl font-bold text-foreground font-mono">
-                  +{selectedPackage.credits}
+                  +{selectedPlan.creditsMonthly ?? 0}
                 </span>{" "}
-                lượt đã được thêm vào tài khoản
+                xu đã được thêm vào tài khoản
               </p>
             )}
 
@@ -467,7 +404,7 @@ export default function Checkout() {
                       Chủ TK: <span className="font-bold">CONG TY GAMEASSETS AI</span>
                     </p>
                     <p className="text-muted-foreground text-sm">
-                      Nội dung: <span className="font-bold">{user.email} {packageId}</span>
+                      Nội dung: <span className="font-bold">{user.email} {packageSlug}</span>
                     </p>
                   </div>
                 )}
@@ -498,7 +435,7 @@ export default function Checkout() {
                   ) : (
                     <span className="flex items-center justify-center gap-2">
                       <Lock className="w-5 h-5" />
-                      Thanh toán {selectedPackage.price.toLocaleString("vi-VN")} xu
+                      Thanh toán {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
                     </span>
                   )}
                 </button>
@@ -517,18 +454,18 @@ export default function Checkout() {
                 <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Sparkles className="w-5 h-5 text-primary-foreground" />
-                    <p className="font-bold text-primary-foreground">{selectedPackage.name}</p>
+                    <p className="font-bold text-primary-foreground">{selectedPlan.name}</p>
                   </div>
                   <p className="text-3xl font-bold text-primary-foreground mb-1 font-mono">
-                    {selectedPackage.price.toLocaleString("vi-VN")} xu
+                    {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
                   </p>
-                  {selectedPackage.credits === -1 ? (
+                  {selectedPlan.isUnlimited ? (
                     <p className="text-primary-foreground/90 text-sm font-semibold">
                       Không giới hạn ∞ lượt hỏi AI
                     </p>
                   ) : (
                     <p className="text-primary-foreground/90 text-sm">
-                      +{selectedPackage.credits} lượt hỏi AI
+                      +{selectedPlan.creditsMonthly ?? 0} xu/tháng
                     </p>
                   )}
                 </div>
@@ -537,7 +474,7 @@ export default function Checkout() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Tính năng bao gồm:
                   </p>
-                  {selectedPackage.features.map((feature, index) => (
+                  {selectedPlan.features.map((feature, index) => (
                     <div key={index} className="flex items-start gap-2">
                       <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
                       <p className="text-sm text-foreground">{feature}</p>
@@ -548,15 +485,15 @@ export default function Checkout() {
                 <div className="border-t border-border pt-4 space-y-2">
                   <div className="flex justify-between text-muted-foreground">
                     <span>Tạm tính</span>
-                    <span className="font-mono">{selectedPackage.price.toLocaleString("vi-VN")} xu</span>
+                    <span className="font-mono">{selectedPlan.priceVnd.toLocaleString("vi-VN")}đ</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>VAT (0%)</span>
-                    <span className="font-mono">0 xu</span>
+                    <span className="font-mono">0đ</span>
                   </div>
                   <div className="flex justify-between text-xl font-bold text-foreground pt-2 border-t border-border">
                     <span>Tổng cộng</span>
-                    <span className="font-mono">{selectedPackage.price.toLocaleString("vi-VN")} xu</span>
+                    <span className="font-mono">{selectedPlan.priceVnd.toLocaleString("vi-VN")}đ</span>
                   </div>
                 </div>
 
