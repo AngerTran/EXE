@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Sparkles, Zap, Brain, Palette, Code, ArrowRight, CheckCircle, Star, Boxes, ShoppingBag } from "lucide-react";
+import { Sparkles, Zap, Brain, Palette, Code, ArrowRight, CheckCircle, Star, Boxes, ShoppingBag, Loader2 } from "lucide-react";
+import { fetchAssets } from "../../api/assets";
+import { mapAssetListItem } from "../../api/mappers";
+import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 const PIXEL_HERO = [
   "transparent", "transparent", "#fbbf24", "#fbbf24", "transparent",
@@ -19,7 +23,7 @@ const TILESET_COLORS = [
 
 const WAVEFORM_HEIGHTS = [35, 55, 40, 70, 50, 85, 45, 60, 75, 35];
 
-const suggestedAssets = [
+const suggestedAssetsFallback = [
   {
     title: "Pixel Hero Sheet",
     category: "2D",
@@ -48,6 +52,49 @@ const suggestedAssets = [
     previewBg: "from-warning/15 via-background/40 to-warning/5",
   },
 ] as const;
+
+const cardStyles = [
+  {
+    badgeClass: "bg-primary/20 text-primary border-primary/30",
+    hoverBorder: "hover:border-primary/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(0,217,255,0.15)]",
+    previewBg: "from-primary/15 via-background/40 to-primary/5",
+  },
+  {
+    badgeClass: "bg-secondary/20 text-secondary border-secondary/30",
+    hoverBorder: "hover:border-secondary/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]",
+    previewBg: "from-secondary/15 via-background/40 to-secondary/5",
+  },
+  {
+    badgeClass: "bg-warning/20 text-warning border-warning/30",
+    hoverBorder: "hover:border-warning/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]",
+    previewBg: "from-warning/15 via-background/40 to-warning/5",
+  },
+] as const;
+
+type SuggestedAsset = {
+  id?: string;
+  title: string;
+  category: string;
+  match: number;
+  thumbnailUrl?: string | null;
+  badgeClass: string;
+  hoverBorder: string;
+  hoverGlow: string;
+  previewBg: string;
+};
+
+function formatStatValue(count: number): string {
+  if (count >= 1000) return `${(count / 1000).toFixed(1).replace(/\.0$/, "")}k+`;
+  if (count > 0) return `${count}+`;
+  return "—";
+}
+
+function ratingToMatch(rating: number): number {
+  return Math.min(99, Math.max(70, Math.round((rating / 5) * 100)));
+}
 
 function PixelSpritePreview() {
   return (
@@ -103,6 +150,55 @@ function WaveformPreview() {
 const assetPreviews = [PixelSpritePreview, TilesetPreview, WaveformPreview];
 
 export default function Home() {
+  const [suggestedAssets, setSuggestedAssets] = useState<SuggestedAsset[]>(
+    suggestedAssetsFallback.map((a, i) => ({ ...a, ...cardStyles[i] }))
+  );
+  const [assetCount, setAssetCount] = useState<number | null>(null);
+  const [assetsLoading, setAssetsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchAssets({
+          sort: "downloadCount",
+          order: "desc",
+          pageSize: 3,
+          page: 1,
+        });
+        if (cancelled) return;
+
+        setAssetCount(res.total);
+
+        if (res.data.length > 0) {
+          setSuggestedAssets(
+            res.data.map((item, index) => {
+              const mapped = mapAssetListItem(item);
+              const style = cardStyles[index % cardStyles.length];
+              return {
+                id: mapped.id,
+                title: mapped.title,
+                category: mapped.category,
+                match: ratingToMatch(mapped.rating),
+                thumbnailUrl: mapped.thumbnailUrl,
+                ...style,
+              };
+            })
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setSuggestedAssets(suggestedAssetsFallback.map((a, i) => ({ ...a, ...cardStyles[i] })));
+        }
+      } finally {
+        if (!cancelled) setAssetsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const features = [
     {
       icon: <Brain className="w-6 h-6" />,
@@ -150,10 +246,10 @@ export default function Home() {
   ];
 
   const stats = [
-    { value: "1000+", label: "Assets" },
+    { value: assetCount != null ? formatStatValue(assetCount) : "1000+", label: "Assets" },
     { value: "500+", label: "Người dùng" },
     { value: "98%", label: "Hài lòng" },
-    { value: "24/7", label: "AI Support" }
+    { value: "24/7", label: "AI Support" },
   ];
 
   return (
@@ -256,20 +352,32 @@ export default function Home() {
                     <div className="flex items-center gap-2 mb-2.5">
                       <ShoppingBag className="w-4 h-4 text-primary" />
                       <span className="text-xs font-medium text-foreground">Assets gợi ý</span>
-                      <span className="ml-auto text-[10px] font-mono text-muted-foreground">3 kết quả</span>
+                      <span className="ml-auto text-[10px] font-mono text-muted-foreground flex items-center gap-1">
+                        {assetsLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {suggestedAssets.length} kết quả
+                      </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2.5">
                       {suggestedAssets.map((asset, index) => {
                         const Preview = assetPreviews[index];
+                        const linkTo = asset.id ? `/marketplace?details=${asset.id}` : "/marketplace";
                         return (
                           <Link
-                            key={asset.title}
-                            to="/marketplace"
+                            key={asset.id ?? asset.title}
+                            to={linkTo}
                             className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-background/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
                           >
                             <div className={`absolute inset-0 bg-gradient-to-br ${asset.previewBg}`} />
                             <div className="relative h-[calc(100%-2.25rem)]">
-                              <Preview />
+                              {asset.thumbnailUrl ? (
+                                <ImageWithFallback
+                                  src={asset.thumbnailUrl}
+                                  alt={asset.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Preview />
+                              )}
                             </div>
                             <span
                               className={`absolute top-1.5 left-1.5 z-10 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${asset.badgeClass}`}

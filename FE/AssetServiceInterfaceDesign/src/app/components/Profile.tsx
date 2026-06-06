@@ -1,13 +1,61 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Coins, Save, Shield, ShoppingCart, Upload, User } from "lucide-react";
+import {
+  Coins,
+  CreditCard,
+  History,
+  Loader2,
+  Save,
+  Shield,
+  ShoppingCart,
+  Upload,
+  User,
+  XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router";
 import { ApiError } from "../../api/client";
+import {
+  cancelSubscription,
+  fetchMySubscription,
+  fetchSubscriptionHistory,
+} from "../../api/subscriptions";
+import { fetchMyWalletTransactions } from "../../api/wallets";
+import type { SubscriptionHistoryItem, SubscriptionMe, WalletTransaction } from "../../api/types/billing";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
+import { ClientPagination } from "./ui/ClientPagination";
 
 function formatSubscription(sub: string | null | undefined) {
   if (!sub || sub === "free") return "FREE";
   return sub.toUpperCase();
+}
+
+function subscriptionStatusLabel(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === "active") return { label: "Đang hoạt động", className: "bg-success/20 text-success" };
+  if (normalized === "cancelled" || normalized === "canceled") {
+    return { label: "Đã hủy", className: "bg-destructive/20 text-destructive" };
+  }
+  if (normalized === "expired") return { label: "Hết hạn", className: "bg-muted text-muted-foreground" };
+  return { label: status, className: "bg-warning/20 text-warning" };
+}
+
+function walletTxLabel(type: string) {
+  switch (type) {
+    case "AssetPurchase":
+      return "Mua asset";
+    case "AiUsage":
+      return "Dùng AI";
+    case "Bonus":
+      return "Thưởng";
+    case "Purchase":
+      return "Nạp xu";
+    case "Refund":
+      return "Hoàn xu";
+    case "SubscriptionGrant":
+      return "Gói đăng ký";
+    default:
+      return type;
+  }
 }
 
 export default function Profile() {
@@ -17,14 +65,76 @@ export default function Profile() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [subscription, setSubscription] = useState<SubscriptionMe | null>(null);
+  const [subHistory, setSubHistory] = useState<SubscriptionHistoryItem[]>([]);
+  const [subLoading, setSubLoading] = useState(true);
+  const [cancellingSub, setCancellingSub] = useState(false);
+
+  const [walletTx, setWalletTx] = useState<WalletTransaction[]>([]);
+  const [walletPage, setWalletPage] = useState(1);
+  const [walletTotalPages, setWalletTotalPages] = useState(1);
+  const [walletLoading, setWalletLoading] = useState(true);
+
   useEffect(() => {
     setName(user?.name ?? "");
   }, [user?.name]);
 
-  const subscriptionLabel = useMemo(
-    () => formatSubscription(user?.subscription ?? "free"),
-    [user?.subscription]
-  );
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setSubLoading(true);
+      try {
+        const [sub, history] = await Promise.all([
+          fetchMySubscription().catch(() => null),
+          fetchSubscriptionHistory().catch(() => []),
+        ]);
+        if (!cancelled) {
+          setSubscription(sub);
+          setSubHistory(history);
+        }
+      } finally {
+        if (!cancelled) setSubLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      setWalletLoading(true);
+      try {
+        const res = await fetchMyWalletTransactions(walletPage, 10);
+        if (!cancelled) {
+          setWalletTx(res.data);
+          setWalletTotalPages(Math.max(1, Math.ceil(res.total / res.pageSize)));
+        }
+      } catch {
+        if (!cancelled) setWalletTx([]);
+      } finally {
+        if (!cancelled) setWalletLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, walletPage]);
+
+  const subscriptionLabel = useMemo(() => {
+    if (subscription?.planName) return subscription.planName.toUpperCase();
+    if (subscription?.planSlug) return formatSubscription(subscription.planSlug);
+    return formatSubscription(user?.subscription ?? "free");
+  }, [subscription, user?.subscription]);
+
+  const subscriptionExpiry = subscription?.expiredAt ?? user?.subscriptionExpiry;
+  const canCancelSub =
+    subscription?.status?.toLowerCase() === "active" &&
+    subscription.planSlug &&
+    subscription.planSlug !== "free";
 
   const avatarSrc = getUserAvatarSrc(user);
 
@@ -100,6 +210,30 @@ export default function Profile() {
       setSaving(false);
     }
   };
+
+  const handleCancelSubscription = async () => {
+    if (!canCancelSub) return;
+    if (!window.confirm("Bạn có chắc muốn hủy gói đăng ký hiện tại?")) return;
+
+    setCancellingSub(true);
+    try {
+      await cancelSubscription();
+      await refreshUserData();
+      const [sub, history] = await Promise.all([
+        fetchMySubscription().catch(() => null),
+        fetchSubscriptionHistory().catch(() => []),
+      ]);
+      setSubscription(sub);
+      setSubHistory(history);
+      toast.success("Đã hủy gói đăng ký");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không hủy được gói");
+    } finally {
+      setCancellingSub(false);
+    }
+  };
+
+  const subStatus = subscription ? subscriptionStatusLabel(subscription.status) : null;
 
   return (
     <div className="min-h-[calc(100vh-200px)] py-8">
@@ -226,13 +360,16 @@ export default function Profile() {
 
             <div className="bg-card border border-border rounded-xl p-4">
               <p className="text-sm text-muted-foreground mb-1">Gói hiện tại</p>
-              <p className="text-2xl font-bold text-primary font-mono">
-                {subscriptionLabel}
-              </p>
-              {user.subscriptionExpiry && (
+              <p className="text-2xl font-bold text-primary font-mono">{subscriptionLabel}</p>
+              {subscriptionExpiry && (
                 <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  Hết hạn: {new Date(user.subscriptionExpiry).toLocaleDateString("vi-VN")}
+                  Hết hạn: {new Date(subscriptionExpiry).toLocaleDateString("vi-VN")}
                 </p>
+              )}
+              {subStatus && (
+                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${subStatus.className}`}>
+                  {subStatus.label}
+                </span>
               )}
             </div>
 
@@ -246,6 +383,171 @@ export default function Profile() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-primary" />
+                Gói đăng ký
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Chi tiết gói hiện tại và lịch sử đăng ký từ hệ thống.
+              </p>
+            </div>
+            {canCancelSub && (
+              <button
+                type="button"
+                onClick={handleCancelSubscription}
+                disabled={cancellingSub}
+                className="bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <XCircle className="w-4 h-4" />
+                {cancellingSub ? "Đang hủy..." : "Hủy gói"}
+              </button>
+            )}
+          </div>
+
+          {subLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {subscription ? (
+                <div className="bg-card border border-border rounded-xl p-4 grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tên gói</p>
+                    <p className="font-bold text-foreground">{subscription.planName ?? subscription.planSlug ?? "Free"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Trạng thái</p>
+                    <p className="font-bold text-foreground capitalize">{subscription.status}</p>
+                  </div>
+                  {subscription.startedAt && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bắt đầu</p>
+                      <p className="font-mono text-foreground">
+                        {new Date(subscription.startedAt).toLocaleDateString("vi-VN")}
+                      </p>
+                    </div>
+                  )}
+                  {subscription.creditsMonthly != null && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Xu/tháng</p>
+                      <p className="font-mono text-foreground">
+                        {subscription.isUnlimited ? "Không giới hạn" : subscription.creditsMonthly}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">Bạn đang dùng gói miễn phí.</p>
+              )}
+
+              {subHistory.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                    <History className="w-4 h-4" />
+                    Lịch sử gói
+                  </p>
+                  <div className="space-y-2">
+                    {subHistory.map((item) => {
+                      const st = subscriptionStatusLabel(item.status);
+                      return (
+                        <div
+                          key={item.id}
+                          className="bg-card border border-border/60 rounded-xl p-4 flex items-start justify-between gap-4 flex-wrap"
+                        >
+                          <div>
+                            <p className="font-bold text-foreground">{item.planName}</p>
+                            <p className="text-xs text-muted-foreground font-mono mt-1">
+                              {new Date(item.startedAt).toLocaleDateString("vi-VN")}
+                              {item.expiredAt
+                                ? ` → ${new Date(item.expiredAt).toLocaleDateString("vi-VN")}`
+                                : ""}
+                            </p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${st.className}`}>
+                            {st.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {!subscription && subHistory.length === 0 && (
+                <Link
+                  to="/pricing"
+                  className="inline-flex items-center gap-2 text-primary hover:underline text-sm font-medium"
+                >
+                  Xem các gói dịch vụ
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mb-2">
+            <Coins className="w-5 h-5 text-warning" />
+            Lịch sử xu
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Các giao dịch cộng/trừ xu trên ví của bạn.
+          </p>
+
+          {walletLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+          ) : walletTx.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">
+              Chưa có giao dịch xu nào.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {walletTx.map((tx) => {
+                const isCredit = tx.amount > 0;
+                return (
+                  <div
+                    key={tx.id}
+                    className="bg-card border border-border/60 rounded-xl p-4 flex items-start justify-between gap-4 flex-wrap"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-foreground">{walletTxLabel(tx.type)}</p>
+                      {tx.description && (
+                        <p className="text-sm text-muted-foreground mt-1 truncate">{tx.description}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground font-mono mt-1">
+                        {new Date(tx.createdAt).toLocaleString("vi-VN")}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p
+                        className={`text-lg font-bold font-mono ${
+                          isCredit ? "text-success" : "text-destructive"
+                        }`}
+                      >
+                        {isCredit ? "+" : ""}
+                        {tx.amount} xu
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono mt-1">
+                        Số dư: {tx.balanceAfter}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {walletTotalPages > 1 && (
+                <ClientPagination page={walletPage} totalPages={walletTotalPages} onPageChange={setWalletPage} />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

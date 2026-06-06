@@ -4,8 +4,10 @@ import type {
   AdminAnalyticsOrders,
   AdminAnalyticsRevenue,
   AdminAnalyticsUsers,
+  AdminAuditLog,
   AdminOverview,
   AdminUser,
+  ContactInquiry,
 } from "./types/admin";
 import type { SubscriptionPlan } from "./types/billing";
 import type { AssetListItem } from "./types/marketplace";
@@ -178,4 +180,36 @@ export async function fetchAdminAnalyticsAssets(): Promise<AdminAnalyticsAssets>
 
 export async function fetchAdminAnalyticsOrders(): Promise<AdminAnalyticsOrders> {
   return apiRequest<AdminAnalyticsOrders>("/admin/analytics/orders");
+}
+
+export async function fetchAdminContactInquiries(
+  page = 1,
+  pageSize = 20,
+  status?: string
+): Promise<PagedResponse<ContactInquiry>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (status) params.set("status", status);
+  return apiRequest<PagedResponse<ContactInquiry>>(`/admin/contact-inquiries?${params}`);
+}
+
+export async function updateAdminContactInquiry(
+  id: string,
+  status: string
+): Promise<ContactInquiry> {
+  return apiRequest<ContactInquiry>(`/admin/contact-inquiries/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function fetchAdminAuditLogs(
+  page = 1,
+  pageSize = 30,
+  userId?: string,
+  action?: string
+): Promise<PagedResponse<AdminAuditLog>> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (userId) params.set("userId", userId);
+  if (action) params.set("action", action);
+  return apiRequest<PagedResponse<AdminAuditLog>>(`/admin/audit-logs?${params}`);
 }

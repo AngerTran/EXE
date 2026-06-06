@@ -26,6 +26,8 @@ import {
   Star,
   Upload,
   ImageIcon,
+  Mail,
+  ScrollText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -48,7 +50,23 @@ import {
   deleteAdminUser,
   updateAdminAsset,
   deleteAdminAsset,
+  fetchAdminAnalyticsRevenue,
+  fetchAdminAnalyticsUsers,
+  fetchAdminAnalyticsAssets,
+  fetchAdminAnalyticsOrders,
+  fetchAdminContactInquiries,
+  updateAdminContactInquiry,
+  fetchAdminAuditLogs,
 } from "../../api/admin";
+import type {
+  AdminAnalyticsAssets,
+  AdminAnalyticsOrders,
+  AdminAnalyticsRevenue,
+  AdminAnalyticsUsers,
+  AdminOverview,
+  AdminAuditLog,
+  ContactInquiry,
+} from "../../api/types/admin";
 import {
   buildAdminUpdateBody,
   mapAssetDetailToEditRecord,
@@ -118,7 +136,34 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-type Tab = "overview" | "users" | "assets" | "orders" | "packages";
+type Tab = "overview" | "users" | "assets" | "orders" | "packages" | "contact" | "audit";
+
+const PLAN_CHART_COLORS: Record<string, string> = {
+  free: "#64748b",
+  student: "#00d9ff",
+  indie: "#a855f7",
+  pro: "#f59e0b",
+};
+
+function analyticsRangeDays(days: number): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  from.setHours(0, 0, 0, 0);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function formatChartDay(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatVndShort(vnd: number): string {
+  if (vnd >= 1_000_000) return `${(vnd / 1_000_000).toFixed(1)}tr`;
+  if (vnd >= 1_000) return `${Math.round(vnd / 1_000)}k`;
+  return vnd.toLocaleString("vi-VN");
+}
 
 interface UserData {
   id: string;
@@ -192,11 +237,17 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Load data from localStorage
+  // Admin data from BE
   const [users, setUsers] = useState<UserData[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [revenueAnalytics, setRevenueAnalytics] = useState<AdminAnalyticsRevenue | null>(null);
+  const [usersAnalytics, setUsersAnalytics] = useState<AdminAnalyticsUsers | null>(null);
+  const [assetsAnalytics, setAssetsAnalytics] = useState<AdminAnalyticsAssets | null>(null);
+  const [ordersAnalytics, setOrdersAnalytics] = useState<AdminAnalyticsOrders | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const reloadPackagesFromApi = async () => {
     try {
@@ -210,16 +261,40 @@ export default function AdminDashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setDashboardLoading(true);
       try {
-        const [overview, usersRes, ordersRes, plans, assetsRes, pendingRes] = await Promise.all([
+        const range = analyticsRangeDays(7);
+        const userRange = analyticsRangeDays(30);
+        const [
+          overviewRes,
+          usersRes,
+          ordersRes,
+          plans,
+          assetsRes,
+          pendingRes,
+          revenueRes,
+          usersAnalyticsRes,
+          assetsAnalyticsRes,
+          ordersAnalyticsRes,
+        ] = await Promise.all([
           fetchAdminOverview(),
           fetchAdminUsers(1, 100),
           fetchAllOrders(1, 100),
           fetchAdminSubscriptionPlans(),
           fetchAdminAssets(1, 100, "approved"),
           fetchPendingAssets(1, 100),
+          fetchAdminAnalyticsRevenue(range.from, range.to),
+          fetchAdminAnalyticsUsers(userRange.from, userRange.to),
+          fetchAdminAnalyticsAssets(),
+          fetchAdminAnalyticsOrders(),
         ]);
         if (cancelled) return;
+
+        setOverview(overviewRes);
+        setRevenueAnalytics(revenueRes);
+        setUsersAnalytics(usersAnalyticsRes);
+        setAssetsAnalytics(assetsAnalyticsRes);
+        setOrdersAnalytics(ordersAnalyticsRes);
 
         setUsers(
           usersRes.data.map((u) => ({
@@ -253,6 +328,8 @@ export default function AdminDashboard() {
         );
       } catch {
         toast.error("Không tải được dữ liệu admin — kiểm tra BE và quyền admin");
+      } finally {
+        if (!cancelled) setDashboardLoading(false);
       }
     })();
     return () => {
@@ -298,23 +375,23 @@ export default function AdminDashboard() {
   const stats = [
     {
       label: "Tổng người dùng",
-      value: users.filter((u) => u.role === "customer").length,
+      value: overview?.totalUsers ?? users.filter((u) => u.role === "customer").length,
       icon: <Users className="w-6 h-6" />,
       color: "from-primary to-primary/80",
-      change: "+12%",
+      change: `${overview?.activeUsers ?? 0} hoạt động`,
       detail: `${users.filter((u) => hasPaidSubscription(u.subscription)).length} có subscription`,
     },
     {
       label: "Tổng Assets",
-      value: assets.length,
+      value: overview?.totalAssets ?? assets.length,
       icon: <Package className="w-6 h-6" />,
       color: "from-secondary to-secondary/80",
-      change: `${assets.filter((a) => !a.isFree).length} trả phí`,
-      detail: `${assets.filter((a) => a.isFree).length} miễn phí`,
+      change: `${overview?.pendingAssets ?? 0} chờ duyệt`,
+      detail: `${assets.filter((a) => a.isFree).length} miễn phí · ${assets.filter((a) => !a.isFree).length} trả phí`,
     },
     {
       label: "Đơn hàng",
-      value: orders.length,
+      value: overview?.totalOrders ?? orders.length,
       icon: <ShoppingCart className="w-6 h-6" />,
       color: "from-success to-success/80",
       change: `${orders.filter((o) => o.status === "completed").length} hoàn thành`,
@@ -322,11 +399,11 @@ export default function AdminDashboard() {
     },
     {
       label: "Doanh thu",
-      value: `${Math.floor(orders.reduce((sum, o) => sum + (o.status === "completed" ? o.totalVnd : 0), 0) / 1000)}k`,
+      value: formatVndShort(overview?.revenueVnd ?? revenueAnalytics?.totalRevenueVnd ?? 0),
       icon: <DollarSign className="w-6 h-6" />,
       color: "from-warning to-warning/80",
-      change: "+18%",
-      detail: `${orders.filter((o) => o.status === "completed").length} giao dịch`,
+      change: `${formatVndShort(revenueAnalytics?.totalRevenueVnd ?? 0)} / 7 ngày`,
+      detail: `${overview?.totalDownloads ?? 0} lượt tải asset`,
     },
   ];
 
@@ -354,6 +431,8 @@ export default function AdminDashboard() {
               { id: "assets", label: "Assets", icon: <Package className="w-4 h-4" /> },
               { id: "orders", label: "Đơn hàng", icon: <ShoppingCart className="w-4 h-4" /> },
               { id: "packages", label: "Gói dịch vụ", icon: <CreditCard className="w-4 h-4" /> },
+              { id: "contact", label: "Liên hệ", icon: <Mail className="w-4 h-4" /> },
+              { id: "audit", label: "Audit log", icon: <ScrollText className="w-4 h-4" /> },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -373,7 +452,17 @@ export default function AdminDashboard() {
 
         {/* Content */}
         {activeTab === "overview" && (
-          <OverviewTab stats={stats} orders={orders} assets={assets} />
+          <OverviewTab
+            stats={stats}
+            orders={orders}
+            assets={assets}
+            users={users}
+            revenueAnalytics={revenueAnalytics}
+            usersAnalytics={usersAnalytics}
+            assetsAnalytics={assetsAnalytics}
+            ordersAnalytics={ordersAnalytics}
+            loading={dashboardLoading}
+          />
         )}
 
         {activeTab === "users" && (
@@ -415,6 +504,10 @@ export default function AdminDashboard() {
             <CreditPacksManagement />
           </div>
         )}
+
+        {activeTab === "contact" && <ContactInquiriesManagement />}
+
+        {activeTab === "audit" && <AuditLogsManagement />}
       </div>
     </div>
   );
@@ -425,49 +518,81 @@ function OverviewTab({
   stats,
   orders,
   assets,
+  users,
+  revenueAnalytics,
+  usersAnalytics,
+  assetsAnalytics,
+  ordersAnalytics,
+  loading,
 }: {
-  stats: any[];
+  stats: Array<{
+    label: string;
+    value: string | number;
+    icon: ReactNode;
+    color: string;
+    change: string;
+    detail?: string;
+  }>;
   orders: Order[];
   assets: AssetData[];
+  users: UserData[];
+  revenueAnalytics: AdminAnalyticsRevenue | null;
+  usersAnalytics: AdminAnalyticsUsers | null;
+  assetsAnalytics: AdminAnalyticsAssets | null;
+  ordersAnalytics: AdminAnalyticsOrders | null;
+  loading: boolean;
 }) {
-  // Prepare chart data - Revenue over time (last 7 days)
-  const revenueData = [
-    { date: "18/03", revenue: 350 },
-    { date: "19/03", revenue: 420 },
-    { date: "20/03", revenue: 380 },
-    { date: "21/03", revenue: 510 },
-    { date: "22/03", revenue: 620 },
-    { date: "23/03", revenue: 580 },
-    { date: "24/03", revenue: 720 },
-  ];
+  const revenueData =
+    revenueAnalytics?.byDay.map((d) => ({
+      date: formatChartDay(d.date),
+      revenue: Math.round(d.count / 1000),
+      revenueVnd: d.count,
+    })) ?? [];
 
-  // Package distribution data
-  const packageData = [
-    { id: "pkg-free", name: "FREE", value: 150, color: "#64748b" },
-    { id: "pkg-student", name: "STUDENT", value: 89, color: "#00d9ff" },
-    { id: "pkg-pro", name: "PRO (99k)", value: 12, color: "#f59e0b" },
-  ];
-
-  // Assets by category
-  const assetsByCategory = assets.reduce((acc, asset) => {
-    const existing = acc.find(item => item.category === asset.category);
-    if (existing) {
-      existing.count++;
-    } else {
-      acc.push({ category: asset.category, count: 1 });
-    }
+  const packageCounts = users.reduce<Record<string, number>>((acc, u) => {
+    const key = (u.subscription || "free").toLowerCase();
+    acc[key] = (acc[key] ?? 0) + 1;
     return acc;
-  }, [] as { category: string; count: number }[]);
+  }, {});
+  const packageData = Object.entries(packageCounts).map(([name, value]) => ({
+    id: `pkg-${name}`,
+    name: name.toUpperCase(),
+    value,
+    color: PLAN_CHART_COLORS[name] ?? "#64748b",
+  }));
 
-  // User growth data
-  const userGrowthData = [
-    { month: "T10", users: 45 },
-    { month: "T11", users: 78 },
-    { month: "T12", users: 120 },
-    { month: "T1", users: 198 },
-    { month: "T2", users: 252 },
-    { month: "T3", users: 285 },
-  ];
+  const userGrowthData =
+    usersAnalytics?.registrationsByDay.map((d) => ({
+      date: formatChartDay(d.date),
+      users: d.count,
+    })) ?? [];
+
+  const assetsByCategory =
+    assetsAnalytics?.byCategory.map((c) => ({
+      category: c.categoryName,
+      count: c.assetCount,
+    })) ??
+    assets.reduce(
+      (acc, asset) => {
+        const existing = acc.find((item) => item.category === asset.category);
+        if (existing) existing.count++;
+        else acc.push({ category: asset.category, count: 1 });
+        return acc;
+      },
+      [] as { category: string; count: number }[]
+    );
+
+  const orderStatusSummary =
+    ordersAnalytics?.byStatus.map((s) => `${s.status}: ${s.count}`).join(" · ") ?? "";
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="text-muted-foreground">Đang tải thống kê từ BE...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -506,8 +631,13 @@ function OverviewTab({
               <Activity className="w-5 h-5 text-primary" />
               Doanh thu 7 ngày qua
             </h3>
-            <span className="text-success text-sm font-bold">+24%</span>
+            <span className="text-muted-foreground text-sm font-mono">
+              {formatVndShort(revenueAnalytics?.totalRevenueVnd ?? 0)}
+            </span>
           </div>
+          {revenueData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có doanh thu trong khoảng này.</p>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <AreaChart data={revenueData}>
               <defs>
@@ -518,8 +648,12 @@ function OverviewTab({
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
               <XAxis dataKey="date" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <YAxis stroke="#64748b" unit="k" />
               <Tooltip
+                formatter={(value: number, _name, item) => [
+                  `${(item.payload.revenueVnd as number).toLocaleString("vi-VN")}đ`,
+                  "Doanh thu",
+                ]}
                 contentStyle={{
                   backgroundColor: "#0f172a",
                   border: "1px solid #1e293b",
@@ -537,6 +671,7 @@ function OverviewTab({
               />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         {/* Package Distribution Pie Chart */}
@@ -547,6 +682,9 @@ function OverviewTab({
               Phân bổ gói dịch vụ
             </h3>
           </div>
+          {packageData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có dữ liệu user.</p>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <RePieChart>
               <Pie
@@ -577,6 +715,7 @@ function OverviewTab({
               />
             </RePieChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -587,15 +726,20 @@ function OverviewTab({
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
-              Tăng trưởng người dùng
+              Tăng trưởng người dùng (30 ngày)
             </h3>
-            <span className="text-success text-sm font-bold">+533%</span>
+            <span className="text-muted-foreground text-sm font-mono">
+              {usersAnalytics?.totalUsers ?? 0} tổng
+            </span>
           </div>
+          {userGrowthData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có đăng ký mới.</p>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={userGrowthData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+              <XAxis dataKey="date" stroke="#64748b" />
+              <YAxis stroke="#64748b" allowDecimals={false} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#0f172a",
@@ -613,6 +757,7 @@ function OverviewTab({
               />
             </LineChart>
           </ResponsiveContainer>
+          )}
         </div>
 
         {/* Assets by Category Bar Chart */}
@@ -622,7 +767,15 @@ function OverviewTab({
               <BarChart3 className="w-5 h-5 text-warning" />
               Assets theo danh mục
             </h3>
+            {orderStatusSummary ? (
+              <span className="text-xs text-muted-foreground hidden lg:inline max-w-[40%] truncate">
+                {orderStatusSummary}
+              </span>
+            ) : null}
           </div>
+          {assetsByCategory.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có asset.</p>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={assetsByCategory}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -639,6 +792,7 @@ function OverviewTab({
               <Bar dataKey="count" fill="#f59e0b" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -752,6 +906,7 @@ function UsersManagement({
   const [viewingUser, setViewingUser] = useState<UserData | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -767,50 +922,28 @@ function UsersManagement({
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingUser) return;
+    const original = users.find((u) => u.id === editingUser.id);
+    if (!original) return;
 
-    const updatedUsers = users.map((u) =>
-      u.id === editingUser.id ? editingUser : u
-    );
-    setUsers(updatedUsers);
-
-    // Update localStorage
-    const usersData = localStorage.getItem("users");
-    if (usersData) {
-      const usersObj = JSON.parse(usersData);
-      usersObj[editingUser.email] = {
-        ...usersObj[editingUser.email],
-        name: editingUser.name,
-        credits: editingUser.credits,
-        role: editingUser.role,
-        subscription: editingUser.subscription,
-        subscriptionExpiry: editingUser.subscriptionExpiry,
-        avatarDataUrl: editingUser.avatarDataUrl ?? usersObj[editingUser.email]?.avatarDataUrl ?? null,
-      };
-      localStorage.setItem("users", JSON.stringify(usersObj));
-    }
-
-    // Keep current session in sync if editing the logged-in user
-    const currentUserRaw = localStorage.getItem("currentUser");
-    if (currentUserRaw) {
-      const current = JSON.parse(currentUserRaw);
-      if (current?.id === editingUser.id) {
-        const next = {
-          ...current,
-          name: editingUser.name,
-          credits: editingUser.credits,
-          role: editingUser.role,
-          subscription: editingUser.subscription || "free",
-          subscriptionExpiry: editingUser.subscriptionExpiry,
-          avatarDataUrl: editingUser.avatarDataUrl ?? current.avatarDataUrl,
-        };
-        localStorage.setItem("currentUser", JSON.stringify(next));
+    setSaving(true);
+    try {
+      if (original.role !== editingUser.role) {
+        await updateAdminUser(editingUser.id, { role: editingUser.role });
       }
+      if (original.credits !== editingUser.credits) {
+        await patchWalletBalance(editingUser.id, editingUser.credits, "Admin dashboard adjustment");
+      }
+      setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)));
+      toast.success("Đã cập nhật user trên BE");
+      setShowEditModal(false);
+      setEditingUser(null);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Cập nhật user thất bại");
+    } finally {
+      setSaving(false);
     }
-
-    setShowEditModal(false);
-    setEditingUser(null);
   };
 
   const confirmDeleteUser = async () => {
@@ -993,7 +1126,7 @@ function UsersManagement({
                       </label>
                       <input
                         type="text"
-                        value={`${(editingUser.totalSpent || 0).toLocaleString("vi-VN")} xu`}
+                        value={`${(editingUser.totalSpent || 0).toLocaleString("vi-VN")}đ`}
                         disabled
                         className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground/70 font-mono focus:outline-none disabled:opacity-70"
                       />
@@ -1007,11 +1140,10 @@ function UsersManagement({
                     <input
                       type="text"
                       value={editingUser.name}
-                      onChange={(e) =>
-                        setEditingUser({ ...editingUser, name: e.target.value })
-                      }
-                      className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                      disabled
+                      className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground/70 focus:outline-none disabled:opacity-70"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">Tên chỉ user tự đổi ở Profile.</p>
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
@@ -1059,20 +1191,15 @@ function UsersManagement({
                         </label>
                         <select
                           value={editingUser.subscription || ""}
-                          onChange={(e) => {
-                            const next = e.target.value as "" | "student" | "indie" | "pro";
-                            setEditingUser({
-                              ...editingUser,
-                              subscription: next === "" ? undefined : next,
-                            });
-                          }}
-                          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                          disabled
+                          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground/70 focus:outline-none disabled:opacity-70"
                         >
                           <option value="">FREE</option>
                           <option value="student">STUDENT (29k)</option>
                           <option value="indie">INDIE (legacy)</option>
                           <option value="pro">PRO (99k)</option>
                         </select>
+                        <p className="text-xs text-muted-foreground mt-1">Đổi gói qua flow checkout subscription.</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -1085,14 +1212,8 @@ function UsersManagement({
                               ? new Date(editingUser.subscriptionExpiry).toISOString().slice(0, 10)
                               : ""
                           }
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setEditingUser({
-                              ...editingUser,
-                              subscriptionExpiry: v ? new Date(v).toISOString() : undefined,
-                            });
-                          }}
-                          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                          disabled
+                          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground/70 font-mono focus:outline-none disabled:opacity-70"
                         />
                       </div>
                     </div>
@@ -1100,10 +1221,11 @@ function UsersManagement({
 
                   <button
                     onClick={handleSaveEdit}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
+                    disabled={saving}
+                    className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-60"
                   >
-                    <Save className="w-5 h-5" />
-                    Lưu thay đổi
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                    {saving ? "Đang lưu..." : "Lưu thay đổi"}
                   </button>
                 </div>
               </div>
@@ -1178,7 +1300,7 @@ function UsersManagement({
                         Tổng chi tiêu
                       </p>
                       <p className="text-foreground font-bold text-lg font-mono">
-                        {viewingUser.totalSpent.toLocaleString("vi-VN")} xu
+                        {viewingUser.totalSpent.toLocaleString("vi-VN")}đ
                       </p>
                     </div>
 
@@ -1197,19 +1319,7 @@ function UsersManagement({
                       .filter((o) => o.userId === viewingUser.id)
                       .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-                    const purchasedRaw = localStorage.getItem(
-                      `purchased_assets_${viewingUser.id}`
-                    );
-                    const purchasedAssets: Array<{
-                      id: string;
-                      title: string;
-                      category: string;
-                      price: number;
-                      purchaseDate: string;
-                      downloadCount: number;
-                      fileSize: string;
-                      fileType: string;
-                    }> = purchasedRaw ? JSON.parse(purchasedRaw) : [];
+                    const assetOrders = userOrders.filter((o) => o.orderType === "asset");
 
                     return (
                       <div className="space-y-4 pt-2">
@@ -1258,50 +1368,40 @@ function UsersManagement({
 
                         <div className="bg-card/50 border border-border rounded-xl p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-bold text-foreground">Assets đã mua</h4>
+                            <h4 className="font-bold text-foreground">Đơn mua asset</h4>
                             <span className="text-sm text-muted-foreground font-mono">
-                              {purchasedAssets.length} assets
+                              {assetOrders.length} đơn
                             </span>
                           </div>
-                          {purchasedAssets.length === 0 ? (
+                          {assetOrders.length === 0 ? (
                             <p className="text-sm text-muted-foreground">
-                              Chưa có asset nào được mua.
+                              Chưa có đơn mua asset từ BE.
                             </p>
                           ) : (
                             <div className="space-y-3">
-                              {purchasedAssets.slice(0, 6).map((a) => (
+                              {assetOrders.slice(0, 6).map((o) => (
                                 <div
-                                  key={a.id}
+                                  key={o.id}
                                   className="bg-card border border-border rounded-lg p-3"
                                 >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                      <p className="font-bold text-foreground truncate">
-                                        {a.title}
+                                      <p className="font-bold text-foreground truncate font-mono">
+                                        {o.orderCode}
                                       </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {a.category} • {a.fileType} • {a.fileSize}
+                                      <p className="text-xs text-muted-foreground line-clamp-2">
+                                        {o.items.join(", ")}
                                       </p>
                                     </div>
                                     <div className="text-right shrink-0">
-                                      <p className="text-xs text-muted-foreground">
-                                        {a.purchaseDate}
-                                      </p>
+                                      <p className="text-xs text-muted-foreground">{o.date}</p>
                                       <p className="text-xs font-mono text-primary">
-                                        {a.price.toLocaleString("vi-VN")} xu
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        tải: {a.downloadCount}
+                                        {formatAdminOrderAmount(o)}
                                       </p>
                                     </div>
                                   </div>
                                 </div>
                               ))}
-                              {purchasedAssets.length > 6 && (
-                                <p className="text-xs text-muted-foreground">
-                                  +{purchasedAssets.length - 6} asset khác (xem ở trang Thư viện của user).
-                                </p>
-                              )}
                             </div>
                           )}
                         </div>
@@ -3829,6 +3929,180 @@ function ConfirmActionDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+}
+
+function ContactInquiriesManagement() {
+  const [items, setItems] = useState<ContactInquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchAdminContactInquiries(page, pageSize, statusFilter || undefined);
+      setItems(res.data);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tải được liên hệ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [page, statusFilter]);
+
+  const { paged, totalPages } = getPageSlice(items, 1, items.length || pageSize);
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      const updated = await updateAdminContactInquiry(id, status);
+      setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
+      toast.success("Đã cập nhật trạng thái");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Cập nhật thất bại");
+    }
+  };
+
+  return (
+    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-foreground">Yêu cầu liên hệ</h2>
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+          }}
+          className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
+        >
+          <option value="">Tất cả trạng thái</option>
+          <option value="new">new</option>
+          <option value="in_progress">in_progress</option>
+          <option value="resolved">resolved</option>
+          <option value="closed">closed</option>
+        </select>
+      </div>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="text-muted-foreground text-center py-12">Chưa có yêu cầu liên hệ.</p>
+      ) : (
+        <div className="space-y-4">
+          {paged.map((item) => (
+            <div key={item.id} className="border border-border rounded-xl p-4 bg-card/40">
+              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
+                <div>
+                  <p className="font-bold text-foreground">{item.name}</p>
+                  <p className="text-sm text-muted-foreground">{item.email}{item.phone ? ` · ${item.phone}` : ""}</p>
+                </div>
+                <select
+                  value={item.status}
+                  onChange={(e) => void updateStatus(item.id, e.target.value)}
+                  className="bg-card border border-border rounded-lg px-2 py-1 text-xs"
+                >
+                  <option value="new">new</option>
+                  <option value="in_progress">in_progress</option>
+                  <option value="resolved">resolved</option>
+                  <option value="closed">closed</option>
+                </select>
+              </div>
+              <p className="text-xs text-primary mb-1">{item.consultType}</p>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{item.message}</p>
+              {item.gameIdea && (
+                <p className="text-xs text-muted-foreground mt-2">Ý tưởng: {item.gameIdea}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {new Date(item.createdAt).toLocaleString("vi-VN")}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+      {totalPages > 1 && (
+        <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+      )}
+    </div>
+  );
+}
+
+function AuditLogsManagement() {
+  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetchAdminAuditLogs(page, pageSize);
+        if (!cancelled) setLogs(res.data);
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof ApiError ? error.message : "Không tải được audit log");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
+
+  const { paged, totalPages } = getPageSlice(logs, 1, logs.length || pageSize);
+
+  return (
+    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+      <h2 className="text-2xl font-bold text-foreground mb-6">Audit log</h2>
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : logs.length === 0 ? (
+        <p className="text-muted-foreground text-center py-12">Chưa có audit log.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left py-2 px-2">Thời gian</th>
+                <th className="text-left py-2 px-2">Action</th>
+                <th className="text-left py-2 px-2">Entity</th>
+                <th className="text-left py-2 px-2">User</th>
+                <th className="text-left py-2 px-2">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((log) => (
+                <tr key={log.id} className="border-b border-border/40">
+                  <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">
+                    {new Date(log.createdAt).toLocaleString("vi-VN")}
+                  </td>
+                  <td className="py-2 px-2 font-mono">{log.action}</td>
+                  <td className="py-2 px-2 text-muted-foreground">
+                    {log.entityType ?? "—"}
+                    {log.entityId ? ` · ${log.entityId.slice(0, 8)}…` : ""}
+                  </td>
+                  <td className="py-2 px-2 font-mono text-xs">{log.userId?.slice(0, 8) ?? "—"}</td>
+                  <td className="py-2 px-2 text-muted-foreground">{log.ipAddress ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {totalPages > 1 && (
+        <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
+      )}
+    </div>
   );
 }
 

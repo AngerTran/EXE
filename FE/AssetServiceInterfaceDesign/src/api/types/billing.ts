@@ -20,3 +20,23 @@ export interface SubscriptionMe {
   isUnlimited: boolean;
   creditsMonthly?: number | null;
 }
+
+export interface SubscriptionHistoryItem {
+  id: string;
+  planSlug: string;
+  planName: string;
+  status: string;
+  startedAt: string;
+  expiredAt?: string | null;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  description?: string | null;
+  referenceType?: string | null;
+  referenceId?: string | null;
+  createdAt: string;
+}

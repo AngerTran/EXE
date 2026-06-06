@@ -54,6 +54,31 @@ export interface AdminOrderStatusStat {
   count: number;
 }
 
+export interface ContactInquiry {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  gameIdea?: string | null;
+  consultType: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  userId?: string | null;
+  action: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  oldValue?: string | null;
+  newValue?: string | null;
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
 export interface AdminAnalyticsOrders {
   totalOrders: number;
   byStatus: AdminOrderStatusStat[];

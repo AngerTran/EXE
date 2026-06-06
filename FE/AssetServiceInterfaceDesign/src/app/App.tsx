@@ -11,12 +11,9 @@ if (import.meta.env.DEV) {
 }
 
 function App() {
-  // Seed demo data on first load
   useEffect(() => {
-    seedDemoData();
-
-    // Log available demo accounts in console
     if (import.meta.env.DEV) {
+      seedDemoData();
       console.log('\n🎮 === GAME ASSETS AI - DEMO ACCOUNTS ===');
       console.log('📧 Admin:   admin@gameai.vn   / admin123');
       console.log('🎓 Student: student@demo.vn   / demo123');
