@@ -69,4 +69,7 @@ public record AvatarUploadUrlRequest(
 public record ConfirmAvatarRequest(
     [Required, MaxLength(1024)] string StoragePath);
 
+/// <summary>Cấu hình Supabase public cho FE OAuth (PKCE) — anon key an toàn expose qua HTTPS.</summary>
+public record SupabasePublicConfigResponse(string Url, string AnonKey);
+
 public record ErrorResponse(string Message, string? Code = null);

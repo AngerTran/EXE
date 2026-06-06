@@ -17,6 +17,7 @@ import {
   type AppUser,
 } from "../../api/auth";
 import { fileToAvatarDataUrl } from "../../utils/avatar";
+import { clearSupabaseLocalSession, getSupabase } from "../../lib/supabase";
 import type { SubscriptionPlan } from "../../api/types/auth";
 
 export type { AppUser as User };
@@ -31,6 +32,8 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
   register: (email: string, password: string, name: string) => Promise<AuthResult>;
+  loginWithGoogle: () => Promise<AuthResult>;
+  completeOAuthSession: (accessToken: string, refreshToken?: string | null) => Promise<AuthResult>;
   logout: () => Promise<void>;
   updateCredits: (newCredits: number) => void;
   updateSubscription: (subscription: SubscriptionType, expiry?: string) => void;
@@ -61,6 +64,9 @@ function authErrorMessage(error: unknown, fallback: string): string {
     }
     if (error.code === "configuration_error") {
       return "BE chưa cấu hình Supabase — kiểm tra appsettings";
+    }
+    if (error.code === "profile_not_found") {
+      return "Tài khoản Google chưa có profile — chạy trigger handle_new_user trên Supabase hoặc liên hệ admin";
     }
     return error.message;
   }
@@ -144,7 +150,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession]
   );
 
+  const completeOAuthSession = useCallback(
+    async (accessToken: string, refreshToken?: string | null): Promise<AuthResult> => {
+      try {
+        const mapped = await applySession(accessToken, refreshToken);
+        return { ok: true, role: mapped.role };
+      } catch (error) {
+        clearAuthTokens();
+        setUser(null);
+        return { ok: false, message: authErrorMessage(error, "Đăng nhập Google thất bại") };
+      }
+    },
+    [applySession]
+  );
+
+  const loginWithGoogle = useCallback(async (): Promise<AuthResult> => {
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const supabase = await getSupabase();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) {
+        return { ok: false, message: error.message };
+      }
+      if (data.url) {
+        window.location.assign(data.url);
+      }
+      return { ok: true, role: "customer" };
+    } catch (error) {
+      return { ok: false, message: authErrorMessage(error, "Không mở được Google Sign-In") };
+    }
+  }, []);
+
   const logout = useCallback(async () => {
+    try {
+      await clearSupabaseLocalSession();
+    } catch {
+      /* ignore */
+    }
     await apiLogout();
     clearAuthTokens();
     setUser(null);
@@ -212,6 +260,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         register,
+        loginWithGoogle,
+        completeOAuthSession,
         logout,
         updateCredits,
         updateSubscription,

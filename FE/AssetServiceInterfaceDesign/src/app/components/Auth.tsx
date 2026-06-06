@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   AtSign,
@@ -9,18 +9,15 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Copy,
-  Check,
   User,
   Sparkles,
-  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { getDemoAccounts } from "../../data/seedData";
 import authHero from "../../assets/auth-hero.png";
 import { toast } from "sonner";
 import { forgotPassword } from "../../api/auth";
 import { ApiError } from "../../api/client";
+import { getSupabase } from "../../lib/supabase";
 
 type AuthView = "login" | "register" | "forgot";
 
@@ -75,7 +72,6 @@ export default function Auth() {
   const isForgot = view === "forgot";
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -84,11 +80,27 @@ export default function Auth() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const demoAccounts = getDemoAccounts();
+
+  useEffect(() => {
+    void getSupabase();
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const result = await loginWithGoogle();
+      if (!result.ok) {
+        setError(result.message);
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,12 +176,6 @@ export default function Auth() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError("");
-  };
-
-  const fillDemo = (email: string, password: string) => {
-    setFormData({ email, password, name: "" });
-    setCopiedAccount(email);
-    setTimeout(() => setCopiedAccount(null), 2000);
   };
 
   const toggleMode = () => {
@@ -265,15 +271,18 @@ export default function Auth() {
                 <div className="mb-4">
                   <button
                     type="button"
-                    onClick={() =>
-                      toast.message("Đăng nhập bằng Google", {
-                        description: "Hiện tại demo chưa kết nối OAuth. (BE sau này sẽ tích hợp Google Sign-In)",
-                      })
-                    }
-                    className="auth-btn-secondary w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-[#dae2fd] hover:bg-white/5 border border-white/10 hover:border-[#4cd7f6]/40 transition-all"
+                    onClick={handleGoogleLogin}
+                    disabled={googleLoading || loading}
+                    className="auth-btn-secondary w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-[#dae2fd] hover:bg-white/5 border border-white/10 hover:border-[#4cd7f6]/40 transition-all disabled:opacity-60"
                   >
-                    <GoogleIcon />
-                    <span className="text-sm font-semibold">Tiếp tục với Google</span>
+                    {googleLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <GoogleIcon />
+                    )}
+                    <span className="text-sm font-semibold">
+                      {googleLoading ? "Đang chuyển sang Google..." : "Tiếp tục với Google"}
+                    </span>
                   </button>
                 </div>
                 <div className="flex items-center gap-3 mb-4">
@@ -284,55 +293,6 @@ export default function Auth() {
                   <div className="h-px bg-white/10 flex-1" />
                 </div>
               </>
-            )}
-
-            {/* Demo accounts */}
-            {isLogin && !isForgot && (
-              <div className="auth-glass rounded-lg mb-4 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setDemoOpen(!demoOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-[#dae2fd] hover:bg-white/5 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[#d0bcff]" />
-                    Demo (local cũ — cần tài khoản Supabase/BE)
-                  </span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-muted-foreground transition-transform ${demoOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-                {demoOpen && (
-                  <div className="px-4 pb-4 space-y-2 border-t border-white/10">
-                    <p className="text-xs text-[#958ea0] pt-2">
-                      Đăng nhập qua API BE — dùng email đã đăng ký trên Supabase, không còn mock localStorage.
-                    </p>
-                    {demoAccounts.map((account) => (
-                      <div
-                        key={account.email}
-                        className="flex items-start justify-between gap-2 rounded-lg border border-white/10 bg-[#0b1326]/60 p-3 hover:border-[#d0bcff]/40 transition-all"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{account.title}</p>
-                          <p className="auth-code text-[#cbc3d7] truncate opacity-80">{account.email}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => fillDemo(account.email, account.password)}
-                          className="shrink-0 p-2 rounded-lg text-[#d0bcff] hover:bg-[#d0bcff]/10 transition-all"
-                          title="Điền tự động"
-                        >
-                          {copiedAccount === account.email ? (
-                            <Check className="w-4 h-4" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             )}
 
             <form

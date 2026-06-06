@@ -5,6 +5,7 @@ import ProtectedDashboard from "./components/ProtectedDashboard";
 import Pricing from "./components/Pricing";
 import Contact from "./components/Contact";
 import Auth from "./components/Auth";
+import AuthCallback from "./components/AuthCallback";
 import ResetPassword from "./components/ResetPassword";
 import ProtectedCheckout from "./components/ProtectedCheckout";
 import ProtectedCreditsCheckout from "./components/ProtectedCreditsCheckout";
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "pricing", Component: Pricing },
       { path: "contact", Component: Contact },
       { path: "auth", Component: Auth },
+      { path: "auth/callback", Component: AuthCallback },
       { path: "auth/reset", Component: ResetPassword },
       { path: "checkout", Component: ProtectedCheckout },
       { path: "checkout-credits", Component: ProtectedCreditsCheckout },

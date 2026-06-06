@@ -317,4 +317,25 @@ public class AuthController(
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public IActionResult Logout() => NoContent();
+
+    /// <summary>Cấu hình Supabase (url + anon key) để FE khởi tạo OAuth Google (PKCE).</summary>
+    [HttpGet("config")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(SupabasePublicConfigResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status503ServiceUnavailable)]
+    public IActionResult GetSupabaseConfig()
+    {
+        var url = _supabase.Url?.Trim().TrimEnd('/');
+        var anonKey = _supabase.AnonKey?.Trim();
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(anonKey) ||
+            anonKey.StartsWith("YOUR_", StringComparison.Ordinal))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new ErrorResponse(
+                    "Supabase chưa cấu hình — điền Supabase:Url và Supabase:AnonKey trong appsettings.",
+                    "configuration_error"));
+        }
+
+        return Ok(new SupabasePublicConfigResponse(url, anonKey));
+    }
 }
