@@ -26,6 +26,8 @@ export interface AssetFeatures {
   vrReady: boolean;
 }
 
+import type { ArtStyleValue } from "../constants/artStyles";
+
 export interface AssetRecord {
   id: string;
   title: string;
@@ -54,6 +56,10 @@ export interface AssetRecord {
   submittedAt: string;
   rating: number;
   downloads: number;
+  /** UUID danh mục từ API — dùng khi admin sửa asset */
+  categoryId?: string;
+  /** Phong cách nghệ thuật (API camelCase) */
+  artStyle?: ArtStyleValue;
 }
 
 export const ASSET_CATEGORIES: AssetCategory[] = [

@@ -55,6 +55,10 @@ public partial class AssetService(
 
         if (request.PriceType == PriceType.Free)
             request = request with { PriceVnd = 0, PriceXu = 0 };
+        else if (request.PriceXu < 1)
+            throw new ArgumentException("Paid assets must cost at least 1 xu.");
+        else
+            request = request with { PriceVnd = 0 };
 
         var slug = await GenerateUniqueSlugAsync(request.Title, null, cancellationToken);
         var tagIds = request.TagIds ?? [];

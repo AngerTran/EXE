@@ -68,6 +68,39 @@ export async function fetchAdminAssets(
   return apiRequest<PagedResponse<AssetListItem>>(`/admin/assets?${params}`);
 }
 
+export interface AdminUpdateAssetBody {
+  title?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  priceType?: "free" | "paid";
+  priceVnd?: number;
+  priceXu?: number;
+  license?: string;
+  engineUnity?: boolean;
+  engineUnreal?: boolean;
+  engineGodot?: boolean;
+  featureRigged?: boolean;
+  featureAnimated?: boolean;
+  featurePbr?: boolean;
+  featureVrReady?: boolean;
+  version?: string;
+  thumbnailUrl?: string | null;
+  artStyle?: string;
+}
+
+export async function updateAdminAsset(id: string, body: AdminUpdateAssetBody) {
+  return apiRequest<import("./types/marketplace").AssetDetail>(`/admin/assets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteAdminAsset(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/assets/${id}`, { method: "DELETE" });
+}
+
 export async function fetchAdminSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   const res = await apiRequest<PlanListResponse>("/admin/subscription-plans");
   return res.data ?? [];

@@ -1,6 +1,6 @@
 ﻿# EXE
 
-AI-Powered Game Asset Marketplace & Unity Workflow Platform.
+AI-Powered Game Asset Marketplace Platform.
 
 ## Tài liệu
 

@@ -34,6 +34,7 @@ builder.Services.AddRepositories();
 builder.Services.AddSupabaseAuthentication(supabase);
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProfileProvisioningService, ProfileProvisioningService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
 builder.Services.AddScoped<ICreditPackService, CreditPackService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
@@ -57,7 +58,11 @@ builder.Services.AddScoped<ISubscriptionUserService, SubscriptionUserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IProfileAvatarService, ProfileAvatarService>();
-builder.Services.AddHttpClient<IStorageService, SupabaseStorageService>();
+builder.Services.AddHttpClient<IStorageService, SupabaseStorageService>(client =>
+{
+    client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
 builder.Services.AddHttpClient<ISupabaseAuthClient, SupabaseAuthClient>(client =>
 {
     client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");

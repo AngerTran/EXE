@@ -84,6 +84,14 @@ export async function forgotPassword(email: string): Promise<void> {
   });
 }
 
+export async function resetPassword(accessToken: string, password: string): Promise<void> {
+  return apiRequest<void>("/auth/reset-password", {
+    auth: false,
+    method: "POST",
+    body: JSON.stringify({ accessToken, password }),
+  });
+}
+
 export async function uploadAvatar(file: File): Promise<MeResponse> {
   const meta = await apiRequest<UploadUrlResponse>("/auth/me/avatar/upload-url", {
     method: "POST",

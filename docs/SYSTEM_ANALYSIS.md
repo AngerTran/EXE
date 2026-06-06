@@ -1,6 +1,6 @@
 # TÀI LIỆU PHÂN TÍCH HỆ THỐNG
 
-# AI GAME ASSET MARKETPLACE & UNITY INTEGRATION PLATFORM
+# AI GAME ASSET MARKETPLACE PLATFORM
 
 ---
 
@@ -8,7 +8,7 @@
 
 ## 1.1 Tên hệ thống
 
-**AI-Powered Game Asset Marketplace & Unity Workflow Platform**
+**AI-Powered Game Asset Marketplace Platform**
 
 ---
 
@@ -18,7 +18,6 @@ Xây dựng một nền tảng tích hợp:
 
 - AI Game Design Advisor
 - Marketplace phân phối Asset Game
-- Unity Editor Plugin
 - Token Economy (Ví Xu)
 - Subscription System
 - Admin Dashboard
@@ -28,7 +27,6 @@ Xây dựng một nền tảng tích hợp:
 - Giúp Indie Dev bắt đầu làm game nhanh hơn.
 - Tự động hóa quy trình tìm kiếm asset.
 - Hỗ trợ thiết kế gameplay bằng AI.
-- Tích hợp workflow trực tiếp trong Unity.
 - Tối ưu chi phí AI bằng cơ chế Credit/Xu.
 
 ---
@@ -109,25 +107,7 @@ AI + Asset Database:
 
 ---
 
-### P-05 — Import asset vào Unity phức tạp
-
-**Vấn đề:**
-
-- Sai folder structure.
-- Import lỗi.
-- Dependency conflict.
-
-**Giải pháp:**
-
-Unity Plugin:
-
-- One-click import.
-- Auto extract.
-- Auto move Assets.
-
----
-
-### P-06 — AI API cost cao
+### P-05 — AI API cost cao
 
 **Vấn đề:**
 
@@ -144,7 +124,7 @@ Wallet & Tokenomics:
 
 ---
 
-### P-07 — Admin khó kiểm soát hệ thống
+### P-06 — Admin khó kiểm soát hệ thống
 
 **Vấn đề:**
 
@@ -169,7 +149,6 @@ Admin Dashboard:
 ```text
 Client Layer
  ├── Web Frontend
- ├── Unity Plugin
  └── Admin Dashboard
 
 API Gateway
@@ -238,7 +217,6 @@ Người dùng miễn phí có ví Xu.
 | Download Asset | YES     |
 | Wallet         | YES     |
 | Bookmark       | YES     |
-| Unity Plugin   | YES     |
 | Advanced AI    | LIMITED |
 
 ### Giới hạn
@@ -480,51 +458,7 @@ AI phân tích:
 
 ---
 
-## 5.5 Unity Plugin Module
-
-### Mục tiêu
-
-Tích hợp hệ thống trực tiếp vào Unity Editor.
-
-### Features
-
-| Feature       | Description      |
-| ------------- | ---------------- |
-| AI Chat       | Chat AI          |
-| Wallet Sync   | Sync xu          |
-| Browse Assets | Browse           |
-| Import Asset  | One-click import |
-| Session Sync  | Đồng bộ          |
-
-### Plugin Workflow
-
-```text
-Unity Editor
-   ↓
-Plugin Window
-   ↓
-API Gateway
-   ↓
-Backend Services
-```
-
-### One-click Import Flow
-
-```text
-Select Asset
-   ↓
-Download Signed URL
-   ↓
-Extract Package
-   ↓
-Move Into /Assets/
-   ↓
-Refresh Asset Database
-```
-
----
-
-## 5.6 Payment Module
+## 5.5 Payment Module
 
 ### Chức năng
 
@@ -557,7 +491,7 @@ Update Wallet
 
 ---
 
-## 5.7 Admin Dashboard
+## 5.6 Admin Dashboard
 
 ### Features
 
@@ -783,10 +717,6 @@ ASSETS
 
 - Free/Pro/Enterprise
 
-#### Plugin Showcase
-
-- Unity plugin preview
-
 ---
 
 ## 8.2 Marketplace Page
@@ -905,8 +835,6 @@ Sidebar Filters | Asset Grid
 
 ## Future Expansion
 
-- Unreal Engine Plugin.
-- Blender Plugin.
 - Team collaboration.
 - AI asset generation.
 - Community marketplace.
@@ -934,7 +862,7 @@ Sidebar Filters | Asset Grid
 | Manual Search           | AI Semantic Search |
 | Asset only              | AI + Asset         |
 | No gameplay support     | Gameplay advisor   |
-| No workflow integration | Unity workflow     |
+| Web-only workflow       | AI + marketplace   |
 | No AI routing           | Premium AI routing |
 
 ---
@@ -952,7 +880,6 @@ Hệ thống giải quyết toàn bộ pipeline:
 - Ideation
 - Design
 - Asset Discovery
-- Workflow Integration
 - Production Support
 - AI Assistance
 

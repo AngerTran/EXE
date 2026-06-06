@@ -8,18 +8,42 @@ namespace Exe.Services;
 
 public class AuthService(
     IProfileRepository profileRepository,
+    IProfileProvisioningService profileProvisioning,
     IUnitOfWork unitOfWork,
     ISupabaseAuthClient supabaseAuthClient) : IAuthService
 {
-    public Task<AuthSessionResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken = default) =>
-        supabaseAuthClient.RegisterAsync(request, cancellationToken);
+    public async Task<AuthSessionResponse> RegisterAsync(
+        RegisterRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await supabaseAuthClient.RegisterAsync(request, cancellationToken);
+        var username = string.IsNullOrWhiteSpace(request.Username)
+            ? request.Email.Split('@')[0]
+            : request.Username.Trim();
+
+        await profileProvisioning.EnsureProfileAsync(
+            session.User.Id,
+            new ProfileBootstrapInfo(request.Email, request.Name, username),
+            cancellationToken);
+
+        return session;
+    }
 
     public Task<AuthSessionResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default) =>
         supabaseAuthClient.LoginAsync(request, cancellationToken);
 
-    public async Task<MeResponse?> GetMeAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<MeResponse?> GetMeAsync(
+        Guid userId,
+        ProfileBootstrapInfo? bootstrap = null,
+        CancellationToken cancellationToken = default)
     {
         var profile = await profileRepository.GetActiveByIdWithDetailsAsync(userId, asNoTracking: true, cancellationToken);
+        if (profile is null && bootstrap is not null && !string.IsNullOrWhiteSpace(bootstrap.Email))
+        {
+            await profileProvisioning.EnsureProfileAsync(userId, bootstrap, cancellationToken);
+            profile = await profileRepository.GetActiveByIdWithDetailsAsync(userId, asNoTracking: true, cancellationToken);
+        }
+
         if (profile is null)
             return null;
         if (profile.Status == UserStatus.Banned)

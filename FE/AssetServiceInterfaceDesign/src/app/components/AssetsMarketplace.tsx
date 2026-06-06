@@ -15,13 +15,15 @@ import {
   Download,
   ExternalLink,
   User,
+  Heart,
+  Bookmark,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ClientPagination } from "./ui/ClientPagination";
 import { toast } from "sonner";
 import { ApiError } from "../../api/client";
@@ -29,9 +31,12 @@ import { fetchAssets, fetchAssetById } from "../../api/assets";
 import { fetchCategories } from "../../api/lookup";
 import { fetchCart, addCartItem, removeCartItem } from "../../api/cart";
 import { fetchUserAssets } from "../../api/userAssets";
-import { mapAssetListItem, type MarketplaceAsset } from "../../api/mappers";
+import { addBookmark, fetchBookmarks, removeBookmark } from "../../api/bookmarks";
+import { mapAssetListItem, mapAssetDetail, getMarketplaceAssetDescription, getMarketplaceAssetFeatures, type MarketplaceAsset, type MarketplaceAssetDetail } from "../../api/mappers";
+import { AssetReviewsPanel } from "./AssetReviewsPanel";
 import type { CategoryItem } from "../../api/types/marketplace";
 import type { CartItem } from "../../api/types/commerce";
+import { componentClasses } from "../../constants/theme";
 
 export type Asset = MarketplaceAsset;
 
@@ -317,9 +322,14 @@ export default function AssetsMarketplace() {
   const [highlightedAssetId, setHighlightedAssetId] = useState<string | null>(null);
   const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
   const [selectedAsset, setSelectedAsset] = useState<MarketplaceAsset | null>(null);
+  const [selectedAssetDetail, setSelectedAssetDetail] = useState<MarketplaceAssetDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [bookmarkIds, setBookmarkIds] = useState<Set<string>>(new Set());
+  const [savedAssets, setSavedAssets] = useState<MarketplaceAsset[]>([]);
+  const [viewMode, setViewMode] = useState<"all" | "saved">("all");
   const pageSize = 12;
 
   const categoryNames = ["Tất cả", ...categories.map((c) => c.name)];
@@ -390,10 +400,123 @@ export default function AssetsMarketplace() {
     }
   }, [user]);
 
+  const loadBookmarks = useCallback(async () => {
+    if (!user) {
+      setBookmarkIds(new Set());
+      setSavedAssets([]);
+      return;
+    }
+    try {
+      const items = await fetchBookmarks();
+      setBookmarkIds(new Set(items.map((i) => i.id)));
+      setSavedAssets(items.map(mapAssetListItem));
+    } catch {
+      setBookmarkIds(new Set());
+      setSavedAssets([]);
+    }
+  }, [user]);
+
   useEffect(() => {
     loadCart();
     loadPurchased();
-  }, [loadCart, loadPurchased]);
+    loadBookmarks();
+  }, [loadCart, loadPurchased, loadBookmarks]);
+
+  const toggleBookmark = async (assetId: string) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    const isSaved = bookmarkIds.has(assetId);
+    try {
+      if (isSaved) {
+        await removeBookmark(assetId);
+        setBookmarkIds((prev) => {
+          const next = new Set(prev);
+          next.delete(assetId);
+          return next;
+        });
+        setSavedAssets((prev) => prev.filter((a) => a.id !== assetId));
+        toast.success("Đã bỏ lưu asset");
+      } else {
+        await addBookmark(assetId);
+        const asset = assets.find((a) => a.id === assetId) ?? savedAssets.find((a) => a.id === assetId);
+        setBookmarkIds((prev) => new Set(prev).add(assetId));
+        if (asset) {
+          setSavedAssets((prev) => (prev.some((a) => a.id === assetId) ? prev : [asset, ...prev]));
+        } else {
+          await loadBookmarks();
+        }
+        toast.success("Đã lưu asset");
+      }
+    } catch (error) {
+      const msg = error instanceof ApiError ? error.message : "Không cập nhật được bookmark";
+      toast.error(msg);
+    }
+  };
+
+  const filterSavedAssets = useCallback(
+    (list: MarketplaceAsset[]) =>
+      list.filter((asset) => {
+        const matchCategory =
+          selectedCategory === "Tất cả" || asset.category === selectedCategory;
+        const matchSearch =
+          !searchQuery ||
+          asset.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          asset.author.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchPrice =
+          priceFilter === "all" ||
+          (priceFilter === "free" && asset.isFree) ||
+          (priceFilter === "paid" && !asset.isFree);
+        return matchCategory && matchSearch && matchPrice;
+      }),
+    [selectedCategory, searchQuery, priceFilter]
+  );
+
+  const displayAssets = viewMode === "saved" ? filterSavedAssets(savedAssets) : assets;
+
+  const handleRatingUpdated = useCallback((assetId: string, ratingAvg: number) => {
+    setAssets((prev) =>
+      prev.map((a) => (a.id === assetId ? { ...a, rating: ratingAvg } : a))
+    );
+    setSelectedAsset((prev) =>
+      prev?.id === assetId ? { ...prev, rating: ratingAvg } : prev
+    );
+    setSelectedAssetDetail((prev) =>
+      prev?.id === assetId ? { ...prev, rating: ratingAvg } : prev
+    );
+    setSavedAssets((prev) =>
+      prev.map((a) => (a.id === assetId ? { ...a, rating: ratingAvg } : a))
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!selectedAsset) {
+      setSelectedAssetDetail(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDetailLoading(true);
+    fetchAssetById(selectedAsset.id)
+      .then((d) => {
+        if (!cancelled) setSelectedAssetDetail(mapAssetDetail(d));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedAssetDetail(null);
+          toast.error("Không tải được chi tiết asset");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAsset?.id]);
 
   // Handle highlight from URL param
   useEffect(() => {
@@ -433,7 +556,7 @@ export default function AssetsMarketplace() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedCategory, searchQuery, priceFilter]);
+  }, [selectedCategory, searchQuery, priceFilter, viewMode]);
   const addToCart = async (assetId: string) => {
     if (!user) {
       navigate("/auth");
@@ -548,6 +671,28 @@ export default function AssetsMarketplace() {
               >
                 Trả phí
               </button>
+              <button
+                onClick={() => {
+                  if (!user) {
+                    navigate("/auth");
+                    return;
+                  }
+                  setViewMode((m) => (m === "saved" ? "all" : "saved"));
+                }}
+                className={`px-4 py-2 rounded-lg transition-all font-medium flex items-center gap-2 ${
+                  viewMode === "saved"
+                    ? "bg-secondary text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]"
+                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground"
+                }`}
+              >
+                <Bookmark className="w-4 h-4" />
+                Đã lưu
+                {bookmarkIds.size > 0 && (
+                  <span className="bg-background/30 px-1.5 py-0.5 rounded text-xs font-mono">
+                    {bookmarkIds.size}
+                  </span>
+                )}
+              </button>
             </div>
 
             {/* Cart Button */}
@@ -588,43 +733,65 @@ export default function AssetsMarketplace() {
         {/* Results Count */}
         <div className="mb-6">
           <p className="text-muted-foreground">
-            Tìm thấy <span className="font-bold text-primary font-mono">{assets.length}</span> assets
+            {viewMode === "saved" ? (
+              <>
+                <span className="font-bold text-secondary font-mono">{displayAssets.length}</span> asset đã lưu
+              </>
+            ) : (
+              <>
+                Tìm thấy <span className="font-bold text-primary font-mono">{displayAssets.length}</span> assets
+              </>
+            )}
           </p>
         </div>
 
-        {loading ? (
+        {viewMode === "saved" && !user && (
+          <div className="text-center py-20">
+            <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <p className="text-foreground mb-4">Đăng nhập để xem asset đã lưu</p>
+            <Button variant="gradient" onClick={() => navigate("/auth")}>
+              Đăng nhập
+            </Button>
+          </div>
+        )}
+
+        {loading && viewMode === "all" ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
           </div>
-        ) : (
+        ) : viewMode === "saved" && !user ? null : (
         <>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {assets.map((asset) => (
+          {displayAssets.map((asset) => (
             <AssetCard
               key={asset.id}
               asset={asset}
               isInCart={cartAssetIds.includes(asset.id)}
               isPurchased={purchasedAssetIds.includes(asset.id)}
+              isBookmarked={bookmarkIds.has(asset.id)}
               isHighlighted={highlightedAssetId === asset.id}
               onAddToCart={() => addToCart(asset.id)}
               onBuyNow={() => buyNow(asset.id)}
               onViewDetails={() => setSelectedAsset(asset)}
+              onToggleBookmark={() => toggleBookmark(asset.id)}
             />
           ))}
         </div>
 
-        {assets.length > 0 && (
+        {viewMode === "all" && displayAssets.length > 0 && (
           <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
 
-        {assets.length === 0 && (
+        {displayAssets.length === 0 && (
           <div className="text-center py-20">
             <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-foreground mb-2">
-              Không tìm thấy kết quả
+              {viewMode === "saved" ? "Chưa lưu asset nào" : "Không tìm thấy kết quả"}
             </h3>
             <p className="text-muted-foreground">
-              Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
+              {viewMode === "saved"
+                ? "Nhấn biểu tượng trái tim trên asset để lưu lại"
+                : "Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm"}
             </p>
           </div>
         )}
@@ -798,17 +965,25 @@ export default function AssetsMarketplace() {
       <Sheet
         open={!!selectedAsset}
         onOpenChange={(open) => {
-          if (!open) setSelectedAsset(null);
+          if (!open) {
+            setSelectedAsset(null);
+            setSelectedAssetDetail(null);
+          }
         }}
       >
         {selectedAsset && (
-          <SheetContent className="p-0 sm:max-w-2xl">
+          <SheetContent className="p-0 sm:max-w-2xl" hideCloseButton>
             <AssetDetailDrawerContent
               asset={selectedAsset}
+              detail={selectedAssetDetail}
+              detailLoading={detailLoading}
               allAssets={assets}
               isInCart={cartAssetIds.includes(selectedAsset.id)}
               isPurchased={purchasedAssetIds.includes(selectedAsset.id)}
+              isBookmarked={bookmarkIds.has(selectedAsset.id)}
               onSelectAsset={setSelectedAsset}
+              onToggleBookmark={() => toggleBookmark(selectedAsset.id)}
+              onRatingUpdated={(ratingAvg) => handleRatingUpdated(selectedAsset.id, ratingAvg)}
               onAddToCart={() => {
                 addToCart(selectedAsset.id);
                 setSelectedAsset(null);
@@ -827,22 +1002,32 @@ export default function AssetsMarketplace() {
 
 interface AssetDetailDrawerContentProps {
   asset: Asset;
+  detail: MarketplaceAssetDetail | null;
+  detailLoading: boolean;
   allAssets: Asset[];
   isInCart: boolean;
   isPurchased: boolean;
+  isBookmarked: boolean;
   onSelectAsset: (asset: Asset) => void;
   onAddToCart: () => void;
   onBuyNow: () => void;
+  onToggleBookmark: () => void;
+  onRatingUpdated: (ratingAvg: number) => void;
 }
 
 function AssetDetailDrawerContent({
   asset,
+  detail,
+  detailLoading,
   allAssets,
   isInCart,
   isPurchased,
+  isBookmarked,
   onSelectAsset,
   onAddToCart,
   onBuyNow,
+  onToggleBookmark,
+  onRatingUpdated,
 }: AssetDetailDrawerContentProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -850,18 +1035,8 @@ function AssetDetailDrawerContent({
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [asset.id]);
 
-  // Generate mock description
-  const description = `${asset.title} là một bộ asset chất lượng cao được thiết kế chuyên nghiệp bởi ${asset.author}. Perfect cho ${asset.category.toLowerCase()} projects. Bao gồm nhiều variations và được tối ưu hóa cho game development.`;
-
-  // Mock features
-  const features = [
-    "High quality graphics",
-    "Multiple variations included",
-    "Fully customizable",
-    "Optimized for performance",
-    "Regular updates",
-    "Commercial license included"
-  ];
+  const description = getMarketplaceAssetDescription(detail);
+  const features = detail ? getMarketplaceAssetFeatures(detail) : [];
 
   // Related assets (same category, excluding current)
   const relatedAssets = allAssets
@@ -872,12 +1047,37 @@ function AssetDetailDrawerContent({
     <div className="flex h-full flex-col">
       {/* Header */}
       <SheetHeader className="border-b border-border p-6">
-        <SheetTitle className="text-2xl font-bold text-foreground">
-          {asset.title}
-        </SheetTitle>
-        <SheetDescription className="text-muted-foreground">
-          by {asset.author}
-        </SheetDescription>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 pr-2">
+            <SheetTitle className="text-2xl font-bold text-foreground">
+              {asset.title}
+            </SheetTitle>
+            <SheetDescription className="text-muted-foreground">
+              by {asset.author}
+            </SheetDescription>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={onToggleBookmark}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg border transition-all",
+                isBookmarked
+                  ? "bg-secondary/20 border-secondary text-secondary hover:bg-secondary/30"
+                  : "bg-card border-border text-muted-foreground hover:text-secondary hover:border-secondary/50"
+              )}
+              aria-label={isBookmarked ? "Bỏ lưu asset" : "Lưu asset"}
+            >
+              <Heart className={cn("w-5 h-5", isBookmarked && "fill-current")} />
+            </button>
+            <SheetClose
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all hover:border-primary/40 hover:bg-card/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              aria-label="Đóng"
+            >
+              <X className="w-5 h-5" />
+            </SheetClose>
+          </div>
+        </div>
       </SheetHeader>
 
       {/* Content */}
@@ -885,7 +1085,11 @@ function AssetDetailDrawerContent({
           {/* Preview Image */}
           <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
             <ImageWithFallback
-              src={`https://source.unsplash.com/800x600/?${encodeURIComponent(asset.preview)}`}
+              src={
+                asset.thumbnailUrl ||
+                asset.thumbnailPreview ||
+                `https://source.unsplash.com/800x600/?${encodeURIComponent(asset.preview)}`
+              }
               alt={asset.title}
               className="w-full h-full object-cover"
             />
@@ -931,7 +1135,17 @@ function AssetDetailDrawerContent({
           {/* Description */}
           <div>
             <h3 className="text-lg font-bold text-foreground mb-3">Mô tả</h3>
-            <p className="text-muted-foreground leading-relaxed">{description}</p>
+            {detailLoading ? (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3 bg-muted/40 rounded w-full" />
+                <div className="h-3 bg-muted/40 rounded w-5/6" />
+                <div className="h-3 bg-muted/40 rounded w-4/6" />
+              </div>
+            ) : description ? (
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{description}</p>
+            ) : (
+              <p className="text-muted-foreground italic">Chưa có mô tả chi tiết.</p>
+            )}
           </div>
 
           {/* Tags */}
@@ -953,17 +1167,34 @@ function AssetDetailDrawerContent({
           </div>
 
           {/* Features */}
+          {(detailLoading || features.length > 0) && (
           <div>
-            <h3 className="text-lg font-bold text-foreground mb-3">Features</h3>
+            <h3 className="text-lg font-bold text-foreground mb-3">Thông tin kỹ thuật</h3>
+            {detailLoading ? (
+              <div className="grid md:grid-cols-2 gap-3 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-5 bg-muted/40 rounded w-3/4" />
+                ))}
+              </div>
+            ) : (
             <ul className="grid md:grid-cols-2 gap-3">
-              {features.map((feature, index) => (
-                <li key={index} className="flex items-start gap-2">
+              {features.map((feature) => (
+                <li key={feature} className="flex items-start gap-2">
                   <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                   <span className="text-foreground">{feature}</span>
                 </li>
               ))}
             </ul>
+            )}
           </div>
+          )}
+
+          <AssetReviewsPanel
+            assetId={asset.id}
+            isPurchased={isPurchased}
+            isFree={asset.isFree}
+            onRatingUpdated={onRatingUpdated}
+          />
 
           {/* Related Assets */}
           {relatedAssets.length > 0 && (
@@ -978,7 +1209,10 @@ function AssetDetailDrawerContent({
                   >
                     <div className="aspect-video rounded-lg overflow-hidden mb-2 bg-gradient-to-br from-primary/10 to-secondary/10">
                       <ImageWithFallback
-                        src={`https://source.unsplash.com/300x200/?${encodeURIComponent(related.preview)}`}
+                        src={
+                          related.thumbnailUrl ||
+                          `https://source.unsplash.com/300x200/?${encodeURIComponent(related.preview)}`
+                        }
                         alt={related.title}
                         className="w-full h-full object-cover"
                       />
@@ -1000,22 +1234,30 @@ function AssetDetailDrawerContent({
           )}
         </div>
 
-      <div className="border-t border-border p-5">
-        <div className="flex items-center gap-3">
+      <div className="border-t border-border bg-card/30 backdrop-blur-sm p-5">
+        <div className="flex items-stretch gap-3">
           {isPurchased ? (
-            <Button variant="outline" className="flex-1" disabled>
+            <Button variant="outline" size="lg" className={cn(componentClasses.buttonGhost, "flex-1 h-11")} disabled>
               <Library className="w-4 h-4" />
               Đã trong thư viện
             </Button>
           ) : (
             <>
               {!isInCart && (
-                <Button variant="outline" className="flex-1" onClick={onAddToCart}>
-                  <ShoppingCart className="w-4 h-4" />
-                  Thêm giỏ
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className={cn(
+                    componentClasses.buttonSecondary,
+                    "flex-1 h-11 font-semibold hover:shadow-[0_0_20px_rgba(0,217,255,0.15)]"
+                  )}
+                  onClick={onAddToCart}
+                >
+                  <ShoppingCart className="w-4 h-4 text-primary" />
+                  Thêm giỏ hàng
                 </Button>
               )}
-              <Button variant="gradient" className="flex-1" onClick={onBuyNow}>
+              <Button variant="gradient" size="lg" className="flex-1 h-11" onClick={onBuyNow}>
                 {asset.isFree ? (
                   <>
                     <Library className="w-4 h-4" />
@@ -1040,13 +1282,25 @@ interface AssetCardProps {
   asset: Asset;
   isInCart: boolean;
   isPurchased: boolean;
+  isBookmarked: boolean;
   isHighlighted: boolean;
   onAddToCart: () => void;
   onBuyNow: () => void;
   onViewDetails: () => void;
+  onToggleBookmark: () => void;
 }
 
-function AssetCard({ asset, isInCart, isPurchased, isHighlighted, onAddToCart, onBuyNow, onViewDetails }: AssetCardProps) {
+function AssetCard({
+  asset,
+  isInCart,
+  isPurchased,
+  isBookmarked,
+  isHighlighted,
+  onAddToCart,
+  onBuyNow,
+  onViewDetails,
+  onToggleBookmark,
+}: AssetCardProps) {
   const priceLabel = asset.isFree
     ? "Miễn phí"
     : `${asset.price.toLocaleString("vi-VN")} xu`;
@@ -1090,6 +1344,22 @@ function AssetCard({ asset, isInCart, isPurchased, isHighlighted, onAddToCart, o
             ĐÃ SỞ HỮU
           </div>
         )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleBookmark();
+          }}
+          className={cn(
+            "absolute bottom-3 right-3 p-2 rounded-full backdrop-blur-sm transition-all hover:scale-110",
+            isBookmarked
+              ? "bg-secondary/90 text-white shadow-lg shadow-secondary/30"
+              : "bg-background/80 text-muted-foreground hover:text-secondary border border-border"
+          )}
+          aria-label={isBookmarked ? "Bỏ lưu" : "Lưu asset"}
+        >
+          <Heart className={cn("w-4 h-4", isBookmarked && "fill-current")} />
+        </button>
         <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground px-3 py-1 rounded-full text-xs flex items-center gap-1 font-mono">
           <Download className="w-3 h-3" />
           {asset.downloads}

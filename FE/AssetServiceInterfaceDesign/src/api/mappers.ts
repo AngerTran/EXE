@@ -1,4 +1,5 @@
-import type { AssetListItem } from "./types/marketplace";
+import type { AssetDetail, AssetListItem } from "./types/marketplace";
+import { ART_STYLE_OPTIONS } from "../constants/artStyles";
 import type { Order } from "./types/commerce";
 import type { UserAssetItem } from "./types/commerce";
 
@@ -17,6 +18,22 @@ export interface MarketplaceAsset {
   thumbnailUrl?: string | null;
 }
 
+/** Chi tiết asset — drawer marketplace */
+export interface MarketplaceAssetDetail extends MarketplaceAsset {
+  shortDescription?: string | null;
+  fullDescription?: string | null;
+  license?: string;
+  artStyle?: string | null;
+  version?: string | null;
+  engineUnity: boolean;
+  engineUnreal: boolean;
+  engineGodot: boolean;
+  featureRigged: boolean;
+  featureAnimated: boolean;
+  featurePbr: boolean;
+  featureVrReady: boolean;
+}
+
 export function mapAssetListItem(item: AssetListItem): MarketplaceAsset {
   return {
     id: item.id,
@@ -31,6 +48,54 @@ export function mapAssetListItem(item: AssetListItem): MarketplaceAsset {
     isFree: item.isFree,
     thumbnailUrl: item.thumbnailUrl,
   };
+}
+
+export function mapAssetDetail(detail: AssetDetail): MarketplaceAssetDetail {
+  return {
+    ...mapAssetListItem(detail),
+    shortDescription: detail.shortDescription,
+    fullDescription: detail.fullDescription,
+    license: detail.license,
+    artStyle: detail.artStyle,
+    version: detail.version,
+    engineUnity: detail.engineUnity,
+    engineUnreal: detail.engineUnreal,
+    engineGodot: detail.engineGodot,
+    featureRigged: detail.featureRigged,
+    featureAnimated: detail.featureAnimated,
+    featurePbr: detail.featurePbr,
+    featureVrReady: detail.featureVrReady,
+  };
+}
+
+export function getMarketplaceAssetDescription(detail: MarketplaceAssetDetail | null): string | null {
+  if (!detail) return null;
+  const full = detail.fullDescription?.trim();
+  if (full) return full;
+  const short = detail.shortDescription?.trim();
+  if (short) return short;
+  return null;
+}
+
+export function getMarketplaceAssetFeatures(detail: MarketplaceAssetDetail): string[] {
+  const features: string[] = [];
+  const engines: string[] = [];
+  if (detail.engineUnity) engines.push("Unity");
+  if (detail.engineUnreal) engines.push("Unreal Engine");
+  if (detail.engineGodot) engines.push("Godot");
+  if (engines.length) features.push(`Engine: ${engines.join(", ")}`);
+  if (detail.featureRigged) features.push("Rigged (có xương)");
+  if (detail.featureAnimated) features.push("Animated (có animation)");
+  if (detail.featurePbr) features.push("PBR materials");
+  if (detail.featureVrReady) features.push("VR ready");
+  if (detail.artStyle) {
+    const label =
+      ART_STYLE_OPTIONS.find((o) => o.value === detail.artStyle)?.label ?? detail.artStyle;
+    features.push(`Art style: ${label}`);
+  }
+  if (detail.license?.trim()) features.push(`License: ${detail.license.trim()}`);
+  if (detail.version?.trim()) features.push(`Version ${detail.version.trim()}`);
+  return features;
 }
 
 export type OrderStatusUi = "completed" | "pending" | "cancelled";

@@ -60,6 +60,6 @@ public class ProfileAvatarService(
         profile.AvatarUrl = storageService.GetPublicObjectUrl(_options.AvatarsBucket, path);
         profile.UpdatedAt = DateTime.UtcNow;
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return await authService.GetMeAsync(userId, cancellationToken);
+        return await authService.GetMeAsync(userId, bootstrap: null, cancellationToken);
     }
 }

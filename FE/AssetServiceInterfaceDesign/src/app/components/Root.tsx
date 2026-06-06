@@ -28,7 +28,8 @@ export default function Root() {
   }, [user, refreshUserData]);
 
   const isActive = (path: string) => location.pathname === path;
-  const isAuthPage = location.pathname === "/auth";
+  const isAuthPage =
+    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
   const handleLogout = () => {
     void logout().finally(() => setMobileMenuOpen(false));

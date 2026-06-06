@@ -19,6 +19,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { getDemoAccounts } from "../../data/seedData";
 import authHero from "../../assets/auth-hero.png";
 import { toast } from "sonner";
+import { forgotPassword } from "../../api/auth";
+import { ApiError } from "../../api/client";
+
+type AuthView = "login" | "register" | "forgot";
 
 function GoogleIcon() {
   return (
@@ -66,7 +70,9 @@ function GitHubIcon() {
 }
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [view, setView] = useState<AuthView>("login");
+  const isLogin = view === "login";
+  const isForgot = view === "forgot";
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
@@ -127,6 +133,34 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = formData.email.trim();
+    if (!email) {
+      setError("Vui lòng nhập email đã đăng ký");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    setSuccess(false);
+    try {
+      await forgotPassword(email);
+      setSuccess(true);
+      toast.success("Đã gửi email đặt lại mật khẩu", {
+        description:
+          "Kiểm tra hộp thư. Link qua BE (5180) rồi về localhost:5173 — thêm redirect URL BE trong Supabase nếu cần.",
+      });
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Không gửi được email — kiểm tra BE và cấu hình Supabase Auth"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError("");
@@ -139,10 +173,23 @@ export default function Auth() {
   };
 
   const toggleMode = () => {
-    setIsLogin(!isLogin);
+    setView((v) => (v === "login" ? "register" : "login"));
     setError("");
     setSuccess(false);
-    setFormData({ email: "", password: "", name: "" });
+    setFormData({ email: formData.email, password: "", name: "" });
+  };
+
+  const openForgot = () => {
+    setView("forgot");
+    setError("");
+    setSuccess(false);
+    setFormData((prev) => ({ ...prev, password: "", name: "" }));
+  };
+
+  const backToLogin = () => {
+    setView("login");
+    setError("");
+    setSuccess(false);
   };
 
   return (
@@ -201,17 +248,19 @@ export default function Auth() {
           <div className="w-full max-w-[var(--auth-form-max)] mx-auto">
             <header className="auth-form-header mb-6 text-center md:text-left">
               <h2 className="auth-headline text-2xl lg:text-[1.75rem] text-[#dae2fd] mb-2">
-                {isLogin ? "Chào mừng trở lại" : "Tạo tài khoản"}
+                {isForgot ? "Quên mật khẩu" : isLogin ? "Chào mừng trở lại" : "Tạo tài khoản"}
               </h2>
               <p className="auth-body text-sm text-[#cbc3d7]">
-                {isLogin
-                  ? "Nhập thông tin để vào trung tâm sáng tạo của bạn."
-                  : "Đăng ký và nhận 100 xu miễn phí ngay hôm nay."}
+                {isForgot
+                  ? "Nhập email đã đăng ký — Supabase sẽ gửi link đặt lại mật khẩu."
+                  : isLogin
+                    ? "Nhập thông tin để vào trung tâm sáng tạo của bạn."
+                    : "Đăng ký và nhận 100 xu miễn phí ngay hôm nay."}
               </p>
             </header>
 
             {/* Social (Google only) */}
-            {isLogin && (
+            {isLogin && !isForgot && (
               <>
                 <div className="mb-4">
                   <button
@@ -238,7 +287,7 @@ export default function Auth() {
             )}
 
             {/* Demo accounts */}
-            {isLogin && (
+            {isLogin && !isForgot && (
               <div className="auth-glass rounded-lg mb-4 overflow-hidden">
                 <button
                   type="button"
@@ -286,7 +335,10 @@ export default function Auth() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="auth-form-stack flex flex-col gap-4">
+            <form
+              onSubmit={isForgot ? handleForgotPassword : handleSubmit}
+              className="auth-form-stack flex flex-col gap-4"
+            >
               {error && (
                 <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
                   <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
@@ -294,7 +346,7 @@ export default function Auth() {
                 </div>
               )}
 
-              {!isLogin && (
+              {!isLogin && !isForgot && (
                 <div className="space-y-1.5">
                   <label htmlFor="name" className="auth-label text-xs">
                     Tên của bạn
@@ -334,53 +386,51 @@ export default function Auth() {
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label htmlFor="password" className="auth-label text-xs">
-                    Mật khẩu
-                  </label>
-                  {isLogin && (
+              {!isForgot && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label htmlFor="password" className="auth-label text-xs">
+                      Mật khẩu
+                    </label>
+                    {isLogin && (
+                      <button
+                        type="button"
+                        onClick={openForgot}
+                        className="text-xs text-[#4cd7f6] hover:underline"
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    )}
+                  </div>
+                  <div className="auth-neon-glow auth-input-surface relative flex items-center rounded-md transition-all">
+                    <Lock className="absolute left-3.5 w-4 h-4 text-[#958ea0]" />
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      minLength={6}
+                      placeholder="••••••••"
+                      className="auth-input-field w-full bg-transparent border-none pl-10 pr-10 text-[#dae2fd] placeholder:text-[#958ea0]/60 focus:ring-0 focus:outline-none"
+                    />
                     <button
                       type="button"
-                      onClick={() =>
-                        toast.message("Quên mật khẩu", {
-                          description: "Hiện tại demo chưa hỗ trợ reset mật khẩu.",
-                        })
-                      }
-                      className="text-xs text-[#4cd7f6] hover:underline"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 text-[#958ea0] hover:text-[#dae2fd] transition-colors"
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                     >
-                      Quên mật khẩu?
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
+                  </div>
+                  {!isLogin && (
+                    <p className="text-xs text-[#958ea0] auth-body">Tối thiểu 6 ký tự</p>
                   )}
                 </div>
-                <div className="auth-neon-glow auth-input-surface relative flex items-center rounded-md transition-all">
-                  <Lock className="absolute left-3.5 w-4 h-4 text-[#958ea0]" />
-                  <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                    minLength={6}
-                    placeholder="••••••••"
-                    className="auth-input-field w-full bg-transparent border-none pl-10 pr-10 text-[#dae2fd] placeholder:text-[#958ea0]/60 focus:ring-0 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-[#958ea0] hover:text-[#dae2fd] transition-colors"
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {!isLogin && (
-                  <p className="text-xs text-[#958ea0] auth-body">Tối thiểu 6 ký tự</p>
-                )}
-              </div>
+              )}
 
-              {isLogin && (
+              {isLogin && !isForgot && (
                 <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -404,16 +454,16 @@ export default function Auth() {
                 {loading ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang xác thực...
+                    {isForgot ? "Đang gửi..." : "Đang xác thực..."}
                   </>
                 ) : success ? (
                   <>
                     <CheckCircle2 className="w-5 h-5" />
-                    Thành công!
+                    {isForgot ? "Đã gửi email!" : "Thành công!"}
                   </>
                 ) : (
                   <>
-                    {isLogin ? "Đăng nhập" : "Đăng ký"}
+                    {isForgot ? "Gửi link reset" : isLogin ? "Đăng nhập" : "Đăng ký"}
                     <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -421,16 +471,28 @@ export default function Auth() {
             </form>
 
             <footer className="mt-6 text-center">
-              <p className="text-sm text-[#cbc3d7]">
-                {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
-                <button
-                  type="button"
-                  onClick={toggleMode}
-                  className="text-[#d0bcff] font-bold hover:underline ml-1"
-                >
-                  {isLogin ? "Đăng ký ngay" : "Đăng nhập"}
-                </button>
-              </p>
+              {isForgot ? (
+                <p className="text-sm text-[#cbc3d7]">
+                  <button
+                    type="button"
+                    onClick={backToLogin}
+                    className="text-[#d0bcff] font-bold hover:underline"
+                  >
+                    ← Quay lại đăng nhập
+                  </button>
+                </p>
+              ) : (
+                <p className="text-sm text-[#cbc3d7]">
+                  {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
+                  <button
+                    type="button"
+                    onClick={toggleMode}
+                    className="text-[#d0bcff] font-bold hover:underline ml-1"
+                  >
+                    {isLogin ? "Đăng ký ngay" : "Đăng nhập"}
+                  </button>
+                </p>
+              )}
               <Link
                 to="/"
                 className="inline-block mt-3 text-xs text-[#958ea0] hover:text-[#4cd7f6] transition-colors"

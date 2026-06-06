@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { LICENSE_OPTIONS, type LicenseType, type PriceType } from "../../types/asset";
+import { ART_STYLE_OPTIONS, type ArtStyleValue } from "../../constants/artStyles";
 import { formatFileSize } from "../../utils/assetStorage";
 import { fetchCategories, fetchTagGroups } from "../../api/lookup";
 import {
@@ -112,6 +113,7 @@ export default function AddAsset() {
   const [priceType, setPriceType] = useState<PriceType>("free");
   const [price, setPrice] = useState(0);
   const [license, setLicense] = useState<LicenseType>("Standard License");
+  const [artStyle, setArtStyle] = useState<ArtStyleValue | "">("");
 
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailName, setThumbnailName] = useState("");
@@ -182,7 +184,7 @@ export default function AddAsset() {
     if (previewFiles.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
     if (!zipFile) errs.push("Tải lên file asset.zip");
     if (!version.trim()) errs.push("Nhập phiên bản");
-    if (priceType === "paid" && price <= 0) errs.push("Nhập giá hợp lệ cho gói trả phí");
+    if (priceType === "paid" && price < 1) errs.push("Giá trả phí tối thiểu 1 xu");
     return errs;
   };
 
@@ -201,16 +203,17 @@ export default function AddAsset() {
         }
       }
 
-      const priceVnd = priceType === "free" ? 0 : price;
+      const priceXu = priceType === "free" ? 0 : Math.max(1, Math.floor(price));
       const created = await createAsset({
         title: title.trim(),
         shortDescription: shortDescription.trim(),
         fullDescription: fullDescription.trim(),
         categoryId,
         tagIds,
+        ...(artStyle ? { artStyle } : {}),
         priceType,
-        priceVnd,
-        priceXu: priceType === "free" ? 0 : Math.max(1, Math.round(price / 1000)),
+        priceVnd: 0,
+        priceXu,
         license: LICENSE_MAP[license],
         engineUnity: engineSupport.unity,
         engineUnreal: engineSupport.unreal,
@@ -416,6 +419,25 @@ export default function AddAsset() {
               </div>
 
               <div>
+                <FieldLabel htmlFor="artStyle" hint="Phong cách hình ảnh — giúp lọc & AI gợi ý">
+                  Phong cách nghệ thuật
+                </FieldLabel>
+                <select
+                  id="artStyle"
+                  value={artStyle}
+                  onChange={(e) => setArtStyle(e.target.value as ArtStyleValue | "")}
+                  className={inputClass}
+                >
+                  <option value="">— Không chọn —</option>
+                  {ART_STYLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value} className="bg-card">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <FieldLabel hint="Nhấn để chọn/bỏ chọn tag từ BE">
                   Tags
                 </FieldLabel>
@@ -604,7 +626,10 @@ export default function AddAsset() {
                         type="radio"
                         name="priceType"
                         checked={priceType === type}
-                        onChange={() => setPriceType(type)}
+                        onChange={() => {
+                          setPriceType(type);
+                          if (type === "paid" && price < 1) setPrice(1);
+                        }}
                         className="w-4 h-4 text-primary focus:ring-primary"
                       />
                       <span className="text-sm text-foreground">{type === "free" ? "Miễn phí" : "Trả phí"}</span>
@@ -615,15 +640,17 @@ export default function AddAsset() {
 
               {priceType === "paid" && (
                 <div>
-                  <FieldLabel htmlFor="price">Giá (VND)</FieldLabel>
+                  <FieldLabel htmlFor="price" hint="Tối thiểu 1 xu">
+                    Giá (xu)
+                  </FieldLabel>
                   <input
                     id="price"
                     type="number"
-                    min={1000}
-                    step={1000}
+                    min={1}
+                    step={1}
                     value={price || ""}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    placeholder="149000"
+                    onChange={(e) => setPrice(Math.max(1, Number(e.target.value) || 0))}
+                    placeholder="Ví dụ: 10 xu"
                     className={inputClass}
                   />
                 </div>

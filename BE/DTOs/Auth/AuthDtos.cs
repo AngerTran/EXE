@@ -57,6 +57,10 @@ public record UpdateProfileRequest(
 public record ForgotPasswordRequest(
     [Required, EmailAddress] string Email);
 
+public record ResetPasswordRequest(
+    [Required, MinLength(6)] string Password,
+    [Required] string AccessToken);
+
 public record AvatarUploadUrlRequest(
     [Required, MaxLength(255)] string FileName,
     [Required, MaxLength(128)] string ContentType,

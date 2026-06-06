@@ -1,5 +1,106 @@
 import { Link } from "react-router";
-import { Sparkles, Zap, Brain, Palette, Code, ArrowRight, CheckCircle, Star, Boxes } from "lucide-react";
+import { Sparkles, Zap, Brain, Palette, Code, ArrowRight, CheckCircle, Star, Boxes, ShoppingBag } from "lucide-react";
+
+const PIXEL_HERO = [
+  "transparent", "transparent", "#fbbf24", "#fbbf24", "transparent",
+  "transparent", "#fbbf24", "#fde68a", "#fbbf24", "transparent",
+  "#fde68a", "#fde68a", "#fde68a", "#fde68a", "#fde68a",
+  "transparent", "#00d9ff", "#00d9ff", "#00d9ff", "transparent",
+  "transparent", "#00d9ff", "transparent", "#00d9ff", "transparent",
+  "transparent", "#6366f1", "#6366f1", "#6366f1", "transparent",
+];
+
+const TILESET_COLORS = [
+  "#38bdf8", "#38bdf8", "#38bdf8", "#38bdf8",
+  "#22c55e", "#22c55e", "#16a34a", "#16a34a",
+  "#78716c", "#78716c", "#57534e", "#57534e",
+  "#a16207", "#a16207", "#854d0e", "#854d0e",
+];
+
+const WAVEFORM_HEIGHTS = [35, 55, 40, 70, 50, 85, 45, 60, 75, 35];
+
+const suggestedAssets = [
+  {
+    title: "Pixel Hero Sheet",
+    category: "2D",
+    match: 96,
+    badgeClass: "bg-primary/20 text-primary border-primary/30",
+    hoverBorder: "hover:border-primary/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(0,217,255,0.15)]",
+    previewBg: "from-primary/15 via-background/40 to-primary/5",
+  },
+  {
+    title: "Retro Ground Pack",
+    category: "Tileset",
+    match: 92,
+    badgeClass: "bg-secondary/20 text-secondary border-secondary/30",
+    hoverBorder: "hover:border-secondary/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(168,85,247,0.15)]",
+    previewBg: "from-secondary/15 via-background/40 to-secondary/5",
+  },
+  {
+    title: "Jump SFX Pack",
+    category: "Audio",
+    match: 88,
+    badgeClass: "bg-warning/20 text-warning border-warning/30",
+    hoverBorder: "hover:border-warning/50",
+    hoverGlow: "hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]",
+    previewBg: "from-warning/15 via-background/40 to-warning/5",
+  },
+] as const;
+
+function PixelSpritePreview() {
+  return (
+    <div className="flex items-end justify-center h-full pb-5 pt-3">
+      <div
+        className="grid grid-cols-5 gap-px w-[52px]"
+        style={{ imageRendering: "pixelated" }}
+      >
+        {PIXEL_HERO.map((color, i) => (
+          <div
+            key={i}
+            className="aspect-square rounded-[1px]"
+            style={{ backgroundColor: color === "transparent" ? "transparent" : color }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TilesetPreview() {
+  return (
+    <div className="flex items-center justify-center h-full p-3">
+      <div
+        className="grid grid-cols-4 gap-px w-full max-w-[72px] rounded-sm overflow-hidden border border-border/50"
+        style={{ imageRendering: "pixelated" }}
+      >
+        {TILESET_COLORS.map((color, i) => (
+          <div key={i} className="aspect-square" style={{ backgroundColor: color }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WaveformPreview() {
+  return (
+    <div className="flex items-end justify-center gap-[3px] h-full pb-5 pt-4 px-2">
+      {WAVEFORM_HEIGHTS.map((height, i) => (
+        <div
+          key={i}
+          className="w-[5px] rounded-full bg-warning/80 group-hover:bg-warning transition-colors"
+          style={{
+            height: `${height}%`,
+            animationDelay: `${i * 80}ms`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const assetPreviews = [PixelSpritePreview, TilesetPreview, WaveformPreview];
 
 export default function Home() {
   const features = [
@@ -150,13 +251,43 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Asset Preview */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="aspect-square bg-background/80 border border-border rounded-lg flex items-center justify-center group hover:border-primary/50 transition-all">
-                        <Palette className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                      </div>
-                    ))}
+                  {/* Suggested Assets */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <ShoppingBag className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-medium text-foreground">Assets gợi ý</span>
+                      <span className="ml-auto text-[10px] font-mono text-muted-foreground">3 kết quả</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {suggestedAssets.map((asset, index) => {
+                        const Preview = assetPreviews[index];
+                        return (
+                          <Link
+                            key={asset.title}
+                            to="/marketplace"
+                            className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-background/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
+                          >
+                            <div className={`absolute inset-0 bg-gradient-to-br ${asset.previewBg}`} />
+                            <div className="relative h-[calc(100%-2.25rem)]">
+                              <Preview />
+                            </div>
+                            <span
+                              className={`absolute top-1.5 left-1.5 z-10 rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${asset.badgeClass}`}
+                            >
+                              {asset.category}
+                            </span>
+                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent px-2 pb-2 pt-5">
+                              <p className="truncate text-[11px] font-semibold text-foreground group-hover:text-primary transition-colors">
+                                {asset.title}
+                              </p>
+                              <p className="text-[10px] font-mono text-success">
+                                {asset.match}% phù hợp
+                              </p>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>

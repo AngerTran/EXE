@@ -15,7 +15,7 @@
 3. **Supabase Auth**
    - Tắt bắt buộc confirm email (dev): Authentication → Providers → Email → *Confirm email* OFF  
      hoặc đăng ký rồi confirm mail trước khi login.
-   - User mới có profile/wallet do trigger hoặc seed — nếu `GET /auth/me` 404, kiểm tra bảng `profiles`.
+   - User mới có profile/wallet do trigger Supabase — chạy `docs/sql/handle_new_user.sql` hoặc `dotnet run --project BE/scripts/SetupNewUserTrigger` nếu `GET /auth/me` 404.
 
 4. **Avatar (tuỳ chọn)**
    - `Supabase:ServiceRoleKey` + bucket `avatars` (xem `docs/ASSET_STORAGE_4_6.md`).
@@ -44,8 +44,26 @@
 | FE: "Không kết nối được BE" | BE chưa chạy hoặc sai `VITE_API_BASE_URL` |
 | CORS | Thêm origin FE trong `Cors:AllowedOrigins` (mặc định có `5173`) |
 | 401 login | Sai pass hoặc email chưa confirm |
-| 404 `/auth/me` | Chưa có row `profiles` cho user Supabase |
+| 404 `/auth/me` | Chưa có row `profiles` — chạy `SetupNewUserTrigger` hoặc đăng ký lại; BE cũng tự tạo profile khi có JWT email |
 | Upload avatar fail | Thiếu `ServiceRoleKey` / bucket `avatars` |
+| Link reset mở `localhost:3000` / connection refused | **Site URL** Supabase đang là `3000` — sửa theo mục dưới |
+| `otp_expired` khi bấm link reset | Link đã hết hạn hoặc đã dùng — gửi lại email sau khi sửa URL |
+
+## Quên mật khẩu (reset)
+
+**Cách A — Cầu nối BE (khuyên dùng, giữ FE 5173):**
+
+1. Supabase → Authentication → **Redirect URLs**, thêm:
+   `http://localhost:5180/api/v1/auth/reset-callback`
+2. BE: `PasswordResetRedirectUrl` trỏ URL trên; `FrontendBaseUrl` = `http://localhost:5173`.
+3. Luồng: email → Supabase → BE callback → FE `/auth/reset` (token giữ nguyên).
+
+**Cách B — Redirect thẳng FE:**
+
+1. Site URL = `http://localhost:5173`, Redirect URLs = `http://localhost:5173/auth/reset`
+2. `PasswordResetRedirectUrl` = `http://localhost:5173/auth/reset`
+
+Gửi **email reset mới** sau khi đổi cấu hình. Mỗi link chỉ dùng một lần.
 
 ## Phần chưa nối BE (các sprint sau)
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Users,
@@ -23,13 +23,17 @@ import {
   CheckCircle,
   Loader2,
   Coins,
+  Star,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
 import type { AssetRecord } from "../../types/asset";
-import { ASSET_CATEGORIES, TAG_GROUPS, type AssetCategory } from "../../types/asset";
+import { LICENSE_OPTIONS, type AssetCategory } from "../../types/asset";
+import { ART_STYLE_OPTIONS, type ArtStyleValue } from "../../constants/artStyles";
 import {
   fetchAdminOverview,
   fetchAdminSubscriptionPlans,
@@ -42,7 +46,15 @@ import {
   patchWalletBalance,
   updateAdminUser,
   deleteAdminUser,
+  updateAdminAsset,
+  deleteAdminAsset,
 } from "../../api/admin";
+import {
+  buildAdminUpdateBody,
+  mapAssetDetailToEditRecord,
+} from "../../api/adminAssetEdit";
+import { fetchCategories, fetchTagGroups } from "../../api/lookup";
+import type { CategoryItem, TagGroupItem } from "../../api/types/marketplace";
 import {
   fetchAdminCreditPacks,
   createAdminCreditPack,
@@ -70,8 +82,11 @@ import { cn } from "./ui/utils";
 import {
   approveAsset as apiApproveAsset,
   rejectAsset as apiRejectAsset,
-  deleteAsset as apiDeleteAsset,
+  fetchAssetById,
   fetchPendingAssets,
+  getAssetUploadUrl,
+  registerAssetImage,
+  uploadToSignedUrl,
 } from "../../api/assets";
 import { mapAssetListItem } from "../../api/mappers";
 import {
@@ -735,6 +750,8 @@ function UsersManagement({
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [viewingUser, setViewingUser] = useState<UserData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -796,21 +813,18 @@ function UsersManagement({
     setEditingUser(null);
   };
 
-  const handleDelete = (userId: string) => {
-    if (!confirm("Bạn có chắc muốn xóa user này?")) return;
-
-    const userToDelete = users.find((u) => u.id === userId);
-    if (!userToDelete) return;
-
-    const updatedUsers = users.filter((u) => u.id !== userId);
-    setUsers(updatedUsers);
-
-    // Update localStorage
-    const usersData = localStorage.getItem("users");
-    if (usersData) {
-      const usersObj = JSON.parse(usersData);
-      delete usersObj[userToDelete.email];
-      localStorage.setItem("users", JSON.stringify(usersObj));
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteAdminUser(deleteTarget.id);
+      setUsers(users.filter((u) => u.id !== deleteTarget.id));
+      toast.success("Đã xóa user");
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Xóa user thất bại");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -905,7 +919,7 @@ function UsersManagement({
                       <Edit className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => handleDelete(user.id)}
+                      onClick={() => setDeleteTarget(user)}
                       className="text-destructive hover:text-destructive/80 transition-colors"
                     >
                       <Trash2 className="w-5 h-5" />
@@ -919,6 +933,25 @@ function UsersManagement({
       </div>
 
       <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
+
+      <ConfirmActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+        title="Xóa người dùng?"
+        description={
+          <>
+            Bạn sắp xóa{" "}
+            <span className="font-semibold text-foreground">{deleteTarget?.name}</span>{" "}
+            <span className="font-mono text-xs">({deleteTarget?.email})</span>. Hành động này không
+            thể hoàn tác.
+          </>
+        }
+        confirmLabel="Xóa user"
+        loading={deleting}
+        onConfirm={confirmDeleteUser}
+      />
 
       {/* Edit Drawer */}
       <Sheet
@@ -1307,6 +1340,12 @@ function AssetsManagement({
   const [viewingApprovedAsset, setViewingApprovedAsset] = useState<AssetRecord | null>(null);
   const [pendingPage, setPendingPage] = useState(1);
   const [approvedPage, setApprovedPage] = useState(1);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [tagGroups, setTagGroups] = useState<TagGroupItem[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const pendingPageSize = 6;
   const approvedPageSize = 12;
 
@@ -1336,6 +1375,7 @@ function AssetsManagement({
         status: "pending_review",
         submittedAt: new Date().toISOString(),
         creatorName: a.author,
+        thumbnailPreview: a.thumbnailUrl ?? undefined,
       });
       const pending = pendingRes.data.map(mapAssetListItem).map(toRecord);
       const approved = approvedRes.data.map(mapAssetListItem).map((a) => ({
@@ -1366,6 +1406,15 @@ function AssetsManagement({
     return () => window.removeEventListener("assetsUpdated", reload);
   }, [setAssets]);
 
+  useEffect(() => {
+    Promise.all([fetchCategories(), fetchTagGroups()])
+      .then(([cats, groups]) => {
+        setCategories(cats);
+        setTagGroups(groups);
+      })
+      .catch(() => {});
+  }, []);
+
   const filteredApprovedAssets = approvedAssetRecords.filter((asset) =>
     asset.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -1380,25 +1429,69 @@ function AssetsManagement({
     approvedPageSize
   );
 
-  const handleEditFromRecord = (asset: AssetRecord) => {
-    setEditingAsset({ ...asset });
-    setShowEditModal(true);
-  };
-
-  const handleSaveEdit = () => {
-    toast.message("Sửa asset qua Admin API — đang phát triển");
-    setShowEditModal(false);
-    setEditingAsset(null);
-  };
-
-  const handleDelete = async (assetId: string) => {
-    if (!confirm("Bạn có chắc muốn xóa asset này?")) return;
+  const handleEditFromRecord = async (asset: AssetRecord) => {
+    setLoadingEdit(true);
     try {
-      await apiDeleteAsset(assetId);
+      const detail = await fetchAssetById(asset.id);
+      setEditingAsset(mapAssetDetailToEditRecord(detail));
+      setShowEditModal(true);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tải được chi tiết asset");
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingAsset) return;
+    if (!editingAsset.title.trim()) {
+      toast.error("Tên asset không được để trống");
+      return;
+    }
+    if (!editingAsset.categoryId) {
+      toast.error("Chọn danh mục asset");
+      return;
+    }
+    if (!editingAsset.isFree && editingAsset.price < 1) {
+      toast.error("Giá trả phí tối thiểu 1 xu");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      await updateAdminAsset(editingAsset.id, buildAdminUpdateBody(editingAsset, tagGroups));
+      toast.success("Đã cập nhật asset");
+      setShowEditModal(false);
+      setEditingAsset(null);
+      await reload();
+      window.dispatchEvent(new CustomEvent("assetsUpdated"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Cập nhật asset thất bại");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const requestDeleteAsset = (asset: { id: string; title: string }) => {
+    setDeleteTarget({ id: asset.id, title: asset.title });
+  };
+
+  const confirmDeleteAsset = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteAdminAsset(deleteTarget.id);
       toast.success("Đã xóa asset");
-      reload();
-    } catch {
-      toast.error("Xóa asset thất bại");
+      setDeleteTarget(null);
+      if (viewingApprovedAsset?.id === deleteTarget.id) {
+        setViewingApprovedAsset(null);
+      }
+      await reload();
+      window.dispatchEvent(new CustomEvent("assetsUpdated"));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Xóa asset thất bại");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1717,7 +1810,7 @@ function AssetsManagement({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(asset.id)}
+                      onClick={() => requestDeleteAsset(asset)}
                       className="flex-1 bg-destructive/10 hover:bg-destructive/15 border border-destructive/30 text-destructive py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1843,7 +1936,7 @@ function AssetsManagement({
                     type="button"
                     onClick={() => {
                       setViewingApprovedAsset(null);
-                      setTimeout(() => handleDelete(viewingApprovedAsset.id), 0);
+                      setTimeout(() => requestDeleteAsset(viewingApprovedAsset), 0);
                     }}
                     className="flex-1 bg-destructive/10 hover:bg-destructive/15 border border-destructive/30 text-destructive py-3 rounded-lg font-bold transition-all"
                   >
@@ -1875,7 +1968,12 @@ function AssetsManagement({
                 </SheetHeader>
 
                 <div className="flex-1 overflow-y-auto p-6">
-                  <AssetForm asset={editingAsset} onChange={setEditingAsset} />
+                  <AssetForm
+                    asset={editingAsset}
+                    onChange={setEditingAsset}
+                    categories={categories}
+                    tagGroups={tagGroups}
+                  />
                 </div>
 
                 <div className="border-t border-border p-6 flex gap-3">
@@ -1885,16 +1983,18 @@ function AssetsManagement({
                       setShowEditModal(false);
                       setEditingAsset(null);
                     }}
-                    className="flex-1 bg-card hover:bg-card/80 border border-border text-foreground py-3 rounded-lg font-bold transition-all"
+                    disabled={savingEdit}
+                    className="flex-1 bg-card hover:bg-card/80 border border-border text-foreground py-3 rounded-lg font-bold transition-all disabled:opacity-60"
                   >
                     Huỷ
                   </button>
                   <button
                     type="button"
                     onClick={handleSaveEdit}
-                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
+                    disabled={savingEdit}
+                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    <Save className="w-5 h-5" />
+                    {savingEdit ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     Lưu
                   </button>
                 </div>
@@ -1902,6 +2002,24 @@ function AssetsManagement({
             </SheetContent>
           )}
         </Sheet>
+
+        <ConfirmActionDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => {
+            if (!open && !deleting) setDeleteTarget(null);
+          }}
+          title="Xóa asset?"
+          description={
+            <>
+              Asset{" "}
+              <span className="font-semibold text-foreground">{deleteTarget?.title}</span> sẽ bị xóa
+              khỏi marketplace. Hành động này không thể hoàn tác.
+            </>
+          }
+          confirmLabel="Xóa asset"
+          loading={deleting}
+          onConfirm={confirmDeleteAsset}
+        />
       </div>
     </div>
   );
@@ -1910,35 +2028,102 @@ function AssetsManagement({
 function AssetForm({
   asset,
   onChange,
+  categories,
+  tagGroups,
 }: {
   asset: AssetRecord;
-  onChange: (asset: any) => void;
+  onChange: (asset: AssetRecord) => void;
+  categories: CategoryItem[];
+  tagGroups: TagGroupItem[];
 }) {
-  const toggleTag = (tag: string) => {
-    const has = asset.tags.includes(tag);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
+
+  const handleThumbnailUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chọn file ảnh PNG, JPG hoặc WEBP");
+      return;
+    }
+    setUploadingThumb(true);
+    try {
+      const meta = await getAssetUploadUrl(asset.id, "Image", file.name, file.type, file.size);
+      await uploadToSignedUrl(meta.uploadUrl, file, file.type);
+      await registerAssetImage(asset.id, {
+        storagePath: meta.storagePath,
+        altText: asset.title,
+        sortOrder: 0,
+        isThumbnail: true,
+      });
+      const detail = await fetchAssetById(asset.id);
+      onChange(mapAssetDetailToEditRecord(detail));
+      toast.success("Đã cập nhật ảnh thumbnail");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Upload thumbnail thất bại");
+    } finally {
+      setUploadingThumb(false);
+    }
+  };
+
+  const toggleTag = (tagName: string) => {
+    const has = asset.tags.includes(tagName);
     onChange({
       ...asset,
-      tags: has ? asset.tags.filter((t: string) => t !== tag) : [...asset.tags, tag],
+      tags: has ? asset.tags.filter((t) => t !== tagName) : [...asset.tags, tagName],
     });
   };
 
   return (
     <div className="space-y-6">
       {/* Preview */}
-      <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
-        <ImageWithFallback
-          src={
-            asset.thumbnailPreview ||
-            `https://source.unsplash.com/800x600/?${encodeURIComponent(asset.title)}`
-          }
-          alt={asset.title}
-          className="w-full h-full object-cover"
+      <div className="space-y-3">
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
+          <ImageWithFallback
+            src={
+              asset.thumbnailPreview ||
+              `https://source.unsplash.com/800x600/?${encodeURIComponent(asset.title)}`
+            }
+            alt={asset.title}
+            className="w-full h-full object-cover"
+          />
+          {asset.isFree && (
+            <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+              MIỄN PHÍ
+            </div>
+          )}
+        </div>
+        <input
+          ref={thumbnailInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleThumbnailUpload(file);
+            e.target.value = "";
+          }}
         />
-        {asset.isFree && (
-          <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-            MIỄN PHÍ
-          </div>
-        )}
+        <button
+          type="button"
+          disabled={uploadingThumb}
+          onClick={() => thumbnailInputRef.current?.click()}
+          className="w-full border-2 border-dashed border-border rounded-xl p-4 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-60"
+        >
+          {uploadingThumb ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              Đang tải lên...
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4" />
+              Tải ảnh thumbnail mới
+            </>
+          )}
+        </button>
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+          Ảnh lưu trên Supabase Storage — không cần dán URL thủ công.
+        </p>
       </div>
 
       {/* Basic */}
@@ -1962,50 +2147,37 @@ function AssetForm({
             Danh mục
           </label>
           <select
-            value={asset.category}
-            onChange={(e) =>
-              onChange({ ...asset, category: e.target.value as AssetCategory })
-            }
+            value={asset.categoryId ?? ""}
+            onChange={(e) => {
+              const selected = categories.find((c) => c.id === e.target.value);
+              onChange({
+                ...asset,
+                categoryId: e.target.value,
+                category: (selected?.name as AssetRecord["category"]) ?? asset.category,
+              });
+            }}
             className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
           >
-            {ASSET_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            <option value="">Chọn danh mục</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
               </option>
             ))}
           </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
-              Rating
-            </label>
-            <input
-              type="number"
-              step="0.1"
-              min="0"
-              max="5"
-              value={asset.rating}
-              onChange={(e) =>
-                onChange({ ...asset, rating: parseFloat(e.target.value) || 0 })
-              }
-              className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-            />
+          <div className="bg-background/40 border border-border rounded-lg px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Rating (tự động)</p>
+            <p className="text-lg font-bold text-foreground font-mono flex items-center gap-1">
+              <Star className="w-4 h-4 fill-warning text-warning" />
+              {asset.rating}
+            </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">
-              Downloads
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={asset.downloads}
-              onChange={(e) =>
-                onChange({ ...asset, downloads: parseInt(e.target.value) || 0 })
-              }
-              className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-            />
+          <div className="bg-background/40 border border-border rounded-lg px-4 py-3">
+            <p className="text-xs text-muted-foreground mb-1">Downloads (tự động)</p>
+            <p className="text-lg font-bold text-foreground font-mono">{asset.downloads}</p>
           </div>
         </div>
       </div>
@@ -2056,19 +2228,19 @@ function AssetForm({
         </div>
 
         <div className="space-y-4 rounded-xl border border-border bg-background/40 p-4 max-h-[420px] overflow-y-auto">
-          {TAG_GROUPS.map((group) => (
-            <div key={group.label}>
+          {tagGroups.map((group) => (
+            <div key={group.id}>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                 {group.label}
               </p>
               <div className="flex flex-wrap gap-2">
                 {group.tags.map((tag) => {
-                  const selected = asset.tags.includes(tag);
+                  const selected = asset.tags.includes(tag.name);
                   return (
                     <button
-                      key={tag}
+                      key={tag.id}
                       type="button"
-                      onClick={() => toggleTag(tag)}
+                      onClick={() => toggleTag(tag.name)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-all ${
                         selected
                           ? "bg-primary/20 text-primary border-primary/50 shadow-[0_0_12px_rgba(0,217,255,0.15)]"
@@ -2076,12 +2248,131 @@ function AssetForm({
                       }`}
                     >
                       {selected && <CheckCircle className="w-3 h-3" />}
-                      {tag}
+                      {tag.name}
                     </button>
                   );
                 })}
               </div>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Engine & license */}
+      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+        <h3 className="text-lg font-bold text-foreground">Engine & giấy phép</h3>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">
+            Engine hỗ trợ
+          </label>
+          <div className="flex flex-wrap gap-6">
+            {(
+              [
+                ["unity", "Unity"],
+                ["unreal", "Unreal"],
+                ["godot", "Godot"],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={asset.engineSupport[key]}
+                  onChange={(e) =>
+                    onChange({
+                      ...asset,
+                      engineSupport: { ...asset.engineSupport, [key]: e.target.checked },
+                    })
+                  }
+                  className="w-4 h-4 rounded border-border bg-background text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-foreground">{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">
+            Phong cách nghệ thuật
+          </label>
+          <select
+            value={asset.artStyle ?? ""}
+            onChange={(e) =>
+              onChange({
+                ...asset,
+                artStyle: (e.target.value as ArtStyleValue) || undefined,
+              })
+            }
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="">— Không chọn —</option>
+            {ART_STYLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">
+            Giấy phép
+          </label>
+          <select
+            value={asset.license}
+            onChange={(e) =>
+              onChange({ ...asset, license: e.target.value as AssetRecord["license"] })
+            }
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            {LICENSE_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">
+            Phiên bản
+          </label>
+          <input
+            type="text"
+            value={asset.version}
+            onChange={(e) => onChange({ ...asset, version: e.target.value })}
+            placeholder="1.0.0"
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+        </div>
+      </div>
+
+      {/* Features */}
+      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+        <h3 className="text-lg font-bold text-foreground">Tính năng asset</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {(
+            [
+              ["rigged", "Rigged (có xương)"],
+              ["animated", "Animated (có animation)"],
+              ["pbr", "PBR materials"],
+              ["vrReady", "VR ready"],
+            ] as const
+          ).map(([key, label]) => (
+            <label
+              key={key}
+              className="flex items-center gap-2 cursor-pointer select-none p-3 rounded-lg border border-border bg-background/40"
+            >
+              <input
+                type="checkbox"
+                checked={asset.features[key]}
+                onChange={(e) =>
+                  onChange({
+                    ...asset,
+                    features: { ...asset.features, [key]: e.target.checked },
+                  })
+                }
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-foreground">{label}</span>
+            </label>
           ))}
         </div>
       </div>
@@ -2144,6 +2435,7 @@ function OrdersManagement({
   const pageSize = 6;
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const filteredOrders = orders.filter(
     (order) =>
       order.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -2166,14 +2458,18 @@ function OrdersManagement({
     }
   };
 
-  const handleCancel = async (orderId: string) => {
-    if (!confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
+  const confirmCancelOrder = async () => {
+    if (!cancelTarget) return;
 
-    setActionOrderId(orderId);
+    setActionOrderId(cancelTarget.id);
     try {
-      const updated = await updateOrderStatus(orderId, "cancelled");
-      setOrders(orders.map((o) => (o.id === orderId ? mapApiOrderToAdmin(updated) : o)));
+      const updated = await updateOrderStatus(cancelTarget.id, "cancelled");
+      setOrders(orders.map((o) => (o.id === cancelTarget.id ? mapApiOrderToAdmin(updated) : o)));
       toast.success("Đã hủy đơn hàng");
+      setCancelTarget(null);
+      if (viewingOrder?.id === cancelTarget.id) {
+        setViewingOrder(mapApiOrderToAdmin(updated));
+      }
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Không hủy được đơn");
     } finally {
@@ -2281,7 +2577,7 @@ function OrdersManagement({
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleCancel(order.id)}
+                    onClick={() => setCancelTarget(order)}
                     disabled={actionOrderId === order.id}
                   >
                     Hủy
@@ -2415,10 +2711,7 @@ function OrdersManagement({
                     <Button
                       variant="destructive"
                       className="flex-1 sm:flex-none"
-                      onClick={() => {
-                        handleCancel(viewingOrder.id);
-                        setViewingOrder(null);
-                      }}
+                      onClick={() => setCancelTarget(viewingOrder)}
                       disabled={actionOrderId === viewingOrder.id}
                     >
                       Hủy đơn
@@ -2430,6 +2723,24 @@ function OrdersManagement({
           </SheetContent>
         )}
       </Sheet>
+
+      <ConfirmActionDialog
+        open={!!cancelTarget}
+        onOpenChange={(open) => {
+          if (!open && !actionOrderId) setCancelTarget(null);
+        }}
+        title="Hủy đơn hàng?"
+        description={
+          <>
+            Bạn sắp hủy đơn{" "}
+            <span className="font-mono font-semibold text-foreground">{cancelTarget?.orderCode}</span>{" "}
+            của <span className="font-semibold text-foreground">{cancelTarget?.userName}</span>.
+          </>
+        }
+        confirmLabel="Hủy đơn"
+        loading={!!cancelTarget && actionOrderId === cancelTarget.id}
+        onConfirm={confirmCancelOrder}
+      />
     </div>
   );
 }
@@ -3456,6 +3767,71 @@ function PackageForm({
 }
 
 // Modal Component
+function ConfirmActionDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  confirmLabel = "Xác nhận",
+  loading = false,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: ReactNode;
+  confirmLabel?: string;
+  loading?: boolean;
+  onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && loading) return;
+        onOpenChange(next);
+      }}
+    >
+      <AlertDialogContent className="bg-card border-border sm:max-w-md">
+        <AlertDialogHeader>
+          <div className="mx-auto sm:mx-0 mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
+            <AlertCircle className="h-6 w-6 text-destructive" />
+          </div>
+          <AlertDialogTitle className="text-foreground text-xl">{title}</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="text-sm text-muted-foreground leading-relaxed">{description}</div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2 sm:gap-2">
+          <AlertDialogCancel disabled={loading} className="border-border hover:bg-muted/50">
+            Đóng
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={loading}
+            onClick={(e) => {
+              e.preventDefault();
+              void onConfirm();
+            }}
+            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Đang xử lý...
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" />
+                {confirmLabel}
+              </>
+            )}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function Modal({
   children,
   onClose,
