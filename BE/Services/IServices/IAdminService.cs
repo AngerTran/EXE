@@ -74,4 +74,9 @@ public interface IAdminService
         Guid adminUserId,
         Guid planId,
         CancellationToken cancellationToken = default);
+
+    Task<bool> HardDeleteSubscriptionPlanAsync(
+        Guid adminUserId,
+        Guid planId,
+        CancellationToken cancellationToken = default);
 }

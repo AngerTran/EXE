@@ -351,6 +351,29 @@ public class AdminService(
         return true;
     }
 
+    public async Task<bool> HardDeleteSubscriptionPlanAsync(
+        Guid adminUserId,
+        Guid planId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        var plan = await subscriptionPlanRepository.GetByIdForUpdateAsync(planId, cancellationToken);
+        if (plan is null)
+            return false;
+
+        var (subscriptions, orderItems) =
+            await subscriptionPlanRepository.GetReferenceCountsAsync(planId, cancellationToken);
+        if (subscriptions > 0 || orderItems > 0)
+        {
+            throw new InvalidOperationException(
+                $"Cannot permanently delete plan '{plan.Slug}': {subscriptions} subscription(s) and {orderItems} order item(s) still reference it.");
+        }
+
+        subscriptionPlanRepository.Remove(plan);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private async Task EnsureAdminAsync(Guid userId, CancellationToken cancellationToken)
     {
         if (await profileRepository.GetRoleAsync(userId, cancellationToken) != UserRole.Admin)

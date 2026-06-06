@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
 import { Clock, ShoppingCart, CreditCard, Package, ListChecks, Loader2 } from "lucide-react";
 import { ClientPagination } from "./ui/ClientPagination";
 import { fetchMyOrders, fetchOrdersSummary } from "../../api/orders";
@@ -26,8 +27,10 @@ function statusLabel(status: OrderStatusUi) {
   }
 }
 
+const PENDING_POLL_MS = 8000;
+
 export default function MyOrders() {
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const [orders, setOrders] = useState<OrderUi[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -68,6 +71,46 @@ export default function MyOrders() {
       cancelled = true;
     };
   }, [user, page]);
+
+  const ordersRef = useRef(orders);
+  ordersRef.current = orders;
+  const hasPendingOrders = orders.some((o) => o.status === "pending");
+
+  useEffect(() => {
+    if (!user || !hasPendingOrders) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const ordersRes = await fetchMyOrders(page, 20);
+        if (cancelled) return;
+
+        const mapped = ordersRes.data.map(mapOrderToUi);
+        const newlyCompleted = mapped.some(
+          (order) =>
+            order.status === "completed" &&
+            ordersRef.current.find((prev) => prev.id === order.id)?.status === "pending"
+        );
+
+        setOrders(mapped);
+        setTotalPages(Math.max(1, Math.ceil(ordersRes.total / ordersRes.pageSize)));
+
+        if (newlyCompleted) {
+          await refreshUserData();
+          toast.success("Đơn hàng đã hoàn thành — số xu trên header đã cập nhật");
+        }
+      } catch {
+        /* ignore polling errors */
+      }
+    };
+
+    void poll();
+    const timerId = window.setInterval(() => void poll(), PENDING_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timerId);
+    };
+  }, [user, hasPendingOrders, page, refreshUserData]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

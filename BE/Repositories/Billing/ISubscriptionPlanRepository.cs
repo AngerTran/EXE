@@ -22,4 +22,10 @@ public interface ISubscriptionPlanRepository
     Task<SubscriptionPlan?> GetByIdForUpdateAsync(Guid id, CancellationToken cancellationToken = default);
 
     void Add(SubscriptionPlan plan);
+
+    void Remove(SubscriptionPlan plan);
+
+    Task<(int Subscriptions, int OrderItems)> GetReferenceCountsAsync(
+        Guid planId,
+        CancellationToken cancellationToken = default);
 }

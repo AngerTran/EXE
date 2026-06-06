@@ -52,7 +52,7 @@ public record MeSubscriptionResponse(
 /// <summary>Body PATCH /auth/me — ít nhất một field (name hoặc avatarUrl) bắt buộc.</summary>
 public record UpdateProfileRequest(
     [MaxLength(100)] string? Name,
-    [MaxLength(2048)] string? AvatarUrl);
+    [MaxLength(1_048_576)] string? AvatarUrl);
 
 public record ForgotPasswordRequest(
     [Required, EmailAddress] string Email);

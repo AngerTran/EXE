@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { Toaster } from "./ui/sonner";
 import { useTheme } from "../contexts/ThemeContext";
@@ -8,8 +8,24 @@ import { useTheme } from "../contexts/ThemeContext";
 export default function Root() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUserData } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (!user) return;
+
+    const syncCredits = () => void refreshUserData();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncCredits();
+    };
+
+    window.addEventListener("focus", syncCredits);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", syncCredits);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [user, refreshUserData]);
 
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === "/auth";

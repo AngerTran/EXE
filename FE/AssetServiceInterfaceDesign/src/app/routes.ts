@@ -6,6 +6,7 @@ import Pricing from "./components/Pricing";
 import Contact from "./components/Contact";
 import Auth from "./components/Auth";
 import ProtectedCheckout from "./components/ProtectedCheckout";
+import ProtectedCreditsCheckout from "./components/ProtectedCreditsCheckout";
 import AssetsMarketplace from "./components/AssetsMarketplace";
 import ProtectedAssetsCheckout from "./components/ProtectedAssetsCheckout";
 import ProtectedAdminDashboard from "./components/ProtectedAdminDashboard";
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: "contact", Component: Contact },
       { path: "auth", Component: Auth },
       { path: "checkout", Component: ProtectedCheckout },
+      { path: "checkout-credits", Component: ProtectedCreditsCheckout },
       { path: "marketplace", Component: AssetsMarketplace },
       { path: "my-assets", Component: ProtectedMyAssets },
       { path: "checkout-assets", Component: ProtectedAssetsCheckout },

@@ -25,7 +25,10 @@ public record OrderResponse(
     DateTime CreatedAt,
     IReadOnlyList<OrderItemResponse> Items,
     Guid? PaymentId = null,
-    string? PaymentRedirectUrl = null);
+    string? PaymentRedirectUrl = null,
+    Guid? UserId = null,
+    string? UserEmail = null,
+    string? UserName = null);
 
 public record OrdersSummaryResponse(
     int TotalOrders,
@@ -38,9 +41,13 @@ public record CreateSubscriptionOrderRequest(
     [Required] string PaymentMethod);
 
 public record CreateAssetOrderRequest(
-    [Required] string PaymentMethod,
-    bool UseSubscriptionFreeAssets = true,
+    string? PaymentMethod = null,
+    bool UseSubscriptionFreeAssets = false,
     IReadOnlyList<Guid>? AssetIds = null);
+
+public record CreateCreditPackOrderRequest(
+    [Required] string PackId,
+    [Required] string PaymentMethod);
 
 public record UpdateOrderStatusRequest(
     [Required] OrderStatus Status);

@@ -3,6 +3,7 @@ using Exe.DTOs.Auth;
 using Exe.DTOs.Billing;
 using Exe.DTOs.Common;
 using Exe.Extensions;
+using Exe.Services;
 using Exe.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,9 +17,24 @@ namespace Exe.Controllers.V1;
 [Produces("application/json")]
 public class PaymentsController(
     IPaymentService paymentService,
+    BankTransferInfoService bankTransferInfoService,
     IOptions<PaymentOptions> paymentOptions) : ControllerBase
 {
     private readonly PaymentOptions _paymentOptions = paymentOptions.Value;
+
+    [HttpGet("bank-transfer-info")]
+    [Authorize]
+    [ProducesResponseType(typeof(BankTransferInfoResponse), StatusCodes.Status200OK)]
+    public IActionResult GetBankTransferInfo(
+        [FromQuery] long? amountVnd,
+        [FromQuery] string? transferMemo)
+    {
+        var info = bankTransferInfoService.GetInfo(amountVnd, transferMemo);
+        if (string.IsNullOrWhiteSpace(info.AccountNumber))
+            return BadRequest(new ErrorResponse("Chưa cấu hình tài khoản ngân hàng (BankTransfer trong appsettings).", "bank_not_configured"));
+
+        return Ok(info);
+    }
 
     [HttpGet]
     [Authorize]

@@ -24,14 +24,17 @@ export async function createSubscriptionOrder(
   });
 }
 
-export async function createAssetOrder(
-  paymentMethod: string,
-  useSubscriptionFreeAssets = true,
-  assetIds?: string[]
-): Promise<Order> {
+export async function createAssetOrder(assetIds?: string[]): Promise<Order> {
   return apiRequest<Order>("/orders/assets", {
     method: "POST",
-    body: JSON.stringify({ paymentMethod, useSubscriptionFreeAssets, assetIds }),
+    body: JSON.stringify({ assetIds }),
+  });
+}
+
+export async function createCreditPackOrder(packId: string): Promise<Order> {
+  return apiRequest<Order>("/orders/credit-packs", {
+    method: "POST",
+    body: JSON.stringify({ packId, paymentMethod: "bank" }),
   });
 }
 

@@ -36,4 +36,15 @@ public class SubscriptionPlanRepository(AppDbContext db) : ISubscriptionPlanRepo
         db.SubscriptionPlans.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     public void Add(SubscriptionPlan plan) => db.SubscriptionPlans.Add(plan);
+
+    public void Remove(SubscriptionPlan plan) => db.SubscriptionPlans.Remove(plan);
+
+    public async Task<(int Subscriptions, int OrderItems)> GetReferenceCountsAsync(
+        Guid planId,
+        CancellationToken cancellationToken = default)
+    {
+        var subscriptions = await db.Subscriptions.CountAsync(s => s.PlanId == planId, cancellationToken);
+        var orderItems = await db.OrderItems.CountAsync(i => i.PlanId == planId, cancellationToken);
+        return (subscriptions, orderItems);
+    }
 }

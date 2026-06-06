@@ -65,11 +65,11 @@ export default function Terms() {
               <h3 className="text-xl font-semibold text-white mt-6">3.2. Các gói dịch vụ</h3>
               <div className="space-y-4">
                 <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="font-bold text-white">FREE (10 xu)</h4>
+                  <h4 className="font-bold text-white">FREE (100 xu)</h4>
                   <p>20 lượt hỏi AI miễn phí, truy cập Assets miễn phí</p>
                 </div>
                 <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="font-bold text-white">STUDENT (100 xu/tháng)</h4>
+                  <h4 className="font-bold text-white">STUDENT (1.000 xu/tháng)</h4>
                   <p>100 lượt hỏi AI/tháng, Full Assets Library access</p>
                 </div>
                 <div className="bg-white/5 p-4 rounded-lg">

@@ -19,6 +19,8 @@ builder.Services.Configure<MomoOptions>(
     builder.Configuration.GetSection(MomoOptions.SectionName));
 builder.Services.Configure<VnpayOptions>(
     builder.Configuration.GetSection(VnpayOptions.SectionName));
+builder.Services.Configure<BankTransferOptions>(
+    builder.Configuration.GetSection(BankTransferOptions.SectionName));
 
 var supabase = builder.Configuration
     .GetSection(SupabaseOptions.SectionName)
@@ -33,6 +35,7 @@ builder.Services.AddSupabaseAuthentication(supabase);
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISubscriptionPlanService, SubscriptionPlanService>();
+builder.Services.AddScoped<ICreditPackService, CreditPackService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
@@ -41,6 +44,7 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<OrderFulfillmentService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddSingleton<BankTransferInfoService>();
 builder.Services.AddScoped<PaymentGatewayResolver>();
 builder.Services.AddHttpClient<MomoPaymentGateway>();
 builder.Services.AddScoped<IPaymentGateway, MomoPaymentGateway>(sp => sp.GetRequiredService<MomoPaymentGateway>());

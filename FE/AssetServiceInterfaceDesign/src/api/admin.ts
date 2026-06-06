@@ -73,7 +73,32 @@ export async function fetchAdminSubscriptionPlans(): Promise<SubscriptionPlan[]>
   return res.data ?? [];
 }
 
-export async function createAdminSubscriptionPlan(body: Record<string, unknown>): Promise<SubscriptionPlan> {
+export interface AdminCreateSubscriptionPlanRequest {
+  slug: string;
+  name: string;
+  description?: string | null;
+  priceVnd: number;
+  creditsMonthly?: number | null;
+  isUnlimited: boolean;
+  features?: string[];
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface AdminUpdateSubscriptionPlanRequest {
+  name?: string;
+  description?: string | null;
+  priceVnd?: number;
+  creditsMonthly?: number | null;
+  isUnlimited?: boolean;
+  features?: string[];
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export async function createAdminSubscriptionPlan(
+  body: AdminCreateSubscriptionPlanRequest
+): Promise<SubscriptionPlan> {
   return apiRequest<SubscriptionPlan>("/admin/subscription-plans", {
     method: "POST",
     body: JSON.stringify(body),
@@ -82,7 +107,7 @@ export async function createAdminSubscriptionPlan(body: Record<string, unknown>)
 
 export async function updateAdminSubscriptionPlan(
   id: string,
-  body: Record<string, unknown>
+  body: AdminUpdateSubscriptionPlanRequest
 ): Promise<SubscriptionPlan> {
   return apiRequest<SubscriptionPlan>(`/admin/subscription-plans/${id}`, {
     method: "PATCH",
@@ -92,6 +117,11 @@ export async function updateAdminSubscriptionPlan(
 
 export async function deleteAdminSubscriptionPlan(id: string): Promise<void> {
   return apiRequest<void>(`/admin/subscription-plans/${id}`, { method: "DELETE" });
+}
+
+/** Xóa vĩnh viễn khỏi DB — chỉ khi gói đã ẩn và không còn user/đơn hàng tham chiếu. */
+export async function hardDeleteAdminSubscriptionPlan(id: string): Promise<void> {
+  return apiRequest<void>(`/admin/subscription-plans/${id}/permanent`, { method: "DELETE" });
 }
 
 export async function fetchAdminAnalyticsRevenue(

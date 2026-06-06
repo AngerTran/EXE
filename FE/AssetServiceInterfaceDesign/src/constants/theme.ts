@@ -83,9 +83,20 @@ export const breakpoints = {
  */
 export const componentClasses = {
   // Buttons
-  buttonPrimary: 'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)]',
+  buttonPrimary:
+    'bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] disabled:opacity-50 disabled:hover:scale-100',
 
-  buttonSecondary: 'bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg transition-all',
+  buttonSecondary:
+    'bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg font-semibold transition-all',
+
+  buttonSuccess:
+    'bg-success text-success-foreground hover:bg-success/90 px-4 py-2 rounded-lg font-semibold transition-all hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] disabled:opacity-50',
+
+  buttonDestructive:
+    'bg-destructive text-destructive-foreground hover:bg-destructive/90 px-4 py-2 rounded-lg font-semibold transition-all hover:shadow-[0_0_20px_rgba(236,72,153,0.3)] disabled:opacity-50',
+
+  buttonGhost:
+    'bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-4 py-2 rounded-lg font-medium transition-all',
 
   // Cards
   card: 'bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:scale-105 hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] transition-all',
@@ -137,22 +148,17 @@ export const packages = {
   free: {
     name: 'FREE',
     price: 0,
-    credits: 10,
+    credits: 100,
   },
   student: {
     name: 'STUDENT',
     price: 29000,
-    credits: 100,
-  },
-  indie: {
-    name: 'INDIE',
-    price: 99000,
-    credits: -1, // unlimited
+    credits: 1000,
   },
   pro: {
     name: 'PRO',
-    price: 199000,
-    credits: -1, // unlimited
+    price: 99000,
+    credits: -1,
   },
 } as const;
 
@@ -162,5 +168,5 @@ export const packages = {
 export const credits = {
   displayName: 'xu',
   warningThreshold: 5,
-  freeInitialAmount: 10,
+  freeInitialAmount: 100,
 } as const;

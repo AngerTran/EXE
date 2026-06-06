@@ -1,63 +1,56 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  CreditCard,
-  Wallet,
   CheckCircle,
   ArrowLeft,
   Shield,
-  Lock,
   Clock,
   AlertCircle,
-  Download,
   Package,
   Loader2,
+  Coins,
+  Library,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "../../api/client";
 import { fetchCart, clearCart } from "../../api/cart";
 import { createAssetOrder } from "../../api/orders";
-import { fetchAssets } from "../../api/assets";
+import { fetchAssetById } from "../../api/assets";
 import { mapAssetListItem, type MarketplaceAsset } from "../../api/mappers";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { componentClasses } from "../../constants/theme";
+import { Button } from "./ui/button";
+import { cn } from "./ui/utils";
 
 export default function AssetsCheckout() {
   const [searchParams] = useSearchParams();
   const assetIdsParam = searchParams.get("assets") || "";
-  const assetIds = assetIdsParam.split(",").filter(Boolean);
+  const buyNowAssetIds = useMemo(
+    () => assetIdsParam.split(",").map((id) => id.trim()).filter(Boolean),
+    [assetIdsParam]
+  );
+  const isFromCart = buyNowAssetIds.length === 0;
 
-  const { user } = useAuth();
+  const { user, refreshUserData } = useAuth();
   const navigate = useNavigate();
 
-  const [paymentMethod, setPaymentMethod] = useState<"momo" | "bank" | "card">("momo");
-  const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: "",
-    cardNumber: "",
-    cardName: "",
-    expiryDate: "",
-    cvv: "",
-  });
-  const [phoneTouched, setPhoneTouched] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [selectedAssets, setSelectedAssets] = useState<MarketplaceAsset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(true);
-  const [orderCode, setOrderCode] = useState<string | null>(null);
 
-  const hasActiveSubscription =
-    user?.subscription && ["student", "indie", "pro"].includes(user.subscription);
-
-  const totalPrice = hasActiveSubscription
-    ? 0
-    : selectedAssets.reduce((sum, asset) => sum + asset.price, 0);
-
-  const freeItemsCount = hasActiveSubscription
-    ? selectedAssets.length
-    : selectedAssets.filter((asset) => asset.isFree).length;
+  const walletBalance = user?.credits ?? 0;
+  const totalPrice = selectedAssets.reduce(
+    (sum, asset) => sum + (asset.isFree ? 0 : asset.price),
+    0
+  );
+  const freeItemsCount = selectedAssets.filter((asset) => asset.isFree).length;
+  const paidItemsCount = selectedAssets.length - freeItemsCount;
+  const balanceAfterPurchase = walletBalance - totalPrice;
+  const hasEnoughXu = totalPrice === 0 || walletBalance >= totalPrice;
+  const isFreeOnly = totalPrice === 0;
 
   useEffect(() => {
     if (!user) {
@@ -68,20 +61,39 @@ export default function AssetsCheckout() {
     (async () => {
       setLoadingAssets(true);
       try {
-        let ids = assetIds;
-        if (ids.length === 0) {
+        if (isFromCart) {
           const cart = await fetchCart();
-          ids = cart.items.map((i) => i.assetId);
+          if (cart.items.length === 0) {
+            navigate("/marketplace");
+            return;
+          }
+          const mapped: MarketplaceAsset[] = cart.items.map((item) => ({
+            id: item.assetId,
+            title: item.asset.title,
+            category: item.asset.categoryName,
+            price: item.asset.isFree ? 0 : item.lineTotalVnd,
+            rating: 0,
+            downloads: 0,
+            preview: item.asset.thumbnailUrl || item.asset.title,
+            author: "",
+            tags: [],
+            isFree: item.asset.isFree,
+            thumbnailUrl: item.asset.thumbnailUrl,
+          }));
+          if (!cancelled) setSelectedAssets(mapped);
+        } else {
+          const details = await Promise.all(
+            buyNowAssetIds.map((id) => fetchAssetById(id))
+          );
+          const mapped = details.map(mapAssetListItem);
+          if (mapped.length === 0) {
+            navigate("/marketplace");
+            return;
+          }
+          if (!cancelled) setSelectedAssets(mapped);
         }
-        if (ids.length === 0) {
-          navigate("/marketplace");
-          return;
-        }
-        const res = await fetchAssets({ pageSize: 100 });
-        const mapped = res.data.filter((a) => ids.includes(a.id)).map(mapAssetListItem);
-        if (!cancelled) setSelectedAssets(mapped);
       } catch {
-        if (!cancelled) toast.error("Không tải được danh sách asset");
+        if (!cancelled) navigate("/marketplace");
       } finally {
         if (!cancelled) setLoadingAssets(false);
       }
@@ -91,43 +103,12 @@ export default function AssetsCheckout() {
     };
   }, [user, assetIdsParam, navigate]);
 
-  const normalizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 11);
-  const isValidPhone = (digits: string) =>
-    /^(0\d{9}|84\d{9})$/.test(digits);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === "phone") {
-      const next = normalizePhone(value);
-      setFormData({ ...formData, phone: next });
-      return;
-    }
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
-
-  const phoneOk = isValidPhone(formData.phone);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPhoneTouched(true);
-    if (!phoneOk || selectedAssets.length === 0) return;
+  const handlePurchase = async () => {
+    if (selectedAssets.length === 0 || !hasEnoughXu) return;
     setIsProcessing(true);
 
     try {
-      const order = await createAssetOrder(
-        paymentMethod,
-        true,
-        assetIds.length > 0 ? assetIds : undefined
-      );
-      setOrderCode(order.orderCode);
-
-      if (order.paymentRedirectUrl) {
-        window.location.href = order.paymentRedirectUrl;
-        return;
-      }
+      await createAssetOrder(isFromCart ? undefined : buyNowAssetIds);
 
       try {
         await clearCart();
@@ -135,12 +116,17 @@ export default function AssetsCheckout() {
         /* cart có thể đã trống */
       }
 
+      await refreshUserData();
       setIsProcessing(false);
       setShowSuccess(true);
       setTimeout(() => navigate("/my-assets"), 3000);
     } catch (error) {
       setIsProcessing(false);
-      toast.error(error instanceof ApiError ? error.message : "Thanh toán thất bại");
+      if (error instanceof ApiError && error.code === "insufficient_credits") {
+        toast.error("Không đủ xu. Vui lòng nạp thêm hoặc đăng ký gói để nhận xu.");
+        return;
+      }
+      toast.error(error instanceof ApiError ? error.message : "Mua asset thất bại");
     }
   };
 
@@ -160,58 +146,51 @@ export default function AssetsCheckout() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-8 shadow-[0_0_50px_rgba(0,217,255,0.08)]">
-            <div className="w-20 h-20 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-12 h-12 text-success" />
+          <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
+            <div className="w-16 h-16 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="w-9 h-9 text-success" />
             </div>
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              {totalPrice === 0 ? "Tải về thành công" : "Thanh toán thành công"}
+            <h2 className="text-2xl font-bold text-foreground mb-3">
+              {isFreeOnly ? "Đã thêm vào thư viện" : "Mua thành công"}
             </h2>
-            <p className="text-muted-foreground mb-2">
-              Bạn đã {totalPrice === 0 ? "tải" : "mua"}{" "}
-              <span className="font-bold text-primary">{selectedAssets.length} assets</span>
+            <p className="text-sm text-muted-foreground mb-2">
+              Bạn đã {isFreeOnly ? "thêm vào thư viện" : "mua"}{" "}
+              <span className="font-semibold text-foreground">{selectedAssets.length}</span> asset
             </p>
-            <p className="text-muted-foreground mb-6">
-              {totalPrice === 0 ? (
-                <span className="text-success font-semibold">Tất cả đều miễn phí</span>
+            <p className="text-sm text-muted-foreground mb-6">
+              {isFreeOnly ? (
+                <span className="text-success font-medium">Không trừ xu</span>
               ) : (
                 <>
-                  Tổng giá trị:{" "}
-                  <span className="text-2xl font-bold text-foreground font-mono">
+                  Đã trừ{" "}
+                  <span className="font-mono font-semibold text-foreground">
                     {totalPrice.toLocaleString("vi-VN")} xu
                   </span>
                 </>
               )}
             </p>
-            <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-6">
-              <div className="flex items-center gap-2 justify-center text-foreground mb-2">
-                <Download className="w-5 h-5" />
-                <p className="font-medium">Link tải xuống</p>
+            <div className="bg-muted/30 border border-border rounded-xl p-4 mb-6 text-left">
+              <div className="flex items-center gap-2 text-foreground mb-1">
+                <Library className="w-4 h-4 text-primary" />
+                <p className="text-sm font-semibold">Bước tiếp theo</p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Đã gửi qua email: {user.email}
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Vào <strong className="text-foreground">Thư viện</strong> và nhấn{" "}
+                <strong className="text-foreground">Tải xuống</strong> để lấy file về máy.
               </p>
             </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-2">
-              <Link
-                to="/orders"
-                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-60"
-              >
-                Xem lịch sử mua
-              </Link>
-              <Link
-                to="/my-assets"
-                className="border border-border bg-card hover:bg-card/80 text-foreground px-6 py-3 rounded-xl font-bold transition-all hover:scale-105"
-              >
-                Về thư viện
-              </Link>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="gradient" asChild>
+                <Link to="/my-assets">Mở thư viện</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/orders">Lịch sử mua</Link>
+              </Button>
             </div>
-
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mt-4">
-              <Clock className="w-4 h-4" />
-              Chuyển về thư viện trong giây lát...
-            </div>
+            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
+              <Clock className="w-3.5 h-3.5" />
+              Tự chuyển sang Thư viện...
+            </p>
           </div>
         </div>
       </div>
@@ -219,369 +198,206 @@ export default function AssetsCheckout() {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4">
+    <div className={cn(componentClasses.page, "px-4")}>
       <div className="max-w-6xl mx-auto">
         <Link
           to="/marketplace"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
           Quay lại Marketplace
         </Link>
 
-        <div className="grid lg:grid-cols-3 gap-8 items-start">
-          {/* Left: Payment Form */}
+        <div className="grid lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-8">
-              <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                <Package className="w-7 h-7" />
-                Thông tin thanh toán
+            <div className={cn(componentClasses.card, "p-6 sm:p-8 hover:scale-100")}>
+              <h2 className="text-xl font-bold text-foreground mb-1 flex items-center gap-2">
+                {isFreeOnly ? (
+                  <Library className="w-5 h-5 text-primary" />
+                ) : (
+                  <Package className="w-5 h-5 text-primary" />
+                )}
+                {isFreeOnly ? "Thêm vào thư viện" : "Xác nhận mua bằng xu"}
               </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                {isFreeOnly
+                  ? "Asset sẽ được lưu vào thư viện — tải file xuống máy sau tại trang Thư viện."
+                  : "Xu trong ví sẽ được trừ ngay khi xác nhận."}
+              </p>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Personal Info */}
-                <div className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        Họ và tên
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        Số điện thoại
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        onBlur={() => setPhoneTouched(true)}
-                        required
-                        placeholder="0123456789"
-                        inputMode="numeric"
-                        pattern="^(0\d{9}|84\d{9})$"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
-                      {phoneTouched && !phoneOk && (
-                        <p className="mt-2 text-sm text-destructive">
-                          Số điện thoại không hợp lệ (chỉ nhập số, 10 chữ số bắt đầu bằng 0 hoặc 84 + 9 chữ số).
+              <div className="space-y-4">
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      <Coins className="w-7 h-7 text-primary shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                          Số dư ví xu
                         </p>
-                      )}
+                        <p className="text-xl font-bold text-foreground font-mono">
+                          {walletBalance.toLocaleString("vi-VN")} xu
+                        </p>
+                      </div>
                     </div>
+                    {totalPrice > 0 && (
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                          Cần thanh toán
+                        </p>
+                        <p className="text-xl font-bold text-primary font-mono">
+                          {totalPrice.toLocaleString("vi-VN")} xu
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-2">
-                      Email nhận link tải
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                    />
-                  </div>
+                  {totalPrice > 0 && hasEnoughXu && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Còn lại:{" "}
+                      <span className="font-mono font-medium text-foreground">
+                        {balanceAfterPurchase.toLocaleString("vi-VN")} xu
+                      </span>
+                    </p>
+                  )}
+                  {totalPrice > 0 && !hasEnoughXu && (
+                    <p className="mt-3 text-xs text-destructive">
+                      Thiếu {(totalPrice - walletBalance).toLocaleString("vi-VN")} xu.{" "}
+                      <Link to="/pricing" className="underline font-medium">
+                        Nâng cấp gói
+                      </Link>
+                    </p>
+                  )}
                 </div>
 
-                {totalPrice > 0 ? (
-                  <>
-                    {/* Payment Method */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-foreground">
-                        Phương thức thanh toán
-                      </h3>
-                      <div className="grid sm:grid-cols-3 gap-4">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("momo")}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            paymentMethod === "momo"
-                              ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                              : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                          }`}
-                        >
-                          <Wallet className="w-8 h-8 text-secondary mx-auto mb-2" />
-                          <p className="text-foreground font-medium">MoMo</p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("bank")}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            paymentMethod === "bank"
-                              ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                              : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                          }`}
-                        >
-                          <CreditCard className="w-8 h-8 text-primary mx-auto mb-2" />
-                          <p className="text-foreground font-medium">Chuyển khoản</p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("card")}
-                          className={`p-4 rounded-xl border-2 transition-all ${
-                            paymentMethod === "card"
-                              ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                              : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                          }`}
-                        >
-                          <CreditCard className="w-8 h-8 text-success mx-auto mb-2" />
-                          <p className="text-foreground font-medium">Thẻ tín dụng</p>
-                        </button>
-                      </div>
+                {isFreeOnly ? (
+                  <div className="bg-success/10 border border-success/25 rounded-xl p-5 flex items-start gap-3">
+                    <Library className="w-8 h-8 text-success shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground mb-1">
+                        {selectedAssets.length} asset miễn phí
+                      </p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Không trừ xu. Sau khi xác nhận, mở Thư viện để tải file ZIP về máy.
+                      </p>
                     </div>
-
-                    {/* Payment Details */}
-                    {paymentMethod === "card" && (
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-foreground">
-                          Thông tin thẻ
-                        </h3>
-                        <div>
-                          <label className="block text-sm font-medium text-muted-foreground mb-2">
-                            Số thẻ
-                          </label>
-                          <input
-                            type="text"
-                            name="cardNumber"
-                            value={formData.cardNumber}
-                            onChange={handleInputChange}
-                            required={paymentMethod === "card"}
-                            placeholder="1234 5678 9012 3456"
-                            maxLength={19}
-                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-muted-foreground mb-2">
-                            Tên chủ thẻ
-                          </label>
-                          <input
-                            type="text"
-                            name="cardName"
-                            value={formData.cardName}
-                            onChange={handleInputChange}
-                            required={paymentMethod === "card"}
-                            placeholder="NGUYEN VAN A"
-                            className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-2">
-                              Ngày hết hạn
-                            </label>
-                            <input
-                              type="text"
-                              name="expiryDate"
-                              value={formData.expiryDate}
-                              onChange={handleInputChange}
-                              required={paymentMethod === "card"}
-                              placeholder="MM/YY"
-                              maxLength={5}
-                              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-muted-foreground mb-2">
-                              CVV
-                            </label>
-                            <input
-                              type="text"
-                              name="cvv"
-                              value={formData.cvv}
-                              onChange={handleInputChange}
-                              required={paymentMethod === "card"}
-                              placeholder="123"
-                              maxLength={3}
-                              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {paymentMethod === "momo" && (
-                      <div className="bg-secondary/10 border border-secondary/30 rounded-xl p-4">
-                        <p className="text-foreground text-sm">
-                          Bạn sẽ được chuyển đến ứng dụng MoMo để hoàn tất thanh toán
-                        </p>
-                      </div>
-                    )}
-
-                    {paymentMethod === "bank" && (
-                      <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
-                        <p className="text-foreground font-medium">
-                          Thông tin chuyển khoản:
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          Ngân hàng: <span className="font-bold">VCB - Vietcombank</span>
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          Số TK: <span className="font-bold">1234567890</span>
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          Chủ TK: <span className="font-bold">CONG TY GAMEASSETS AI</span>
-                        </p>
-                        <p className="text-muted-foreground text-sm">
-                          Nội dung:{" "}
-                          <span className="font-bold">
-                            {user.email} ASSETS
-                          </span>
-                        </p>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 ) : (
-                  <div className="bg-success/10 border border-success/30 rounded-xl p-6 text-center">
-                    <Download className="w-12 h-12 text-success mx-auto mb-3" />
-                    <p className="text-foreground font-bold text-lg mb-2">
-                      Tất cả assets đều miễn phí!
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Nhấn nút bên dưới để nhận link tải về
+                  <div className="bg-secondary/10 border border-secondary/25 rounded-xl p-4">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Asset trả phí mua bằng <strong className="text-foreground">xu</strong>.
+                      VND/MoMo chỉ dùng cho gói subscription.
                     </p>
                   </div>
                 )}
 
-                {/* Security Notice */}
-                <div className="bg-success/10 border border-success/30 rounded-xl p-4 flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                <div className="bg-muted/20 border border-border rounded-xl p-4 flex items-start gap-3">
+                  <Shield className="w-4 h-4 text-success shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-foreground font-medium mb-1">
-                      {totalPrice > 0 ? "Thanh toán an toàn & bảo mật" : "Tải về an toàn"}
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      {totalPrice > 0
-                        ? "Thông tin thanh toán được mã hóa SSL 256-bit"
-                        : "Link tải sẽ được gửi qua email đã đăng ký"}
+                    <p className="text-sm font-medium text-foreground">Giao dịch an toàn</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Asset xuất hiện ngay trong thư viện sau khi xác nhận.
                     </p>
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isProcessing || !phoneOk}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-4 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                <Button
+                  variant="gradient"
+                  size="lg"
+                  className="w-full"
+                  onClick={handlePurchase}
+                  disabled={isProcessing || !hasEnoughXu}
                 >
                   {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin"></div>
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Đang xử lý...
-                    </span>
+                    </>
+                  ) : isFreeOnly ? (
+                    <>
+                      <Library className="w-4 h-4" />
+                      Thêm vào thư viện
+                    </>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Lock className="w-5 h-5" />
-                      {totalPrice > 0
-                        ? `Thanh toán ${totalPrice.toLocaleString("vi-VN")} xu`
-                        : "Tải về miễn phí"}
-                    </span>
+                    `Mua bằng ${totalPrice.toLocaleString("vi-VN")} xu`
                   )}
-                </button>
-              </form>
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Right: Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 lg:sticky lg:top-24 lg:max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-              <h3 className="text-lg font-bold text-foreground mb-4">
-                Đơn hàng của bạn
-              </h3>
+            <div
+              className={cn(
+                componentClasses.card,
+                "p-5 lg:sticky lg:top-24 hover:scale-100 flex flex-col"
+              )}
+            >
+              <h3 className="text-base font-bold text-foreground mb-4">Đơn hàng</h3>
 
-              <div className="flex flex-col gap-4 min-h-0">
-                {/* Assets List */}
-                <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
-                  {selectedAssets.map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="bg-card border border-border rounded-lg p-3 flex gap-3"
-                    >
-                      <div className="w-16 h-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg overflow-hidden flex-shrink-0">
-                        <ImageWithFallback
-                          src={`https://source.unsplash.com/200x200/?${encodeURIComponent(
-                            asset.preview
-                          )}`}
-                          alt={asset.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-foreground text-sm mb-1 truncate">
-                          {asset.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {asset.author}
-                        </p>
-                        {hasActiveSubscription ? (
-                          <div>
-                            <p className="font-bold text-success text-sm">Miễn phí với gói</p>
-                            {!asset.isFree && (
-                              <p className="text-xs text-muted-foreground line-through opacity-70">
-                                {asset.price.toLocaleString("vi-VN")} xu
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="font-bold text-foreground text-sm">
-                            {asset.isFree
-                              ? "Miễn phí"
-                              : `${asset.price.toLocaleString("vi-VN")} xu`}
-                          </p>
+              <div className="space-y-3 max-h-[min(50vh,320px)] overflow-y-auto pr-1 mb-4">
+                {selectedAssets.map((asset) => (
+                  <div
+                    key={asset.id}
+                    className={cn(componentClasses.cardSimple, "p-3 flex gap-3 hover:scale-100")}
+                  >
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg overflow-hidden shrink-0">
+                      <ImageWithFallback
+                        src={`https://source.unsplash.com/200x200/?${encodeURIComponent(
+                          asset.preview
+                        )}`}
+                        alt={asset.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-foreground truncate">
+                        {asset.title}
+                      </h4>
+                      {asset.author && (
+                        <p className="text-xs text-muted-foreground truncate">{asset.author}</p>
+                      )}
+                      <p
+                        className={cn(
+                          "text-xs font-semibold mt-1",
+                          asset.isFree ? "text-success" : "text-foreground font-mono"
                         )}
-                      </div>
+                      >
+                        {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
+                      </p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+              </div>
 
-                <div className="border-t border-border pt-4 space-y-2">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Số lượng:</span>
-                    <span className="font-medium text-foreground">
-                      {selectedAssets.length} assets
-                    </span>
-                  </div>
-                  {freeItemsCount > 0 && (
-                    <div className="flex justify-between text-muted-foreground">
-                      <span>Miễn phí:</span>
-                      <span className="font-medium text-success">
-                        {freeItemsCount} items
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Tạm tính:</span>
-                    <span className="font-medium text-foreground">
-                      {totalPrice.toLocaleString("vi-VN")} xu
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>VAT (0%):</span>
-                    <span>0 xu</span>
-                  </div>
-                  <div className="flex justify-between text-xl font-bold text-foreground pt-2 border-t border-border">
-                    <span>Tổng cộng:</span>
-                    <span className="text-primary">
-                      {totalPrice.toLocaleString("vi-VN")} xu
-                    </span>
-                  </div>
+              <div className="border-t border-border pt-4 space-y-2 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Số lượng</span>
+                  <span className="text-foreground font-medium">{selectedAssets.length}</span>
                 </div>
+                {freeItemsCount > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Miễn phí</span>
+                    <span className="text-success font-medium">{freeItemsCount} (0 xu)</span>
+                  </div>
+                )}
+                {paidItemsCount > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Trả phí</span>
+                    <span className="text-foreground font-mono">{paidItemsCount} asset</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-baseline pt-2 border-t border-border">
+                  <span className="font-semibold text-foreground">Tổng trừ xu</span>
+                  <span className="text-lg font-bold text-primary font-mono">
+                    {totalPrice.toLocaleString("vi-VN")} xu
+                  </span>
+                </div>
+              </div>
 
-                <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Link tải sẽ được gửi qua email sau khi thanh toán thành công
-                  </p>
-                </div>
+              <div className="mt-4 bg-warning/10 border border-warning/25 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-warning shrink-0 mt-0.5" />
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Tải file ZIP về máy tại trang Thư viện sau khi hoàn tất.
+                </p>
               </div>
             </div>
           </div>

@@ -10,8 +10,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        gradient:
+          "bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground font-bold rounded-lg hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] disabled:hover:scale-100",
+        success:
+          "bg-success text-success-foreground hover:bg-success/90 font-semibold rounded-lg hover:shadow-[0_0_20px_rgba(16,185,129,0.4)]",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]",
         outline:
           "border bg-background text-foreground hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:

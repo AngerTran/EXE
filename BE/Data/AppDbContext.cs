@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<Profile> Profiles => Set<Profile>();
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<CreditPack> CreditPacks => Set<CreditPack>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
@@ -44,6 +45,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.ToTable("subscription_plans");
             e.Property(p => p.Slug).HasColumnType("subscription_tier");
+            e.Property(p => p.Features).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<CreditPack>(e =>
+        {
+            e.ToTable("credit_packs");
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Id).HasMaxLength(32);
+            e.Property(p => p.Name).HasMaxLength(120);
         });
 
         modelBuilder.Entity<Subscription>(e =>
@@ -105,6 +115,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.ToTable("payments");
             e.Property(p => p.Method).HasColumnType("payment_method");
             e.Property(p => p.Status).HasColumnType("payment_status");
+            e.Property(p => p.Metadata).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<CartItem>(e => e.ToTable("cart_items"));
@@ -116,6 +127,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.ToTable("ai_messages");
             e.Property(m => m.Role).HasColumnType("ai_message_role");
+            e.Property(m => m.Metadata).HasColumnType("jsonb");
         });
 
         modelBuilder.Entity<AiMessageAsset>(e =>

@@ -1,5 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
-import { Search, Filter, ShoppingCart, Star, Download, Eye, X, Trash2, Plus, ArrowRight, ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  Search,
+  Filter,
+  ShoppingCart,
+  Star,
+  Eye,
+  X,
+  Trash2,
+  ArrowRight,
+  ShoppingBag,
+  CheckCircle,
+  Loader2,
+  Library,
+  Download,
+  ExternalLink,
+  User,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
@@ -377,9 +395,6 @@ export default function AssetsMarketplace() {
     loadPurchased();
   }, [loadCart, loadPurchased]);
 
-  // Check if user has an active subscription (STUDENT, INDIE, or PRO)
-  const hasActiveSubscription = user?.subscription && ["student", "indie", "pro"].includes(user.subscription);
-
   // Handle highlight from URL param
   useEffect(() => {
     const highlightId = searchParams.get("highlight");
@@ -462,17 +477,14 @@ export default function AssetsMarketplace() {
     navigate(`/checkout-assets?assets=${assetId}`);
   };
 
-  const totalPrice = hasActiveSubscription
-    ? 0
-    : cartDisplayItems.reduce((sum, asset) => sum + asset.price, 0);
-  const freeItemsCount = hasActiveSubscription
-    ? cartDisplayItems.length
-    : cartDisplayItems.filter((asset) => asset.isFree).length;
+  const totalPrice = cartDisplayItems.reduce((sum, asset) => sum + asset.price, 0);
+  const freeItemsCount = cartDisplayItems.filter((asset) => asset.isFree).length;
+  const paidItemsCount = cartDisplayItems.length - freeItemsCount;
+  const walletBalance = user?.credits ?? 0;
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
-    const assetIds = cartAssetIds.join(",");
-    navigate(`/checkout-assets?assets=${assetIds}`);
+    navigate("/checkout-assets");
   };
 
   return (
@@ -487,11 +499,6 @@ export default function AssetsMarketplace() {
           <p className="text-xl text-muted-foreground">
             Kho assets miễn phí chất lượng cao cho game của bạn
           </p>
-          {hasActiveSubscription && (
-            <div className="mt-6 inline-block bg-success/10 border border-success/30 text-success px-6 py-3 rounded-lg font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-              ✨ Bạn có gói {user?.subscription?.toUpperCase()} - Tất cả assets FREE!
-            </div>
-          )}
         </div>
 
         {/* Search & Filters */}
@@ -598,7 +605,6 @@ export default function AssetsMarketplace() {
               asset={asset}
               isInCart={cartAssetIds.includes(asset.id)}
               isPurchased={purchasedAssetIds.includes(asset.id)}
-              hasActiveSubscription={hasActiveSubscription || false}
               isHighlighted={highlightedAssetId === asset.id}
               onAddToCart={() => addToCart(asset.id)}
               onBuyNow={() => buyNow(asset.id)}
@@ -665,8 +671,6 @@ export default function AssetsMarketplace() {
                 <>
                   <div className="space-y-4 mb-6">
                     {cartDisplayItems.map((asset) => {
-                      const displayPrice = hasActiveSubscription ? 0 : asset.price;
-                      const displayAsFree = asset.isFree || hasActiveSubscription;
                       const cartRow = cartItems.find((i) => i.assetId === asset.id);
 
                       return (
@@ -691,18 +695,11 @@ export default function AssetsMarketplace() {
                             <p className="text-xs text-muted-foreground mb-2">
                               {asset.category}
                             </p>
-                            {displayAsFree ? (
-                              <div>
-                                <p className="text-sm font-bold text-success">Miễn phí</p>
-                                {hasActiveSubscription && !asset.isFree && (
-                                  <p className="text-xs text-muted-foreground line-through font-mono">
-                                    {asset.price.toLocaleString("vi-VN")} xu
-                                  </p>
-                                )}
-                              </div>
+                            {asset.isFree ? (
+                              <p className="text-sm font-bold text-success">Miễn phí</p>
                             ) : (
                               <p className="text-sm font-bold text-foreground font-mono">
-                                {displayPrice.toLocaleString("vi-VN")} xu
+                                {asset.price.toLocaleString("vi-VN")} xu
                               </p>
                             )}
                           </div>
@@ -731,16 +728,30 @@ export default function AssetsMarketplace() {
                         <div className="flex justify-between text-muted-foreground">
                           <span>Miễn phí:</span>
                           <span className="font-medium text-success">
-                            {freeItemsCount} items
+                            {freeItemsCount} items (0 xu)
+                          </span>
+                        </div>
+                      )}
+                      {paidItemsCount > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Trả phí:</span>
+                          <span className="font-medium text-foreground font-mono">
+                            {paidItemsCount} items
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between text-muted-foreground">
-                        <span>Tạm tính:</span>
+                        <span>Tổng trừ xu:</span>
                         <span className="font-medium text-foreground font-mono">
                           {totalPrice.toLocaleString("vi-VN")} xu
                         </span>
                       </div>
+                      {user && totalPrice > 0 && (
+                        <div className="flex justify-between text-muted-foreground text-sm">
+                          <span>Số dư hiện tại:</span>
+                          <span className="font-mono">{walletBalance.toLocaleString("vi-VN")} xu</span>
+                        </div>
+                      )}
                       <div className="border-t border-border pt-2 mt-2">
                         <div className="flex justify-between text-xl font-bold text-foreground">
                           <span>Tổng cộng:</span>
@@ -752,18 +763,28 @@ export default function AssetsMarketplace() {
                     </div>
                   </div>
 
-                  {/* Checkout Button */}
-                  <button
+                  <Button
+                    variant="gradient"
+                    size="lg"
+                    className="w-full"
                     onClick={handleCheckout}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-4 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] flex items-center justify-center gap-2"
+                    disabled={user != null && totalPrice > 0 && walletBalance < totalPrice}
                   >
-                    Thanh toán
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
+                    {totalPrice > 0
+                      ? `Thanh toán ${totalPrice.toLocaleString("vi-VN")} xu`
+                      : "Thêm vào thư viện"}
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+
+                  {user && totalPrice > 0 && walletBalance < totalPrice && (
+                    <p className="text-center text-sm text-destructive mt-4">
+                      Thiếu {(totalPrice - walletBalance).toLocaleString("vi-VN")} xu
+                    </p>
+                  )}
 
                   {totalPrice === 0 && (
                     <p className="text-center text-sm text-success mt-4 font-medium">
-                      ✨ Tất cả items trong giỏ đều miễn phí!
+                      Tất cả items trong giỏ đều miễn phí — không trừ xu
                     </p>
                   )}
                 </>
@@ -787,8 +808,7 @@ export default function AssetsMarketplace() {
               allAssets={assets}
               isInCart={cartAssetIds.includes(selectedAsset.id)}
               isPurchased={purchasedAssetIds.includes(selectedAsset.id)}
-              hasActiveSubscription={hasActiveSubscription || false}
-              onClose={() => setSelectedAsset(null)}
+              onSelectAsset={setSelectedAsset}
               onAddToCart={() => {
                 addToCart(selectedAsset.id);
                 setSelectedAsset(null);
@@ -810,8 +830,7 @@ interface AssetDetailDrawerContentProps {
   allAssets: Asset[];
   isInCart: boolean;
   isPurchased: boolean;
-  hasActiveSubscription: boolean;
-  onClose: () => void;
+  onSelectAsset: (asset: Asset) => void;
   onAddToCart: () => void;
   onBuyNow: () => void;
 }
@@ -821,13 +840,15 @@ function AssetDetailDrawerContent({
   allAssets,
   isInCart,
   isPurchased,
-  hasActiveSubscription,
-  onClose,
+  onSelectAsset,
   onAddToCart,
   onBuyNow,
 }: AssetDetailDrawerContentProps) {
-  const displayAsFree = asset.isFree || hasActiveSubscription;
-  const displayPrice = hasActiveSubscription ? 0 : asset.price;
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [asset.id]);
 
   // Generate mock description
   const description = `${asset.title} là một bộ asset chất lượng cao được thiết kế chuyên nghiệp bởi ${asset.author}. Perfect cho ${asset.category.toLowerCase()} projects. Bao gồm nhiều variations và được tối ưu hóa cho game development.`;
@@ -860,7 +881,7 @@ function AssetDetailDrawerContent({
       </SheetHeader>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div ref={contentRef} className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Preview Image */}
           <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
             <ImageWithFallback
@@ -868,9 +889,9 @@ function AssetDetailDrawerContent({
               alt={asset.title}
               className="w-full h-full object-cover"
             />
-            {displayAsFree && !isPurchased && (
+            {asset.isFree && !isPurchased && (
               <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                {hasActiveSubscription && !asset.isFree ? "FREE VỚI GÓI" : "MIỄN PHÍ"}
+                MIỄN PHÍ
               </div>
             )}
             {isPurchased && (
@@ -900,7 +921,7 @@ function AssetDetailDrawerContent({
             <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
               <div className="mb-2">
                 <span className="text-2xl font-bold text-primary font-mono">
-                  {displayAsFree ? "Miễn phí" : `${displayPrice.toLocaleString('vi-VN')} xu`}
+                  {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground">Price</p>
@@ -953,13 +974,7 @@ function AssetDetailDrawerContent({
                   <div
                     key={related.id}
                     className="bg-card/50 border border-border rounded-xl p-3 hover:border-primary/50 transition-all cursor-pointer"
-                    onClick={() => {
-                      onClose();
-                      setTimeout(() => {
-                        const element = document.getElementById(`asset-${related.id}`);
-                        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }, 100);
-                    }}
+                    onClick={() => onSelectAsset(related)}
                   >
                     <div className="aspect-video rounded-lg overflow-hidden mb-2 bg-gradient-to-br from-primary/10 to-secondary/10">
                       <ImageWithFallback
@@ -985,32 +1000,34 @@ function AssetDetailDrawerContent({
           )}
         </div>
 
-      {/* Footer Actions */}
-      <div className="border-t border-border p-6">
-        <div className="flex items-center gap-4">
+      <div className="border-t border-border p-5">
+        <div className="flex items-center gap-3">
           {isPurchased ? (
-            <div className="flex-1 bg-primary/10 border border-primary/30 text-primary px-6 py-3 rounded-lg font-bold flex items-center justify-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              Bạn đã sở hữu asset này
-            </div>
+            <Button variant="outline" className="flex-1" disabled>
+              <Library className="w-4 h-4" />
+              Đã trong thư viện
+            </Button>
           ) : (
             <>
               {!isInCart && (
-                <button
-                  onClick={onAddToCart}
-                  className="flex-1 bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
-                >
-                  <ShoppingCart className="w-5 h-5" />
-                  Thêm vào giỏ
-                </button>
+                <Button variant="outline" className="flex-1" onClick={onAddToCart}>
+                  <ShoppingCart className="w-4 h-4" />
+                  Thêm giỏ
+                </Button>
               )}
-              <button
-                onClick={onBuyNow}
-                className={`${isInCart ? 'flex-1' : 'flex-1'} bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)] flex items-center justify-center gap-2`}
-              >
-                <ShoppingBag className="w-5 h-5" />
-                {displayAsFree ? 'Tải về miễn phí' : 'Mua ngay'}
-              </button>
+              <Button variant="gradient" className="flex-1" onClick={onBuyNow}>
+                {asset.isFree ? (
+                  <>
+                    <Library className="w-4 h-4" />
+                    Thêm vào thư viện
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-4 h-4" />
+                    Mua ngay
+                  </>
+                )}
+              </Button>
             </>
           )}
         </div>
@@ -1023,46 +1040,48 @@ interface AssetCardProps {
   asset: Asset;
   isInCart: boolean;
   isPurchased: boolean;
-  hasActiveSubscription: boolean;
   isHighlighted: boolean;
   onAddToCart: () => void;
   onBuyNow: () => void;
   onViewDetails: () => void;
 }
 
-function AssetCard({ asset, isInCart, isPurchased, hasActiveSubscription, isHighlighted, onAddToCart, onBuyNow, onViewDetails }: AssetCardProps) {
-  // If user has active subscription, all assets are free
-  const displayAsFree = asset.isFree || hasActiveSubscription;
-  const displayPrice = hasActiveSubscription ? 0 : asset.price;
+function AssetCard({ asset, isInCart, isPurchased, isHighlighted, onAddToCart, onBuyNow, onViewDetails }: AssetCardProps) {
+  const priceLabel = asset.isFree
+    ? "Miễn phí"
+    : `${asset.price.toLocaleString("vi-VN")} xu`;
+
+  const thumbnailSrc =
+    asset.thumbnailUrl ||
+    `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.preview)}`;
 
   return (
     <div
       id={`asset-${asset.id}`}
-      className={`bg-card/50 backdrop-blur-sm border rounded-xl overflow-hidden hover:scale-105 transition-all group ${
-        isHighlighted
-          ? 'border-primary shadow-lg shadow-primary/50 ring-4 ring-primary/20 scale-105'
-          : 'border-border hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]'
-      }`}
+      className={cn(
+        "bg-card/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]",
+        isHighlighted && "border-primary ring-2 ring-primary/25 shadow-lg shadow-primary/15",
+        isPurchased && "border-success/30"
+      )}
     >
-      {/* Preview Image */}
       <div
         className="relative aspect-video bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden cursor-pointer"
         onClick={onViewDetails}
       >
         <ImageWithFallback
-          src={`https://source.unsplash.com/400x300/?${encodeURIComponent(asset.preview)}`}
+          src={thumbnailSrc}
           alt={asset.title}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
         />
         <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg">
-            <Eye className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4" />
             Xem chi tiết
           </div>
         </div>
-        {displayAsFree && !isPurchased && (
+        {asset.isFree && !isPurchased && (
           <div className="absolute top-3 left-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-            {hasActiveSubscription && !asset.isFree ? "FREE VỚI GÓI" : "MIỄN PHÍ"}
+            Miễn phí
           </div>
         )}
         {isPurchased && (
@@ -1072,96 +1091,98 @@ function AssetCard({ asset, isInCart, isPurchased, hasActiveSubscription, isHigh
           </div>
         )}
         <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground px-3 py-1 rounded-full text-xs flex items-center gap-1 font-mono">
-          <Eye className="w-3 h-3" />
+          <Download className="w-3 h-3" />
           {asset.downloads}
         </div>
       </div>
 
-      {/* Content */}
       <div className="p-4 space-y-3">
         <div>
-          <h3 className="font-bold text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">{asset.title}</h3>
-          <p className="text-sm text-muted-foreground">{asset.author}</p>
+          <h3 className="font-bold text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+            {asset.title}
+          </h3>
+          <p className="text-sm text-muted-foreground">{asset.category}</p>
         </div>
 
-        {/* Rating */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 fill-warning text-warning" />
-            <span className="text-sm font-medium text-foreground">{asset.rating}</span>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            ({asset.downloads} downloads)
-          </span>
-        </div>
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2">
-          {asset.tags.slice(0, 3).map((tag, index) => (
-            <span
-              key={index}
-              className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full border border-primary/20"
-            >
-              {tag}
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Star className="w-4 h-4 fill-warning text-warning" />
+              Đánh giá
             </span>
-          ))}
+            <span className="font-medium text-foreground font-mono">{asset.rating}</span>
+          </div>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <User className="w-4 h-4" />
+              Tác giả
+            </span>
+            <span className="font-medium text-foreground truncate max-w-[55%] text-right">
+              {asset.author}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <ShoppingBag className="w-4 h-4" />
+              Giá
+            </span>
+            <span
+              className={cn(
+                "font-medium font-mono",
+                asset.isFree ? "text-success" : "text-foreground"
+              )}
+            >
+              {priceLabel}
+            </span>
+          </div>
         </div>
 
-        {/* Price */}
         <div className="pt-3 border-t border-border">
-          {displayAsFree ? (
-            <div>
-              <p className="text-xl font-bold text-success mb-1">Miễn phí</p>
-              {hasActiveSubscription && !asset.isFree && (
-                <p className="text-xs text-muted-foreground line-through font-mono">
-                  Giá gốc: {asset.price.toLocaleString("vi-VN")} xu
-                </p>
+          {isPurchased ? (
+            <button
+              type="button"
+              disabled
+              className="w-full bg-card border border-border text-muted-foreground py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70"
+            >
+              <Library className="w-4 h-4" />
+              Đã trong thư viện
+            </button>
+          ) : isInCart ? (
+            <button
+              type="button"
+              onClick={onBuyNow}
+              className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+            >
+              {asset.isFree ? (
+                <>
+                  <Library className="w-4 h-4" />
+                  Thêm vào thư viện
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="w-4 h-4" />
+                  Mua ngay
+                </>
               )}
-            </div>
+            </button>
           ) : (
-            <p className="text-xl font-bold text-foreground mb-3 font-mono">
-              {displayPrice.toLocaleString("vi-VN")} xu
-            </p>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 mt-3">
-            {isInCart ? (
+            <div className="flex gap-2">
               <button
-                onClick={onBuyNow}
-                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+                type="button"
+                onClick={onAddToCart}
+                className="flex-1 bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center"
               >
-                <ShoppingBag className="w-4 h-4" />
-                {displayAsFree ? "Tải về" : "Mua ngay"}
+                Giỏ hàng
               </button>
-            ) : (
-              <>
-                <button
-                  onClick={onAddToCart}
-                  className="flex-1 bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  Thêm
-                </button>
-                <button
-                  onClick={onBuyNow}
-                  className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
-                >
-                  {displayAsFree ? (
-                    <>
-                      <Download className="w-4 h-4" />
-                      Tải về
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag className="w-4 h-4" />
-                      Mua ngay
-                    </>
-                  )}
-                </button>
-              </>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={onBuyNow}
+                className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+              >
+                {asset.isFree ? "Thêm thư viện" : "Mua"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

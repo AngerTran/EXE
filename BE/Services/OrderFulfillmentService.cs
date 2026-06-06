@@ -25,6 +25,9 @@ public class OrderFulfillmentService(
         if (order.OrderType == OrderType.Subscription)
             await FulfillSubscriptionOrderAsync(order, cancellationToken);
 
+        if (order.OrderType == OrderType.CreditPack)
+            await FulfillCreditPackOrderAsync(order, cancellationToken);
+
         order.Status = OrderStatus.Completed;
         order.CompletedAt = DateTime.UtcNow;
         order.UpdatedAt = DateTime.UtcNow;
@@ -106,5 +109,31 @@ public class OrderFulfillmentService(
                 });
             }
         }
+    }
+
+    private async Task FulfillCreditPackOrderAsync(Order order, CancellationToken cancellationToken)
+    {
+        if (order.TotalXu <= 0)
+            return;
+
+        var wallet = await walletRepository.GetByUserIdForUpdateAsync(order.UserId, cancellationToken);
+        if (wallet is null)
+            return;
+
+        var now = DateTime.UtcNow;
+        wallet.Balance += order.TotalXu;
+        wallet.UpdatedAt = now;
+        unitOfWork.AddWalletTransaction(new WalletTransaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = wallet.Id,
+            Type = WalletTxType.Purchase,
+            Amount = order.TotalXu,
+            BalanceAfter = wallet.Balance,
+            Description = $"Credit pack {order.OrderCode}",
+            ReferenceType = "order",
+            ReferenceId = order.Id,
+            CreatedAt = now
+        });
     }
 }

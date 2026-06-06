@@ -49,7 +49,10 @@ public class AuthService(
         }
         if (request.AvatarUrl is not null)
         {
-            profile.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+            var avatar = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+            if (avatar is not null && !IsAllowedAvatarValue(avatar))
+                throw new ArgumentException("Avatar must be an http(s) URL or a data:image/ value.");
+            profile.AvatarUrl = avatar;
             changed = true;
         }
 
@@ -61,6 +64,11 @@ public class AuthService(
 
         return MapToMeResponse(profile);
     }
+
+    private static bool IsAllowedAvatarValue(string avatar) =>
+        avatar.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+        || avatar.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+        || avatar.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
     private static MeResponse MapToMeResponse(Models.Entities.Profile profile)
     {

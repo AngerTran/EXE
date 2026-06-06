@@ -57,6 +57,7 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [credits, setCredits] = useState(user?.credits || 0);
+  const isUnlimited = user?.isUnlimited ?? false;
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,7 +103,7 @@ export default function Dashboard() {
     const text = input.trim();
     if (!text) return;
 
-    if (credits <= 0) {
+    if (!isUnlimited && credits <= 0) {
       toast.error("Bạn đã hết xu! Vui lòng nạp thêm để tiếp tục.");
       return;
     }
@@ -211,11 +212,13 @@ export default function Dashboard() {
                 <Coins className="w-6 h-6 text-warning" />
                 <div>
                   <p className="text-xs text-muted-foreground font-mono">Xu còn lại</p>
-                  <p className="text-2xl font-bold text-foreground font-mono">{credits}</p>
+                  <p className="text-2xl font-bold text-foreground font-mono">
+                    {isUnlimited ? "∞" : credits}
+                  </p>
                 </div>
               </div>
 
-              {credits < 5 && (
+              {!isUnlimited && credits < 5 && (
                 <Link
                   to="/pricing"
                   className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg transition-all whitespace-nowrap hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
@@ -227,7 +230,7 @@ export default function Dashboard() {
           </div>
 
           {/* Warning */}
-          {credits < 5 && (
+          {!isUnlimited && credits < 5 && (
             <div className="mt-4 bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
               <div>
@@ -365,16 +368,16 @@ export default function Dashboard() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={
-                  credits > 0
+                  isUnlimited || credits > 0
                     ? "Nhập câu hỏi của bạn..."
                     : "Hết xu. Vui lòng nạp thêm!"
                 }
-                disabled={credits <= 0 || isLoading}
+                disabled={(!isUnlimited && credits <= 0) || isLoading}
                 className="flex-1 bg-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim() || credits <= 0 || isLoading}
+                disabled={!input.trim() || (!isUnlimited && credits <= 0) || isLoading}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
               >
                 <Send className="w-5 h-5" />
@@ -382,7 +385,8 @@ export default function Dashboard() {
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-2 font-mono">
-              Mỗi câu hỏi tiêu tốn 1 xu • Còn {credits} xu
+              Mỗi câu hỏi tiêu tốn 1 xu •{" "}
+              {isUnlimited ? "Không giới hạn xu" : `Còn ${credits} xu`}
             </p>
           </div>
         </div>

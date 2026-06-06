@@ -95,8 +95,8 @@ public class CartService(
 
     private static CartItemResponse MapItem(Models.Entities.CartItem item)
     {
-        var unitPrice = item.Asset.PriceType == PriceType.Free ? 0 : item.Asset.PriceVnd;
-        var total = unitPrice * item.Quantity;
+        var unitPriceXu = item.Asset.PriceType == PriceType.Free ? 0 : item.Asset.PriceXu;
+        var total = unitPriceXu * item.Quantity;
         return new CartItemResponse(
             item.Id,
             item.AssetId,
@@ -107,7 +107,7 @@ public class CartService(
                 item.Asset.ThumbnailUrl,
                 item.Asset.Category.Name,
                 item.Asset.PriceType.ToString().ToLowerInvariant(),
-                item.Asset.PriceVnd,
+                unitPriceXu,
                 item.Asset.PriceType == PriceType.Free),
             total);
     }

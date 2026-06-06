@@ -1,23 +1,29 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  CreditCard,
-  Wallet,
   CheckCircle,
   ArrowLeft,
-  Shield,
-  Lock,
   Sparkles,
   Clock,
   AlertCircle,
   Loader2,
+  QrCode,
+  Copy,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiError } from "../../api/client";
 import { fetchSubscriptionPlanBySlug } from "../../api/subscriptionPlans";
 import { createSubscriptionOrder } from "../../api/orders";
+import { fetchBankTransferInfo, type BankTransferInfo } from "../../api/payments";
 import type { SubscriptionPlan } from "../../api/types/billing";
+import type { Order } from "../../api/types/commerce";
+import { componentClasses } from "../../constants/theme";
+import { resolvePlanFeatures } from "../../constants/planDisplay";
+import { Button } from "./ui/button";
+import { cn } from "./ui/utils";
+import { usePollOrderCompletion } from "../../hooks/usePollOrderCompletion";
 
 export default function Checkout() {
   const [searchParams] = useSearchParams();
@@ -28,26 +34,18 @@ export default function Checkout() {
 
   const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
-  const [orderCode, setOrderCode] = useState<string | null>(null);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [bankInfo, setBankInfo] = useState<BankTransferInfo | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState<"momo" | "bank" | "card">("momo");
-  const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: "",
-    cardNumber: "",
-    cardName: "",
-    expiryDate: "",
-    cvv: "",
+  const orderCompleted = usePollOrderCompletion(order?.id, paymentSubmitted, {
+    onCompleted: () =>
+      toast.success("Gói đã được kích hoạt — số xu trên header đã cập nhật"),
   });
-  const [phoneTouched, setPhoneTouched] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate("/auth");
-    }
+    if (!user) navigate("/auth");
   }, [user, navigate]);
 
   useEffect(() => {
@@ -71,56 +69,68 @@ export default function Checkout() {
     };
   }, [packageSlug, navigate]);
 
-  const normalizePhone = (raw: string) => raw.replace(/\D/g, "").slice(0, 11);
-  const isValidPhone = (digits: string) =>
-    /^(0\d{9}|84\d{9})$/.test(digits);
+  useEffect(() => {
+    if (!user || !selectedPlan || selectedPlan.priceVnd <= 0) return;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === "phone") {
-      const next = normalizePhone(value);
-      setFormData({ ...formData, phone: next });
-      return;
-    }
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
+    let cancelled = false;
+    (async () => {
+      setCheckoutLoading(true);
+      try {
+        const created = await createSubscriptionOrder(selectedPlan.id, "bank");
+        if (cancelled) return;
+        setOrder(created);
+        if (created.status === "completed") {
+          await refreshUserData();
+        }
 
-  const phoneOk = isValidPhone(formData.phone);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPhoneTouched(true);
-    if (!phoneOk || !selectedPlan) return;
-    setIsProcessing(true);
-
-    try {
-      const order = await createSubscriptionOrder(selectedPlan.id, paymentMethod);
-      setOrderCode(order.orderCode);
-
-      if (order.paymentRedirectUrl) {
-        window.location.href = order.paymentRedirectUrl;
-        return;
+        try {
+          const bank = await fetchBankTransferInfo(
+            selectedPlan.priceVnd,
+            created.orderCode
+          );
+          if (!cancelled) setBankInfo(bank);
+        } catch (bankError) {
+          if (!cancelled) {
+            const msg =
+              bankError instanceof ApiError
+                ? bankError.message
+                : "Không tải được thông tin ngân hàng";
+            toast.error(msg);
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(error instanceof ApiError ? error.message : "Không tạo được đơn thanh toán");
+          navigate("/pricing");
+        }
+      } finally {
+        if (!cancelled) setCheckoutLoading(false);
       }
+    })();
 
-      await refreshUserData();
-      setIsProcessing(false);
-      setShowSuccess(true);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, selectedPlan, navigate, refreshUserData]);
 
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 3000);
-    } catch (error) {
-      setIsProcessing(false);
-      toast.error(error instanceof ApiError ? error.message : "Thanh toán thất bại");
+  const qrImageUrl =
+    bankInfo?.qrImageUrl || bankInfo?.vietQrImageUrl || null;
+
+  const copyText = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`Đã copy ${label}`);
+    } catch {
+      toast.error("Không copy được");
     }
+  }, []);
+
+  const handleConfirmTransfer = () => {
+    setPaymentSubmitted(true);
+    toast.success("Đã ghi nhận. Chúng tôi sẽ kích hoạt gói sau khi xác nhận chuyển khoản.");
   };
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   if (planLoading || !selectedPlan) {
     return (
@@ -130,58 +140,57 @@ export default function Checkout() {
     );
   }
 
-  if (showSuccess) {
+  if (paymentSubmitted) {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-8 shadow-[0_0_50px_rgba(0,217,255,0.08)]">
-            <div className="w-20 h-20 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-12 h-12 text-success" />
+          <div className={cn(componentClasses.card, "p-8 hover:scale-100 shadow-[0_0_50px_rgba(0,217,255,0.08)]")}>
+            <div
+              className={cn(
+                "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border",
+                orderCompleted
+                  ? "bg-success/20 border-success/30"
+                  : "bg-warning/20 border-warning/30"
+              )}
+            >
+              {orderCompleted ? (
+                <CheckCircle className="w-12 h-12 text-success" />
+              ) : (
+                <Clock className="w-12 h-12 text-warning" />
+              )}
             </div>
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              Thanh toán thành công
+              {orderCompleted ? "Thanh toán thành công" : "Đang chờ xác nhận"}
             </h2>
-            {orderCode && (
-              <p className="text-sm text-muted-foreground mb-2 font-mono">Mã đơn: {orderCode}</p>
+            {order && (
+              <p className="text-sm text-muted-foreground mb-2 font-mono">Mã đơn: {order.orderCode}</p>
             )}
-            <p className="text-muted-foreground mb-2">
-              Bạn đã mua{" "}
-              <span className="font-bold text-primary">{selectedPlan.name}</span>
+            <p className="text-muted-foreground mb-4">
+              {orderCompleted ? (
+                <>
+                  Gói <span className="font-bold text-primary">{selectedPlan.name}</span> đã được kích hoạt.
+                  Số xu trên header đã được cập nhật.
+                </>
+              ) : (
+                <>
+                  Bạn đã báo chuyển khoản gói{" "}
+                  <span className="font-bold text-primary">{selectedPlan.name}</span>.
+                </>
+              )}
             </p>
-            {selectedPlan.isUnlimited ? (
-              <p className="text-muted-foreground mb-6">
-                <span className="text-2xl font-bold text-success">Không giới hạn ∞</span>{" "}
-                lượt hỏi AI
-                <br />
-                <span className="text-sm">Sử dụng AI không giới hạn</span>
-              </p>
-            ) : (
-              <p className="text-muted-foreground mb-6">
-                <span className="text-2xl font-bold text-foreground font-mono">
-                  +{selectedPlan.creditsMonthly ?? 0}
-                </span>{" "}
-                xu đã được thêm vào tài khoản
+            {!orderCompleted && (
+              <p className="text-muted-foreground text-sm mb-6">
+                Sau khi hệ thống đối soát thành công, gói và xu sẽ được kích hoạt tự động.
+                Thường mất từ vài phút đến 24 giờ.
               </p>
             )}
-
-            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
-              <Link
-                to="/orders"
-                className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-60"
-              >
-                Xem lịch sử mua
-              </Link>
-              <Link
-                to="/dashboard"
-                className="border border-border bg-card hover:bg-card/80 text-foreground px-6 py-3 rounded-xl font-bold transition-all hover:scale-105"
-              >
-                Đi tới Dashboard
-              </Link>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mt-4">
-              <Clock className="w-4 h-4" />
-              Chuyển đến Dashboard trong giây lát...
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="gradient" size="lg" asChild>
+                <Link to="/orders">Xem đơn hàng</Link>
+              </Button>
+              <Button variant="outline" size="lg" asChild>
+                <Link to="/pricing">Về bảng giá</Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -190,8 +199,8 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen py-12 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className={cn(componentClasses.page, "px-4")}>
+      <div className="max-w-5xl mx-auto">
         <Link
           to="/pricing"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -200,309 +209,178 @@ export default function Checkout() {
           Quay lại chọn gói
         </Link>
 
-        <div className="grid lg:grid-cols-3 gap-8 items-start">
-          {/* Left: Payment Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-8">
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Thông tin thanh toán
+        <div className="grid lg:grid-cols-5 gap-8 items-start">
+          <div className="lg:col-span-3">
+            <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
+              <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
+                <QrCode className="w-7 h-7 text-primary" />
+                Quét mã QR chuyển khoản
               </h2>
+              <p className="text-muted-foreground mb-8">
+                Mở app ngân hàng → Quét QR → Kiểm tra số tiền và nội dung chuyển khoản → Xác nhận.
+              </p>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Personal Info */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Thông tin cá nhân
-                  </h3>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        Họ và tên
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleInputChange}
-                        required
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        Số điện thoại
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        onBlur={() => setPhoneTouched(true)}
-                        required
-                        placeholder="0123456789"
-                        inputMode="numeric"
-                        pattern="^(0\d{9}|84\d{9})$"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
-                      {phoneTouched && !phoneOk && (
-                        <p className="mt-2 text-sm text-destructive">
-                          Số điện thoại không hợp lệ (chỉ nhập số, 10 chữ số bắt đầu bằng 0 hoặc 84 + 9 chữ số).
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-2">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+              {checkoutLoading ? (
+                <div className="flex flex-col items-center py-16 gap-4">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <p className="text-muted-foreground">Đang tạo đơn và mã QR...</p>
+                </div>
+              ) : qrImageUrl ? (
+                <div className="flex flex-col items-center">
+                  <div className="bg-white p-4 rounded-2xl shadow-lg border border-border mb-6">
+                    <img
+                      src={qrImageUrl}
+                      alt="Mã QR chuyển khoản"
+                      className="w-64 h-64 sm:w-72 sm:h-72 object-contain"
                     />
                   </div>
+                  <p className="text-sm text-muted-foreground text-center max-w-sm">
+                    QR đã gắn sẵn số tiền{" "}
+                    <strong className="text-foreground font-mono">
+                      {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
+                    </strong>
+                    {order && (
+                      <>
+                        {" "}
+                        và nội dung{" "}
+                        <strong className="text-primary font-mono">{order.orderCode}</strong>
+                      </>
+                    )}
+                  </p>
                 </div>
+              ) : (
+                <div className="bg-warning/10 border border-warning/30 rounded-xl p-6 text-center">
+                  <AlertCircle className="w-10 h-10 text-warning mx-auto mb-3" />
+                  <p className="text-foreground font-medium">Chưa có mã QR</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Cấu hình tài khoản ngân hàng trong BE/appsettings.json → BankTransfer
+                  </p>
+                </div>
+              )}
 
-                {/* Payment Method */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-foreground">
-                    Phương thức thanh toán
+              {bankInfo && (
+                <div className="mt-8 bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-4">
+                  <h3 className="font-bold text-foreground flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-primary" />
+                    Thông tin chuyển khoản thủ công
                   </h3>
-                  <div className="grid sm:grid-cols-3 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("momo")}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        paymentMethod === "momo"
-                          ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                          : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                      }`}
-                    >
-                      <Wallet className="w-8 h-8 text-secondary mx-auto mb-2" />
-                      <p className="text-foreground font-medium">MoMo</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("bank")}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        paymentMethod === "bank"
-                          ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                          : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                      }`}
-                    >
-                      <CreditCard className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <p className="text-foreground font-medium">Chuyển khoản</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("card")}
-                      className={`p-4 rounded-xl border-2 transition-all ${
-                        paymentMethod === "card"
-                          ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(0,217,255,0.12)]"
-                          : "border-border bg-card hover:bg-card/80 hover:border-primary/50"
-                      }`}
-                    >
-                      <CreditCard className="w-8 h-8 text-success mx-auto mb-2" />
-                      <p className="text-foreground font-medium">Thẻ tín dụng</p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Payment Details */}
-                {paymentMethod === "card" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Thông tin thẻ
-                    </h3>
+                  <div className="grid sm:grid-cols-2 gap-4 text-sm">
                     <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        S thẻ
-                      </label>
-                      <input
-                        type="text"
-                        name="cardNumber"
-                        value={formData.cardNumber}
-                        onChange={handleInputChange}
-                        required={paymentMethod === "card"}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
+                      <p className="text-muted-foreground">Ngân hàng</p>
+                      <p className="font-semibold text-foreground">{bankInfo.bankName}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-muted-foreground mb-2">
-                        Tên chủ thẻ
-                      </label>
-                      <input
-                        type="text"
-                        name="cardName"
-                        value={formData.cardName}
-                        onChange={handleInputChange}
-                        required={paymentMethod === "card"}
-                        placeholder="NGUYEN VAN A"
-                        className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                      />
+                      <p className="text-muted-foreground">Chủ tài khoản</p>
+                      <p className="font-semibold text-foreground">{bankInfo.accountHolder}</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">
-                          Ngày hết hạn
-                        </label>
-                        <input
-                          type="text"
-                          name="expiryDate"
-                          value={formData.expiryDate}
-                          onChange={handleInputChange}
-                          required={paymentMethod === "card"}
-                          placeholder="MM/YY"
-                          maxLength={5}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">
-                          CVV
-                        </label>
-                        <input
-                          type="text"
-                          name="cvv"
-                          value={formData.cvv}
-                          onChange={handleInputChange}
-                          required={paymentMethod === "card"}
-                          placeholder="123"
-                          maxLength={3}
-                          className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
-                        />
+                    <div className="sm:col-span-2">
+                      <p className="text-muted-foreground">Số tài khoản</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="font-mono font-bold text-lg text-foreground">
+                          {bankInfo.accountNumber}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => copyText(bankInfo.accountNumber, "số tài khoản")}
+                          title="Copy STK"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                )}
-
-                {paymentMethod === "momo" && (
-                  <div className="bg-secondary/10 border border-secondary/30 rounded-xl p-4">
-                    <p className="text-foreground text-sm">
-                      Bạn sẽ được chuyển đến ứng dụng MoMo để hoàn tất thanh toán
-                    </p>
-                  </div>
-                )}
-
-                {paymentMethod === "bank" && (
-                  <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 space-y-2">
-                    <p className="text-foreground font-medium">
-                      Thông tin chuyển khoản:
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Ngân hàng: <span className="font-bold">VCB - Vietcombank</span>
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Số TK: <span className="font-bold">1234567890</span>
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Chủ TK: <span className="font-bold">CONG TY GAMEASSETS AI</span>
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Nội dung: <span className="font-bold">{user.email} {packageSlug}</span>
-                    </p>
-                  </div>
-                )}
-
-                {/* Security Notice */}
-                <div className="bg-success/10 border border-success/30 rounded-xl p-4 flex items-start gap-3">
-                  <Shield className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-foreground font-medium mb-1">
-                      Thanh toán an toàn & bảo mật
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      Thông tin thanh toán được mã hóa SSL 256-bit
-                    </p>
+                    <div>
+                      <p className="text-muted-foreground">Số tiền</p>
+                      <p className="font-mono font-bold text-foreground">
+                        {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
+                      </p>
+                    </div>
+                    {order && (
+                      <div>
+                        <p className="text-muted-foreground">Nội dung CK (bắt buộc)</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="font-mono font-bold text-primary">{order.orderCode}</p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => copyText(order.orderCode, "nội dung CK")}
+                            title="Copy nội dung"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+              )}
 
-                <button
-                  type="submit"
-                  disabled={isProcessing || !phoneOk}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-4 rounded-xl font-bold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin"></div>
-                      Đang xử lý...
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <Lock className="w-5 h-5" />
-                      Thanh toán {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
-                    </span>
-                  )}
-                </button>
-              </form>
+              <Button
+                type="button"
+                variant="gradient"
+                size="lg"
+                className="w-full mt-8"
+                onClick={handleConfirmTransfer}
+                disabled={checkoutLoading || !order}
+              >
+                Tôi đã chuyển khoản
+              </Button>
+
+              <p className="text-xs text-muted-foreground text-center mt-4">
+                Nhấn sau khi đã chuyển khoản thành công. Gói sẽ được kích hoạt khi admin xác nhận.
+              </p>
             </div>
           </div>
 
-          {/* Right: Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
-              <h3 className="text-lg font-bold text-foreground mb-4">
-                Thông tin đơn hàng
-              </h3>
+          <div className="lg:col-span-2">
+            <div className={cn(componentClasses.card, "p-6 sticky top-24 hover:scale-100")}>
+              <h3 className="text-lg font-bold text-foreground mb-4">Thông tin đơn hàng</h3>
 
-              <div className="space-y-4">
-                <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-primary-foreground" />
-                    <p className="font-bold text-primary-foreground">{selectedPlan.name}</p>
-                  </div>
-                  <p className="text-3xl font-bold text-primary-foreground mb-1 font-mono">
-                    {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
+              <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-4 mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-primary-foreground" />
+                  <p className="font-bold text-primary-foreground">{selectedPlan.name}</p>
+                </div>
+                <p className="text-3xl font-bold text-primary-foreground font-mono">
+                  {selectedPlan.priceVnd.toLocaleString("vi-VN")}đ
+                </p>
+                {selectedPlan.isUnlimited ? (
+                  <p className="text-primary-foreground/90 text-sm font-semibold mt-1">
+                    Không giới hạn xu
                   </p>
-                  {selectedPlan.isUnlimited ? (
-                    <p className="text-primary-foreground/90 text-sm font-semibold">
-                      Không giới hạn ∞ lượt hỏi AI
-                    </p>
-                  ) : (
-                    <p className="text-primary-foreground/90 text-sm">
-                      +{selectedPlan.creditsMonthly ?? 0} xu/tháng
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Tính năng bao gồm:
+                ) : (
+                  <p className="text-primary-foreground/90 text-sm mt-1">
+                    +{selectedPlan.creditsMonthly ?? 0} xu/tháng
                   </p>
-                  {selectedPlan.features.map((feature, index) => (
-                    <div key={index} className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-foreground">{feature}</p>
-                    </div>
-                  ))}
-                </div>
+                )}
+              </div>
 
-                <div className="border-t border-border pt-4 space-y-2">
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Tạm tính</span>
-                    <span className="font-mono">{selectedPlan.priceVnd.toLocaleString("vi-VN")}đ</span>
-                  </div>
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>VAT (0%)</span>
-                    <span className="font-mono">0đ</span>
-                  </div>
-                  <div className="flex justify-between text-xl font-bold text-foreground pt-2 border-t border-border">
-                    <span>Tổng cộng</span>
-                    <span className="font-mono">{selectedPlan.priceVnd.toLocaleString("vi-VN")}đ</span>
-                  </div>
+              {order && (
+                <div className={cn(componentClasses.cardSimple, "mb-4 p-3 hover:scale-100")}>
+                  <p className="text-xs text-muted-foreground">Mã đơn</p>
+                  <p className="font-mono font-bold text-foreground">{order.orderCode}</p>
+                  <span className={cn(componentClasses.badgeWarning, "inline-block mt-2")}>
+                    Chờ thanh toán
+                  </span>
                 </div>
+              )}
 
-                <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Credits sẽ được cộng ngay sau khi thanh toán thành công
-                  </p>
-                </div>
+              <ul className="space-y-2 mb-4">
+                {resolvePlanFeatures(selectedPlan).map((feature, index) => (
+                  <li key={index} className="flex items-start gap-2 text-sm">
+                    <CheckCircle className="w-4 h-4 text-success flex-shrink-0 mt-0.5" />
+                    <span className="text-foreground">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">
+                  Vui lòng ghi đúng nội dung chuyển khoản để hệ thống đối soát nhanh hơn.
+                </p>
               </div>
             </div>
           </div>

@@ -112,7 +112,7 @@ export default function Profile() {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold text-foreground">Hồ sơ người dùng</h1>
               <p className="text-muted-foreground text-sm truncate">
-                Đồng bộ với BE — PATCH /auth/me · upload avatar
+                Ảnh đại diện lưu trực tiếp vào tài khoản — hiển thị ngay trên hồ sơ và header
               </p>
             </div>
           </div>

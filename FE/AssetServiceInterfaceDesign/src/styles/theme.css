@@ -3,13 +3,13 @@
 :root {
   --font-size: 16px;
 
-  /* Core Colors - Light Theme */
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  /* Core Colors - Light Theme (soft gray-blue, avoids harsh pure white) */
+  --background: #e6ebf1;
+  --foreground: #1e293b;
+  --card: #f0f3f7;
+  --card-foreground: #1e293b;
+  --popover: #f0f3f7;
+  --popover-foreground: #1e293b;
 
   /* Primary / Secondary keep brand identity */
   --primary: #00a7c4;
@@ -18,8 +18,8 @@
   --secondary-foreground: #ffffff;
 
   /* Muted */
-  --muted: #f1f5f9;
-  --muted-foreground: #475569;
+  --muted: #dae2ea;
+  --muted-foreground: #52607a;
 
   /* Accent */
   --accent: #7c3aed;
@@ -29,13 +29,14 @@
   --destructive: #db2777;
   --destructive-foreground: #ffffff;
   --success: #16a34a;
+  --success-foreground: #ffffff;
   --warning: #f59e0b;
 
   /* Borders & Inputs */
-  --border: rgba(15, 23, 42, 0.12);
+  --border: rgba(15, 23, 42, 0.14);
   --input: transparent;
-  --input-background: rgba(241, 245, 249, 0.9);
-  --switch-background: #cbd5e1;
+  --input-background: rgba(218, 226, 234, 0.95);
+  --switch-background: #b8c4d4;
 
   /* Focus Ring */
   --ring: #00a7c4;
@@ -55,13 +56,13 @@
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
+  --sidebar: #eaedf2;
+  --sidebar-foreground: #1e293b;
   --sidebar-primary: #00a7c4;
   --sidebar-primary-foreground: #071018;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: rgba(15, 23, 42, 0.12);
+  --sidebar-accent: #dae2ea;
+  --sidebar-accent-foreground: #1e293b;
+  --sidebar-border: rgba(15, 23, 42, 0.14);
   --sidebar-ring: #00a7c4;
 }
 
@@ -83,6 +84,9 @@
   --accent-foreground: #f8f9fa;
   --destructive: #ec4899;
   --destructive-foreground: #f8f9fa;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
   --border: rgba(148, 163, 184, 0.2);
   --input: transparent;
   --ring: #00d9ff;
@@ -118,6 +122,9 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-input-background: var(--input-background);

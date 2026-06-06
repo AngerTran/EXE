@@ -8,6 +8,7 @@ using Exe.Repositories.Billing;
 using Exe.Repositories.Commerce;
 using Exe.Repositories.Marketplace;
 using Exe.Repositories.Profile;
+using Exe.Repositories.Wallet;
 using Exe.Services.IServices;
 using Microsoft.Extensions.Options;
 
@@ -20,9 +21,11 @@ public class OrderService(
     ISubscriptionPlanRepository subscriptionPlanRepository,
     ISubscriptionRepository subscriptionRepository,
     IUserAssetRepository userAssetRepository,
+    IWalletRepository walletRepository,
     IPaymentRepository paymentRepository,
     IProfileRepository profileRepository,
     OrderFulfillmentService fulfillmentService,
+    ICreditPackService creditPackService,
     IUnitOfWork unitOfWork,
     IOptions<PaymentOptions> paymentOptions) : IOrderService
 {
@@ -119,8 +122,7 @@ public class OrderService(
             UnitPrice = plan.PriceVnd,
             Quantity = 1,
             LineTotal = plan.PriceVnd,
-            CreatedAt = now,
-            Plan = plan
+            CreatedAt = now
         };
         order.Items = [item];
         orderRepository.Add(order);
@@ -132,7 +134,8 @@ public class OrderService(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (_paymentOptions.AutoCompleteOnCreate)
+        var autoComplete = _paymentOptions.AutoCompleteOnCreate && method != PaymentMethod.BankTransfer;
+        if (autoComplete)
         {
             payment.Status = PaymentStatus.Completed;
             payment.PaidAt = DateTime.UtcNow;
@@ -141,7 +144,7 @@ public class OrderService(
         }
 
         var saved = await orderRepository.GetByIdForUserAsync(order.Id, userId, cancellationToken) ?? order;
-        return MapOrder(saved, payment, !_paymentOptions.AutoCompleteOnCreate);
+        return MapOrder(saved, payment, !autoComplete);
     }
 
     public async Task<OrderResponse> CreateAssetOrderAsync(
@@ -188,20 +191,15 @@ public class OrderService(
         if (assets.Count == 0)
             throw new ArgumentException("All selected assets are already owned.");
 
-        var subscriptionFree = false;
-        if (request.UseSubscriptionFreeAssets)
-        {
-            var sub = await subscriptionRepository.GetActiveWithPlanAsync(userId, cancellationToken);
-            if (sub?.Plan is not null)
-            {
-                var slug = sub.Plan.Slug;
-                subscriptionFree = sub.Plan.IsUnlimited
-                    || slug is SubscriptionTier.Student or SubscriptionTier.Indie or SubscriptionTier.Pro;
-            }
-        }
-
+        var totalXu = assets.Sum(GetAssetPriceXu);
         var now = DateTime.UtcNow;
-        var subtotal = subscriptionFree ? 0 : assets.Sum(a => a.PriceVnd);
+
+        var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken)
+            ?? throw new InvalidOperationException("Wallet not found.");
+
+        if (totalXu > 0 && wallet.Balance < totalXu)
+            throw new InvalidOperationException("Not enough xu to purchase assets.");
+
         var order = new Order
         {
             Id = Guid.NewGuid(),
@@ -209,59 +207,129 @@ public class OrderService(
             UserId = userId,
             OrderType = OrderType.Asset,
             Status = OrderStatus.Pending,
-            SubtotalVnd = subtotal,
+            SubtotalVnd = 0,
             DiscountVnd = 0,
-            TotalVnd = subtotal,
-            TotalXu = 0,
+            TotalVnd = 0,
+            TotalXu = totalXu,
             CreatedAt = now,
             UpdatedAt = now
         };
 
-        var items = assets.Select(a => new OrderItem
+        var items = assets.Select(a =>
         {
-            Id = Guid.NewGuid(),
-            OrderId = order.Id,
-            AssetId = a.Id,
-            ItemName = a.Title,
-            UnitPrice = subscriptionFree ? 0 : a.PriceVnd,
-            Quantity = 1,
-            LineTotal = subscriptionFree ? 0 : a.PriceVnd,
-            CreatedAt = now,
-            Asset = a
+            var xu = GetAssetPriceXu(a);
+            return new OrderItem
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                AssetId = a.Id,
+                ItemName = a.Title,
+                UnitPrice = xu,
+                Quantity = 1,
+                LineTotal = xu,
+                CreatedAt = now
+            };
         }).ToList();
         order.Items = items;
 
         orderRepository.Add(order);
         orderRepository.AddItems(items);
 
+        if (totalXu > 0)
+        {
+            wallet.Balance -= totalXu;
+            wallet.UpdatedAt = now;
+            unitOfWork.AddWalletTransaction(new WalletTransaction
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet.Id,
+                Type = WalletTxType.AssetPurchase,
+                Amount = -totalXu,
+                BalanceAfter = wallet.Balance,
+                Description = $"Asset purchase {order.OrderCode}",
+                ReferenceType = "order",
+                ReferenceId = order.Id,
+                CreatedAt = now
+            });
+        }
+
+        foreach (var assetId in assets.Select(a => a.Id))
+        {
+            var cartItem = await cartRepository.GetItemByAssetAsync(userId, assetId, cancellationToken);
+            if (cartItem is not null)
+                cartRepository.Remove(cartItem);
+        }
+
+        await fulfillmentService.FulfillOrderAsync(order, cancellationToken);
+
+        var saved = await orderRepository.GetByIdForUserAsync(order.Id, userId, cancellationToken) ?? order;
+        return MapOrder(saved);
+    }
+
+    public async Task<OrderResponse> CreateCreditPackOrderAsync(
+        Guid userId,
+        CreateCreditPackOrderRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!await subscriptionRepository.HasActivePaidPlanAsync(userId, cancellationToken))
+            throw new InvalidOperationException("Active paid subscription required to buy credit packs.");
+
+        var packDto = await creditPackService.GetForOrderAsync(request.PackId, cancellationToken)
+            ?? throw new ArgumentException("Credit pack not found.");
+        var pack = (packDto.Id, packDto.Name, packDto.Credits, packDto.PriceVnd);
+
+        var now = DateTime.UtcNow;
+        var order = new Order
+        {
+            Id = Guid.NewGuid(),
+            OrderCode = GenerateOrderCode("CRD"),
+            UserId = userId,
+            OrderType = OrderType.CreditPack,
+            Status = OrderStatus.Pending,
+            SubtotalVnd = pack.PriceVnd,
+            DiscountVnd = 0,
+            TotalVnd = pack.PriceVnd,
+            TotalXu = pack.Credits,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var item = new OrderItem
+        {
+            Id = Guid.NewGuid(),
+            OrderId = order.Id,
+            ItemName = pack.Name,
+            UnitPrice = pack.PriceVnd,
+            Quantity = 1,
+            LineTotal = pack.PriceVnd,
+            CreatedAt = now
+        };
+        order.Items = [item];
+
+        orderRepository.Add(order);
+        orderRepository.AddItems(order.Items);
+
         var method = PaymentMethodParser.Parse(request.PaymentMethod);
         var payment = CreatePendingPayment(userId, order, method, now);
         paymentRepository.Add(payment);
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        if (requestedAssetIds is null || requestedAssetIds.Count == 0)
-        {
-            var cartItems = await cartRepository.GetItemsAsync(userId, cancellationToken);
-            var toRemove = cartItems.Where(c => assets.Select(a => a.Id).Contains(c.AssetId)).ToList();
-            if (toRemove.Count > 0)
-                cartRepository.RemoveRange(toRemove);
-        }
-
-        if (_paymentOptions.AutoCompleteOnCreate)
+        var autoComplete = _paymentOptions.AutoCompleteOnCreate && method != PaymentMethod.BankTransfer;
+        if (autoComplete)
         {
             payment.Status = PaymentStatus.Completed;
             payment.PaidAt = DateTime.UtcNow;
             payment.UpdatedAt = DateTime.UtcNow;
             await fulfillmentService.FulfillOrderAsync(order, cancellationToken);
         }
-        else
-        {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
 
         var saved = await orderRepository.GetByIdForUserAsync(order.Id, userId, cancellationToken) ?? order;
-        return MapOrder(saved, payment, !_paymentOptions.AutoCompleteOnCreate);
+        return MapOrder(saved, payment, !autoComplete);
     }
+
+    private static int GetAssetPriceXu(Asset asset) =>
+        asset.PriceType == PriceType.Free ? 0 : asset.PriceXu;
 
     public async Task<OrderResponse?> AdminUpdateStatusAsync(
         Guid adminUserId,
@@ -276,12 +344,45 @@ public class OrderService(
         if (order is null)
             return null;
 
-        order.Status = request.Status;
-        if (request.Status == OrderStatus.Completed)
-            order.CompletedAt = DateTime.UtcNow;
-        order.UpdatedAt = DateTime.UtcNow;
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return MapOrder(order);
+        var previousStatus = order.Status;
+
+        if (request.Status == OrderStatus.Completed && previousStatus != OrderStatus.Completed)
+        {
+            var payment = await paymentRepository.GetByOrderIdForUpdateAsync(order.Id, cancellationToken);
+            if (payment is not null && payment.Status == PaymentStatus.Pending)
+            {
+                payment.Status = PaymentStatus.Completed;
+                payment.PaidAt = DateTime.UtcNow;
+                payment.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await fulfillmentService.FulfillOrderAsync(order, cancellationToken);
+        }
+        else if (request.Status == OrderStatus.Cancelled)
+        {
+            order.Status = OrderStatus.Cancelled;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            var payment = await paymentRepository.GetByOrderIdForUpdateAsync(order.Id, cancellationToken);
+            if (payment is not null && payment.Status == PaymentStatus.Pending)
+            {
+                payment.Status = PaymentStatus.Failed;
+                payment.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            order.Status = request.Status;
+            if (request.Status == OrderStatus.Completed)
+                order.CompletedAt = DateTime.UtcNow;
+            order.UpdatedAt = DateTime.UtcNow;
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        var saved = await orderRepository.GetByIdAsync(orderId, cancellationToken) ?? order;
+        return MapOrder(saved);
     }
 
     private static Payment CreatePendingPayment(Guid userId, Order order, PaymentMethod method, DateTime now) =>
@@ -320,8 +421,12 @@ public class OrderService(
             includePaymentRedirect && payment is not null ? payment.Id : null,
             includePaymentRedirect && payment is not null
                 ? string.Format(_paymentOptions.PaymentRedirectUrlTemplate, payment.Id)
-                : null);
+                : null,
+            o.UserId,
+            o.User?.Email,
+            o.User?.Name);
 
+    /// <summary>Mã đơn tối đa 20 ký tự (cột <c>orders.order_code</c> varchar(20)).</summary>
     private static string GenerateOrderCode(string prefix) =>
-        $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
+        $"{prefix}{DateTime.UtcNow:yyMMddHHmm}{Guid.NewGuid().ToString("N")[..7].ToUpperInvariant()}";
 }

@@ -14,9 +14,9 @@ import {
   mapMeToUser,
   register as apiRegister,
   updateProfile as apiUpdateProfile,
-  uploadAvatar,
   type AppUser,
 } from "../../api/auth";
+import { fileToAvatarDataUrl } from "../../utils/avatar";
 import type { SubscriptionPlan } from "../../api/types/auth";
 
 export type { AppUser as User };
@@ -188,7 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       let me;
       if (data.avatarFile) {
-        me = await uploadAvatar(data.avatarFile);
+        const avatarUrl = await fileToAvatarDataUrl(data.avatarFile);
+        me = await apiUpdateProfile({ avatarUrl });
       } else {
         const patch: { name?: string; avatarUrl?: string | null } = {};
         if (data.name !== undefined) patch.name = data.name;

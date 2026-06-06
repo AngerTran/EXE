@@ -27,6 +27,10 @@ public interface IOrderService
         Guid userId,
         CreateAssetOrderRequest request,
         CancellationToken cancellationToken = default);
+    Task<OrderResponse> CreateCreditPackOrderAsync(
+        Guid userId,
+        CreateCreditPackOrderRequest request,
+        CancellationToken cancellationToken = default);
     Task<OrderResponse?> AdminUpdateStatusAsync(
         Guid adminUserId,
         Guid orderId,

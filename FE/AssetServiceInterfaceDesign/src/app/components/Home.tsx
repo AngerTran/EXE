@@ -166,7 +166,7 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <Star className="w-5 h-5 text-warning fill-warning" />
                   <div>
-                    <div className="text-sm font-bold text-foreground">10 xu miễn phí</div>
+                    <div className="text-sm font-bold text-foreground">100 xu miễn phí</div>
                     <div className="text-xs text-muted-foreground">Cho tài khoản mới</div>
                   </div>
                 </div>
@@ -250,7 +250,7 @@ export default function Home() {
                 Sẵn sàng bắt đầu?
               </h2>
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Nhận ngay 10 xu miễn phí để trải nghiệm AI và khám phá kho assets
+                Nhận ngay 100 xu miễn phí để trải nghiệm AI và khám phá kho assets
               </p>
               <Link
                 to="/auth"
@@ -260,7 +260,7 @@ export default function Home() {
               </Link>
 
               <p className="text-sm text-muted-foreground mt-4">
-                Không cần thẻ tín dụng • 10 xu miễn phí • Hủy bất cứ lúc nào
+                Không cần thẻ tín dụng • 100 xu miễn phí • Hủy bất cứ lúc nào
               </p>
             </div>
           </div>

@@ -88,6 +88,10 @@ public class OrdersController(IOrderService orderService) : ControllerBase
         {
             return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+        {
+            return StatusCode(500, new ErrorResponse(ex.InnerException?.Message ?? ex.Message, "database_error"));
+        }
     }
 
     [HttpPost("assets")]
@@ -105,6 +109,43 @@ public class OrdersController(IOrderService orderService) : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("Not enough xu", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "insufficient_credits"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "wallet_error"));
+        }
+    }
+
+    [HttpPost("credit-packs")]
+    public async Task<IActionResult> CreateCreditPackOrder(
+        [FromBody] CreateCreditPackOrderRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        try
+        {
+            var order = await orderService.CreateCreditPackOrderAsync(userId.Value, request, cancellationToken);
+            return CreatedAtAction(nameof(GetById), new { id = order.Id }, order);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("subscription", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "subscription_required"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "order_error"));
         }
     }
 

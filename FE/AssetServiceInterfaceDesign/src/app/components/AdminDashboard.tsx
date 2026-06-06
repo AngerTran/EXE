@@ -21,6 +21,8 @@ import {
   Activity,
   PieChart,
   CheckCircle,
+  Loader2,
+  Coins,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -31,13 +33,40 @@ import { ASSET_CATEGORIES, TAG_GROUPS, type AssetCategory } from "../../types/as
 import {
   fetchAdminOverview,
   fetchAdminSubscriptionPlans,
+  createAdminSubscriptionPlan,
+  updateAdminSubscriptionPlan,
+  deleteAdminSubscriptionPlan,
+  hardDeleteAdminSubscriptionPlan,
   fetchAdminUsers,
   fetchAdminAssets,
   patchWalletBalance,
   updateAdminUser,
   deleteAdminUser,
 } from "../../api/admin";
-import { fetchAllOrders } from "../../api/orders";
+import {
+  fetchAdminCreditPacks,
+  createAdminCreditPack,
+  updateAdminCreditPack,
+  deleteAdminCreditPack,
+  hardDeleteAdminCreditPack,
+  type CreditPackItem,
+} from "../../api/creditPacks";
+import type { SubscriptionPlan } from "../../api/types/billing";
+import {
+  emptyPlanDraft,
+  PLAN_SLUG_OPTIONS,
+  SUBSCRIPTION_PLAN_TEMPLATES,
+  type PlanSlug,
+  type SubscriptionPlanDraft,
+  hasPaidSubscription,
+} from "../../constants/subscriptionPlanTemplates";
+import { CREDIT_PACKS_FALLBACK } from "../../constants/creditPacks";
+import { fetchAllOrders, updateOrderStatus } from "../../api/orders";
+import type { Order as CommerceOrder } from "../../api/types/commerce";
+import { ApiError } from "../../api/client";
+import { componentClasses } from "../../constants/theme";
+import { Button } from "./ui/button";
+import { cn } from "./ui/utils";
 import {
   approveAsset as apiApproveAsset,
   rejectAsset as apiRejectAsset,
@@ -63,6 +92,16 @@ import {
   Line,
 } from "recharts";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 type Tab = "overview" | "users" | "assets" | "orders" | "packages";
 
@@ -81,21 +120,51 @@ interface UserData {
 
 interface Order {
   id: string;
+  orderCode: string;
   userId: string;
   userName: string;
+  userEmail?: string;
+  orderType: string;
   items: string[];
-  total: number;
+  totalVnd: number;
+  totalXu: number;
   status: "completed" | "pending" | "cancelled";
   date: string;
 }
 
-interface PackageData {
-  id: string;
-  name: string;
-  price: number;
-  credits: number;
-  sales: number;
-  revenue: number;
+function mapApiOrderToAdmin(o: CommerceOrder): Order {
+  return {
+    id: o.id,
+    orderCode: o.orderCode,
+    userId: o.userId ?? "",
+    userName: o.userName ?? o.userEmail ?? o.items[0]?.itemName ?? "—",
+    userEmail: o.userEmail ?? undefined,
+    orderType: o.orderType,
+    items: o.items.map((i) => i.itemName),
+    totalVnd: o.totalVnd,
+    totalXu: o.totalXu,
+    status: o.status.toLowerCase() as Order["status"],
+    date: o.createdAt.split("T")[0],
+  };
+}
+
+function formatAdminOrderAmount(order: Order): string {
+  if (order.orderType === "asset") {
+    return `${order.totalXu.toLocaleString("vi-VN")} xu`;
+  }
+  return `${order.totalVnd.toLocaleString("vi-VN")}đ`;
+}
+
+function orderStatusBadgeClass(status: Order["status"]): string {
+  if (status === "completed") return componentClasses.badgeSuccess;
+  if (status === "pending") return componentClasses.badgeWarning;
+  return componentClasses.badgeDestructive;
+}
+
+function orderStatusLabel(status: Order["status"]): string {
+  if (status === "completed") return "Hoàn thành";
+  if (status === "pending") return "Chờ xác nhận CK";
+  return "Đã hủy";
 }
 
 interface AssetData extends Pick<
@@ -111,14 +180,15 @@ export default function AdminDashboard() {
   // Load data from localStorage
   const [users, setUsers] = useState<UserData[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [packages, setPackages] = useState<PackageData[]>([]);
+  const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
 
-  // Function to reload packages from localStorage
-  const reloadPackages = () => {
-    const packagesData = localStorage.getItem("admin_packages");
-    if (packagesData) {
-      setPackages(JSON.parse(packagesData));
+  const reloadPackagesFromApi = async () => {
+    try {
+      const plans = await fetchAdminSubscriptionPlans();
+      setPackages([...plans].sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch {
+      toast.error("Không tải được danh sách gói dịch vụ");
     }
   };
 
@@ -149,28 +219,9 @@ export default function AdminDashboard() {
           }))
         );
 
-        setOrders(
-          ordersRes.data.map((o) => ({
-            id: o.orderCode,
-            userId: "",
-            userName: o.items[0]?.itemName ?? "—",
-            items: o.items.map((i) => i.itemName),
-            total: o.totalVnd,
-            status: o.status.toLowerCase() as Order["status"],
-            date: o.createdAt.split("T")[0],
-          }))
-        );
+        setOrders(ordersRes.data.map(mapApiOrderToAdmin));
 
-        setPackages(
-          plans.map((p) => ({
-            id: p.id,
-            name: p.name.toUpperCase(),
-            price: p.priceVnd,
-            credits: p.isUnlimited ? -1 : p.creditsMonthly ?? 0,
-            sales: 0,
-            revenue: 0,
-          }))
-        );
+        setPackages([...plans].sort((a, b) => a.sortOrder - b.sortOrder));
 
         const approved = assetsRes.data.map(mapAssetListItem);
         const pending = pendingRes.data.map(mapAssetListItem);
@@ -223,43 +274,11 @@ export default function AdminDashboard() {
     return () => window.removeEventListener("assetsUpdated", handler);
   }, []);
 
-  // Reload packages when switching to packages tab
   useEffect(() => {
     if (activeTab === "packages") {
-      reloadPackages();
+      reloadPackagesFromApi();
     }
   }, [activeTab]);
-
-  // Auto-reload packages when window regains focus (admin comes back)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (activeTab === "packages") {
-        reloadPackages();
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [activeTab]);
-
-  // Listen for localStorage changes to auto-reload
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'admin_packages') {
-        reloadPackages();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  // Custom event listener for same-window updates
-  useEffect(() => {
-    const handlePackageUpdate = () => {
-      reloadPackages();
-    };
-    window.addEventListener('packageUpdated', handlePackageUpdate);
-    return () => window.removeEventListener('packageUpdated', handlePackageUpdate);
-  }, []);
 
   const stats = [
     {
@@ -268,7 +287,7 @@ export default function AdminDashboard() {
       icon: <Users className="w-6 h-6" />,
       color: "from-primary to-primary/80",
       change: "+12%",
-      detail: `${users.filter((u) => u.subscription && ["student", "indie", "pro"].includes(u.subscription)).length} có subscription`,
+      detail: `${users.filter((u) => hasPaidSubscription(u.subscription)).length} có subscription`,
     },
     {
       label: "Tổng Assets",
@@ -288,7 +307,7 @@ export default function AdminDashboard() {
     },
     {
       label: "Doanh thu",
-      value: `${Math.floor(orders.reduce((sum, o) => sum + (o.status === "completed" ? o.total : 0), 0) / 1000)}k`,
+      value: `${Math.floor(orders.reduce((sum, o) => sum + (o.status === "completed" ? o.totalVnd : 0), 0) / 1000)}k`,
       icon: <DollarSign className="w-6 h-6" />,
       color: "from-warning to-warning/80",
       change: "+18%",
@@ -348,6 +367,7 @@ export default function AdminDashboard() {
             setSearchQuery={setSearchQuery}
             users={users}
             setUsers={setUsers}
+            orders={orders}
           />
         )}
 
@@ -371,7 +391,14 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === "packages" && (
-          <PackagesManagement packages={packages} setPackages={setPackages} />
+          <div className="space-y-8">
+            <PackagesManagement
+              packages={packages}
+              setPackages={setPackages}
+              onReload={reloadPackagesFromApi}
+            />
+            <CreditPacksManagement />
+          </div>
         )}
       </div>
     </div>
@@ -403,8 +430,7 @@ function OverviewTab({
   const packageData = [
     { id: "pkg-free", name: "FREE", value: 150, color: "#64748b" },
     { id: "pkg-student", name: "STUDENT", value: 89, color: "#00d9ff" },
-    { id: "pkg-indie", name: "INDIE", value: 34, color: "#a855f7" },
-    { id: "pkg-pro", name: "PRO", value: 12, color: "#f59e0b" },
+    { id: "pkg-pro", name: "PRO (99k)", value: 12, color: "#f59e0b" },
   ];
 
   // Assets by category
@@ -616,7 +642,7 @@ function OverviewTab({
                 className="bg-card border border-border rounded-xl p-4 hover:bg-card/80 hover:border-primary/50 transition-all"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="font-bold text-foreground font-mono">{order.id}</p>
+                  <p className="font-bold text-foreground font-mono">{order.orderCode}</p>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-bold ${
                       order.status === "completed"
@@ -639,7 +665,7 @@ function OverviewTab({
                 </p>
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-primary font-mono">
-                    {order.total.toLocaleString("vi-VN")} xu
+                    {formatAdminOrderAmount(order)}
                   </p>
                   <p className="text-xs text-muted-foreground">{order.date}</p>
                 </div>
@@ -698,11 +724,13 @@ function UsersManagement({
   setSearchQuery,
   users,
   setUsers,
+  orders,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   users: UserData[];
   setUsers: (users: UserData[]) => void;
+  orders: Order[];
 }) {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1008,9 +1036,9 @@ function UsersManagement({
                           className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                         >
                           <option value="">FREE</option>
-                          <option value="student">STUDENT</option>
-                          <option value="indie">INDIE</option>
-                          <option value="pro">PRO</option>
+                          <option value="student">STUDENT (29k)</option>
+                          <option value="indie">INDIE (legacy)</option>
+                          <option value="pro">PRO (99k)</option>
                         </select>
                       </div>
                       <div>
@@ -1131,11 +1159,8 @@ function UsersManagement({
                     </div>
                   </div>
 
-                  {/* Purchase details (from localStorage demo) */}
                   {(() => {
-                    const ordersRaw = localStorage.getItem("admin_orders");
-                    const allOrders: Order[] = ordersRaw ? JSON.parse(ordersRaw) : [];
-                    const userOrders = allOrders
+                    const userOrders = orders
                       .filter((o) => o.userId === viewingUser.id)
                       .sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -1175,10 +1200,10 @@ function UsersManagement({
                                 >
                                   <div className="flex items-center justify-between gap-3">
                                     <p className="text-foreground font-mono font-bold">
-                                      {o.id}
+                                      {o.orderCode}
                                     </p>
                                     <span className="text-sm font-bold text-primary font-mono">
-                                      {o.total.toLocaleString("vi-VN")} xu
+                                      {formatAdminOrderAmount(o)}
                                     </span>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -2114,126 +2139,160 @@ function OrdersManagement({
   setOrders: (orders: Order[]) => void;
   users: UserData[];
 }) {
+  const { refreshUserData } = useAuth();
   const [page, setPage] = useState(1);
   const pageSize = 6;
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const filteredOrders = orders.filter(
     (order) =>
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.userName.toLowerCase().includes(searchQuery.toLowerCase())
+      order.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
   const { paged: pagedOrders, totalPages } = getPageSlice(filteredOrders, page, pageSize);
 
-  const handleConfirm = (orderId: string) => {
-    const updatedOrders = orders.map((o) =>
-      o.id === orderId ? { ...o, status: "completed" as const } : o
-    );
-    setOrders(updatedOrders);
-    localStorage.setItem("admin_orders", JSON.stringify(updatedOrders));
+  const handleConfirm = async (orderId: string) => {
+    setActionOrderId(orderId);
+    try {
+      const updated = await updateOrderStatus(orderId, "completed");
+      setOrders(orders.map((o) => (o.id === orderId ? mapApiOrderToAdmin(updated) : o)));
+      await refreshUserData();
+      toast.success("Đã xác nhận thanh toán — gói/xu đã được kích hoạt cho khách");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không xác nhận được đơn");
+    } finally {
+      setActionOrderId(null);
+    }
   };
 
-  const handleCancel = (orderId: string) => {
+  const handleCancel = async (orderId: string) => {
     if (!confirm("Bạn có chắc muốn hủy đơn hàng này?")) return;
 
-    const updatedOrders = orders.map((o) =>
-      o.id === orderId ? { ...o, status: "cancelled" as const } : o
-    );
-    setOrders(updatedOrders);
-    localStorage.setItem("admin_orders", JSON.stringify(updatedOrders));
+    setActionOrderId(orderId);
+    try {
+      const updated = await updateOrderStatus(orderId, "cancelled");
+      setOrders(orders.map((o) => (o.id === orderId ? mapApiOrderToAdmin(updated) : o)));
+      toast.success("Đã hủy đơn hàng");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không hủy được đơn");
+    } finally {
+      setActionOrderId(null);
+    }
   };
 
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-foreground">Quản lý đơn hàng</h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-          />
+    <div className={cn(componentClasses.card, "hover:scale-100 p-6")}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Quản lý đơn hàng</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Đối soát chuyển khoản và kích hoạt gói cho khách
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {pendingCount > 0 && (
+            <span className={componentClasses.badgeWarning}>
+              {pendingCount} chờ xác nhận
+            </span>
+          )}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Mã đơn, email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(componentClasses.input, "pl-10 w-full sm:w-64")}
+            />
+          </div>
         </div>
       </div>
 
+      {pagedOrders.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-40" />
+          <p>Chưa có đơn hàng phù hợp</p>
+        </div>
+      ) : (
       <div className="space-y-4">
         {pagedOrders.map((order) => (
           <div
             key={order.id}
-            className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 transition-all"
+            className={cn(
+              componentClasses.cardSimple,
+              "p-5 hover:scale-100",
+              order.status === "pending" && "border-warning/40 bg-warning/5"
+            )}
           >
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-foreground text-lg mb-1 font-mono">{order.id}</h3>
-                <p className="text-sm text-muted-foreground">{order.userName}</p>
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <h3 className="font-bold text-foreground text-lg font-mono">{order.orderCode}</h3>
+                  <span className={orderStatusBadgeClass(order.status)}>
+                    {orderStatusLabel(order.status)}
+                  </span>
+                  <span className={componentClasses.badgePrimary}>
+                    {order.orderType === "subscription" ? "Gói DV" : "Asset"}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground truncate">
+                  {order.userName}
+                  {order.userEmail ? ` • ${order.userEmail}` : ""}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
               </div>
-              <span
-                className={`px-4 py-2 rounded-full text-sm font-bold ${
-                  order.status === "completed"
-                    ? "bg-success/20 text-success"
-                    : order.status === "pending"
-                    ? "bg-warning/20 text-warning"
-                    : "bg-destructive/20 text-destructive"
-                }`}
-              >
-                {order.status === "completed"
-                  ? "Hoàn thành"
-                  : order.status === "pending"
-                  ? "Đang xử lý"
-                  : "Đã hủy"}
-              </span>
+              <p className="text-2xl font-bold text-primary font-mono shrink-0">
+                {formatAdminOrderAmount(order)}
+              </p>
             </div>
-            <div className="bg-card/50 border border-border rounded-lg p-4 mb-4">
-              <p className="text-sm text-muted-foreground mb-2">
-                Sản phẩm ({order.items.length}):
+
+            <div className="bg-background/50 border border-border rounded-lg p-4 mb-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                Sản phẩm ({order.items.length})
               </p>
               <ul className="space-y-1">
                 {order.items.map((item, index) => (
-                  <li key={`${order.id}-item-${index}`} className="text-foreground">
+                  <li key={`${order.id}-item-${index}`} className="text-sm text-foreground">
                     • {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Tổng tiền:</p>
-                <p className="text-2xl font-bold text-foreground font-mono">
-                  {order.total.toLocaleString("vi-VN")} xu
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setViewingOrder(order)}
-                  className="bg-card hover:bg-card/80 border border-border hover:border-primary/50 text-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all"
-                >
-                  <Eye className="w-4 h-4" />
-                  Chi tiết
-                </button>
-                {order.status === "pending" && (
-                  <>
-                    <button
-                      onClick={() => handleConfirm(order.id)}
-                      className="bg-success hover:bg-success/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                    >
-                      <UserCheck className="w-4 h-4" />
-                      Xác nhận
-                    </button>
-                    <button
-                      onClick={() => handleCancel(order.id)}
-                      className="bg-destructive hover:bg-destructive/90 text-primary-foreground px-4 py-2 rounded-lg transition-all hover:shadow-[0_0_20px_rgba(236,72,153,0.3)]"
-                    >
-                      Hủy
-                    </button>
-                  </>
-                )}
-              </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => setViewingOrder(order)}>
+                <Eye className="w-4 h-4" />
+                Chi tiết
+              </Button>
+              {order.status === "pending" && (
+                <>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => handleConfirm(order.id)}
+                    disabled={actionOrderId === order.id}
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    {actionOrderId === order.id ? "Đang xử lý..." : "Xác nhận CK"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleCancel(order.id)}
+                    disabled={actionOrderId === order.id}
+                  >
+                    Hủy
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         ))}
       </div>
+      )}
 
       <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
@@ -2257,12 +2316,12 @@ function OrdersManagement({
                 {(() => {
                   const buyer = users.find((u) => u.id === viewingOrder.userId);
                   return (
-                    <div className="bg-card/50 border border-border rounded-2xl p-5">
-                      <p className="text-sm font-semibold text-muted-foreground mb-3">
-                        Thông tin người mua
+                    <div className={cn(componentClasses.cardSimple, "p-5 hover:scale-100")}>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                        Người mua
                       </p>
                       <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-full overflow-hidden bg-background border border-border">
+                        <div className="w-14 h-14 rounded-full overflow-hidden bg-background border border-border shrink-0">
                           {buyer?.avatarDataUrl ? (
                             <img
                               src={buyer.avatarDataUrl}
@@ -2280,26 +2339,14 @@ function OrdersManagement({
                             {buyer?.name || viewingOrder.userName}
                           </p>
                           <p className="text-sm text-muted-foreground truncate">
-                            {buyer?.email || `User ID: ${viewingOrder.userId}`}
+                            {buyer?.email || viewingOrder.userEmail || `ID: ${viewingOrder.userId}`}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                viewingOrder.status === "completed"
-                                  ? "bg-success/20 text-success"
-                                  : viewingOrder.status === "pending"
-                                  ? "bg-warning/20 text-warning"
-                                  : "bg-destructive/20 text-destructive"
-                              }`}
-                            >
-                              {viewingOrder.status === "completed"
-                                ? "Hoàn thành"
-                                : viewingOrder.status === "pending"
-                                ? "Đang xử lý"
-                                : "Đã hủy"}
+                            <span className={orderStatusBadgeClass(viewingOrder.status)}>
+                              {orderStatusLabel(viewingOrder.status)}
                             </span>
                             {buyer?.subscription ? (
-                              <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/20 text-primary">
+                              <span className={componentClasses.badgePrimary}>
                                 {buyer.subscription.toUpperCase()}
                               </span>
                             ) : (
@@ -2314,37 +2361,70 @@ function OrdersManagement({
                   );
                 })()}
 
-                <div className="bg-card/50 border border-border rounded-2xl p-5">
-                  <p className="text-sm font-semibold text-muted-foreground mb-3">
-                    Thông tin đơn
+                <div className={cn(componentClasses.cardSimple, "p-5 hover:scale-100")}>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                    Chi tiết đơn
                   </p>
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="bg-card border border-border/60 rounded-xl p-4">
+                    <div className="bg-background/50 border border-border rounded-lg p-4">
                       <p className="text-xs text-muted-foreground mb-1">Mã đơn</p>
-                      <p className="font-mono font-bold text-foreground">{viewingOrder.id}</p>
+                      <p className="font-mono font-bold text-foreground">{viewingOrder.orderCode}</p>
                     </div>
-                    <div className="bg-card border border-border/60 rounded-xl p-4">
+                    <div className="bg-background/50 border border-border rounded-lg p-4">
                       <p className="text-xs text-muted-foreground mb-1">Ngày</p>
                       <p className="font-bold text-foreground">{viewingOrder.date}</p>
                     </div>
+                    <div className="bg-background/50 border border-border rounded-lg p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Loại</p>
+                      <p className="font-semibold text-foreground">
+                        {viewingOrder.orderType === "subscription" ? "Gói dịch vụ" : "Asset"}
+                      </p>
+                    </div>
+                    <div className="bg-background/50 border border-border rounded-lg p-4">
+                      <p className="text-xs text-muted-foreground mb-1">Tổng tiền</p>
+                      <p className="text-xl font-bold text-primary font-mono">
+                        {formatAdminOrderAmount(viewingOrder)}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="mt-4 bg-card border border-border/60 rounded-xl p-4">
-                    <p className="text-xs text-muted-foreground mb-2">Danh sách sản phẩm</p>
-                    <ul className="list-disc list-inside text-sm text-foreground space-y-1">
+                  <div className="mt-4 bg-background/50 border border-border rounded-lg p-4">
+                    <p className="text-xs text-muted-foreground mb-2">Sản phẩm</p>
+                    <ul className="text-sm text-foreground space-y-1">
                       {viewingOrder.items.map((item, index) => (
-                        <li key={`${viewingOrder.id}-drawer-item-${index}`}>{item}</li>
+                        <li key={`${viewingOrder.id}-drawer-item-${index}`}>• {item}</li>
                       ))}
                     </ul>
                   </div>
-
-                  <div className="mt-4 flex items-center justify-between bg-card border border-border/60 rounded-xl p-4">
-                    <p className="text-sm text-muted-foreground">Tổng tiền</p>
-                    <p className="text-2xl font-bold text-primary font-mono">
-                      {viewingOrder.total.toLocaleString("vi-VN")} xu
-                    </p>
-                  </div>
                 </div>
+
+                {viewingOrder.status === "pending" && (
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+                    <Button
+                      variant="success"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => {
+                        handleConfirm(viewingOrder.id);
+                        setViewingOrder(null);
+                      }}
+                      disabled={actionOrderId === viewingOrder.id}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      {actionOrderId === viewingOrder.id ? "Đang xử lý..." : "Xác nhận CK"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1 sm:flex-none"
+                      onClick={() => {
+                        handleCancel(viewingOrder.id);
+                        setViewingOrder(null);
+                      }}
+                      disabled={actionOrderId === viewingOrder.id}
+                    >
+                      Hủy đơn
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </SheetContent>
@@ -2354,80 +2434,133 @@ function OrdersManagement({
   );
 }
 
+function formatPlanCredits(pkg: SubscriptionPlan): string {
+  if (pkg.isUnlimited) return "Không giới hạn xu";
+  if (pkg.creditsMonthly && pkg.creditsMonthly > 0) return `${pkg.creditsMonthly} xu/tháng`;
+  if (pkg.slug === "free") return `${pkg.creditsMonthly ?? 100} xu khi đăng ký`;
+  return "—";
+}
+
 // Packages Management Component
 function PackagesManagement({
   packages,
   setPackages,
+  onReload,
 }: {
-  packages: PackageData[];
-  setPackages: (packages: PackageData[]) => void;
+  packages: SubscriptionPlan[];
+  setPackages: (packages: SubscriptionPlan[]) => void;
+  onReload: () => Promise<void>;
 }) {
   const [page, setPage] = useState(1);
   const pageSize = 9;
-  const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<SubscriptionPlan | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newPackage, setNewPackage] = useState<Partial<PackageData>>({
-    name: "",
-    price: 0,
-    credits: 0,
-    sales: 0,
-    revenue: 0,
-  });
+  const [newPackage, setNewPackage] = useState<SubscriptionPlanDraft>(emptyPlanDraft());
+  const [deleteTarget, setDeleteTarget] = useState<SubscriptionPlan | null>(null);
 
-  const handleEdit = (pkg: PackageData) => {
-    setEditingPackage({ ...pkg });
+  const existingSlugs = new Set(packages.map((p) => p.slug));
+
+  const handleEdit = (pkg: SubscriptionPlan) => {
+    setEditingPackage({ ...pkg, features: [...pkg.features] });
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingPackage) return;
-
-    const updatedPackages = packages.map((p) =>
-      p.id === editingPackage.id ? editingPackage : p
-    );
-    setPackages(updatedPackages);
-    localStorage.setItem("admin_packages", JSON.stringify(updatedPackages));
-
-    setShowEditModal(false);
-    setEditingPackage(null);
-  };
-
-  const handleAddPackage = () => {
-    if (!newPackage.name) {
-      alert("Vui lòng nhập tên gói");
+    if (!editingPackage.name.trim()) {
+      toast.error("Vui lòng nhập tên gói");
       return;
     }
 
-    const pkg: PackageData = {
-      id: `PKG-${Date.now()}`,
-      name: newPackage.name || "",
-      price: newPackage.price || 0,
-      credits: newPackage.credits || 0,
-      sales: newPackage.sales || 0,
-      revenue: newPackage.revenue || 0,
-    };
-
-    const updatedPackages = [...packages, pkg];
-    setPackages(updatedPackages);
-    localStorage.setItem("admin_packages", JSON.stringify(updatedPackages));
-
-    setShowAddModal(false);
-    setNewPackage({
-      name: "",
-      price: 0,
-      credits: 0,
-      sales: 0,
-      revenue: 0,
-    });
+    setSaving(true);
+    try {
+      const updated = await updateAdminSubscriptionPlan(editingPackage.id, {
+        name: editingPackage.name.trim(),
+        description: editingPackage.description?.trim() || null,
+        priceVnd: editingPackage.priceVnd,
+        creditsMonthly: editingPackage.isUnlimited ? null : editingPackage.creditsMonthly,
+        isUnlimited: editingPackage.isUnlimited,
+        features: editingPackage.features.filter((f) => f.trim()),
+        sortOrder: editingPackage.sortOrder,
+        isActive: editingPackage.isActive,
+      });
+      setPackages(
+        packages
+          .map((p) => (p.id === updated.id ? updated : p))
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+      );
+      toast.success("Đã cập nhật gói dịch vụ");
+      setShowEditModal(false);
+      setEditingPackage(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Cập nhật gói thất bại");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (pkgId: string) => {
-    if (!confirm("Bạn c chắc muốn xóa gói này?")) return;
+  const handleAddPackage = async () => {
+    if (!newPackage.name.trim()) {
+      toast.error("Vui lòng nhập tên gói");
+      return;
+    }
+    if (existingSlugs.has(newPackage.slug)) {
+      toast.error(`Slug "${newPackage.slug}" đã tồn tại — chọn slug khác hoặc chỉnh sửa gói hiện có`);
+      return;
+    }
 
-    const updatedPackages = packages.filter((p) => p.id !== pkgId);
-    setPackages(updatedPackages);
-    localStorage.setItem("admin_packages", JSON.stringify(updatedPackages));
+    setSaving(true);
+    try {
+      const created = await createAdminSubscriptionPlan({
+        slug: newPackage.slug,
+        name: newPackage.name.trim(),
+        description: newPackage.description?.trim() || null,
+        priceVnd: newPackage.priceVnd,
+        creditsMonthly: newPackage.isUnlimited ? null : newPackage.creditsMonthly,
+        isUnlimited: newPackage.isUnlimited,
+        features: newPackage.features.filter((f) => f.trim()),
+        sortOrder: newPackage.sortOrder,
+        isActive: newPackage.isActive,
+      });
+      setPackages([...packages, created].sort((a, b) => a.sortOrder - b.sortOrder));
+      toast.success("Đã thêm gói dịch vụ");
+      setShowAddModal(false);
+      setNewPackage(emptyPlanDraft());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Thêm gói thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const isPermanent = !deleteTarget.isActive;
+
+    setSaving(true);
+    try {
+      if (isPermanent) {
+        await hardDeleteAdminSubscriptionPlan(deleteTarget.id);
+        setPackages(packages.filter((p) => p.id !== deleteTarget.id));
+        toast.success(`Đã xóa vĩnh viễn gói "${deleteTarget.name}"`);
+      } else {
+        await deleteAdminSubscriptionPlan(deleteTarget.id);
+        await onReload();
+        toast.success(`Đã ẩn gói "${deleteTarget.name}"`);
+      }
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Xóa gói thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyTemplate = (slug: PlanSlug) => {
+    const template = SUBSCRIPTION_PLAN_TEMPLATES[slug];
+    setNewPackage({ ...template, features: [...template.features] });
   };
 
   const { paged: pagedPackages, totalPages } = getPageSlice(packages, page, pageSize);
@@ -2435,66 +2568,185 @@ function PackagesManagement({
   return (
     <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-foreground">Quản lý gói dịch vụ</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Quản lý gói dịch vụ</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Gói đăng ký tháng (FREE / STUDENT / PRO) — đồng bộ trang Gói dịch vụ
+          </p>
+        </div>
         <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
+          onClick={() => {
+            setNewPackage(emptyPlanDraft());
+            setShowAddModal(true);
+          }}
+          disabled={saving}
+          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
         >
           <Plus className="w-5 h-5" />
           Thêm gói mới
         </button>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {pagedPackages.map((pkg) => (
-          <div
-            key={pkg.id}
-            className="bg-card border border-border rounded-xl p-6 hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-foreground mb-2">{pkg.name}</h3>
-                <p className="text-3xl font-bold text-primary mb-1 font-mono">
-                  {pkg.price.toLocaleString("vi-VN")} xu
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {pkg.credits === -1 ? "Không giới hạn xu" : `${pkg.credits} xu`}
-                </p>
+      {packages.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <CreditCard className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>Chưa có gói nào. Bấm &quot;Thêm gói mới&quot; và chọn mẫu free/student/indie/pro.</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {pagedPackages.map((pkg) => (
+            <div
+              key={pkg.id}
+              className={`bg-card border rounded-xl p-6 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] ${
+                pkg.isActive ? "border-border" : "border-destructive/40 opacity-70"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
+                      {pkg.slug}
+                    </span>
+                    {!pkg.isActive && (
+                      <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded">
+                        Đã ẩn
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">#{pkg.sortOrder}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-1">{pkg.name}</h3>
+                  {pkg.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{pkg.description}</p>
+                  )}
+                  <p className="text-2xl font-bold text-primary font-mono">
+                    {pkg.priceVnd > 0
+                      ? `${pkg.priceVnd.toLocaleString("vi-VN")}đ/tháng`
+                      : "Miễn phí"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">{formatPlanCredits(pkg)}</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => handleEdit(pkg)}
+                    disabled={saving}
+                    className="text-warning hover:text-warning/80 transition-colors disabled:opacity-50"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(pkg)}
+                    disabled={saving}
+                    className="text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+                    aria-label={`Ẩn gói ${pkg.name}`}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(pkg)}
-                  className="text-warning hover:text-warning/80 transition-colors"
-                >
-                  <Edit className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => handleDelete(pkg.id)}
-                  className="text-destructive hover:text-destructive/80 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
+              <ul className="space-y-1 pt-4 border-t border-border">
+                {(pkg.features.length > 0 ? pkg.features : ["Chưa có tính năng"]).slice(0, 4).map((f, i) => (
+                  <li key={i} className="text-sm text-muted-foreground flex items-start gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" />
+                    <span className="line-clamp-1">{f}</span>
+                  </li>
+                ))}
+                {pkg.features.length > 4 && (
+                  <li className="text-xs text-muted-foreground">+{pkg.features.length - 4} tính năng khác</li>
+                )}
+              </ul>
             </div>
-            <div className="space-y-3 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Đã bán:</span>
-                <span className="text-foreground font-bold font-mono">{pkg.sales} gói</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Doanh thu:</span>
-                <span className="text-success font-bold font-mono">
-                  {pkg.revenue.toLocaleString("vi-VN")} xu
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
-      {/* Edit Drawer */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !saving) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent className="bg-card border-border sm:max-w-md">
+          <AlertDialogHeader>
+            <div className="mx-auto sm:mx-0 mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
+              <AlertCircle className="h-6 w-6 text-destructive" />
+            </div>
+            <AlertDialogTitle className="text-foreground text-xl">
+              {deleteTarget?.isActive ? "Ẩn gói dịch vụ?" : "Xóa vĩnh viễn gói?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-left text-muted-foreground">
+                {deleteTarget?.isActive ? (
+                  <>
+                    <p>
+                      Bạn sắp ẩn gói{" "}
+                      <span className="font-semibold text-foreground">{deleteTarget.name}</span>{" "}
+                      <span className="font-mono text-xs bg-muted/30 px-1.5 py-0.5 rounded">
+                        {deleteTarget.slug}
+                      </span>
+                      . Gói sẽ không còn hiển thị trên trang Gói dịch vụ.
+                    </p>
+                    <div className="rounded-lg border border-border bg-background/50 px-3 py-2 text-sm">
+                      <p className="text-foreground font-medium mb-1">Lưu ý</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-xs">
+                        <li>Dữ liệu vẫn được giữ trên hệ thống (soft-delete)</li>
+                        <li>Bấm xóa lần nữa khi gói đã ẩn để xóa hẳn khỏi database</li>
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      Gói{" "}
+                      <span className="font-semibold text-foreground">{deleteTarget?.name}</span>{" "}
+                      <span className="font-mono text-xs bg-muted/30 px-1.5 py-0.5 rounded">
+                        {deleteTarget?.slug}
+                      </span>{" "}
+                      sẽ bị <strong className="text-destructive">xóa hẳn</strong> khỏi database.
+                    </p>
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+                      <p className="text-foreground font-medium mb-1">Không thể hoàn tác</p>
+                      <p className="text-xs">
+                        Chỉ xóa được khi không còn user subscription hoặc đơn hàng tham chiếu gói này.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2">
+            <AlertDialogCancel
+              disabled={saving}
+              className="border-border hover:bg-muted/50"
+            >
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang xử lý...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  {deleteTarget?.isActive ? "Ẩn gói" : "Xóa vĩnh viễn"}
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet
         open={showEditModal && !!editingPackage}
         onOpenChange={(open) => {
@@ -2508,17 +2760,18 @@ function PackagesManagement({
           <SheetContent className="p-0 sm:max-w-2xl">
             <div className="flex h-full flex-col">
               <SheetHeader className="border-b border-border p-6">
-                <SheetTitle>Chỉnh sửa gói</SheetTitle>
+                <SheetTitle>Chỉnh sửa gói — {editingPackage.slug}</SheetTitle>
                 <SheetDescription className="hidden sm:block">
-                  Cập nhật thông tin gói dịch vụ
+                  Slug không đổi sau khi tạo. Các field khác đồng bộ lên trang Gói dịch vụ.
                 </SheetDescription>
               </SheetHeader>
-
               <div className="flex-1 overflow-y-auto p-6">
                 <PackageForm
-                  pkg={editingPackage}
-                  onChange={setEditingPackage}
+                  mode="edit"
+                  draft={editingPackage}
+                  onChange={(d) => setEditingPackage({ ...editingPackage, ...d })}
                   onSave={handleSaveEdit}
+                  saving={saving}
                 />
               </div>
             </div>
@@ -2526,7 +2779,6 @@ function PackagesManagement({
         )}
       </Sheet>
 
-      {/* Add Drawer */}
       <Sheet
         open={showAddModal}
         onOpenChange={(open) => {
@@ -2539,15 +2791,36 @@ function PackagesManagement({
               <SheetHeader className="border-b border-border p-6">
                 <SheetTitle>Thêm gói mới</SheetTitle>
                 <SheetDescription className="hidden sm:block">
-                  Tạo gói dịch vụ mới
+                  Chọn mẫu theo trang Gói dịch vụ rồi chỉnh trước khi lưu.
                 </SheetDescription>
               </SheetHeader>
-
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Mẫu nhanh (theo Pricing)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {PLAN_SLUG_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={existingSlugs.has(opt.value) || saving}
+                        onClick={() => applyTemplate(opt.value)}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {opt.label}
+                        {existingSlugs.has(opt.value) ? " ✓" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <PackageForm
-                  pkg={newPackage as PackageData}
-                  onChange={(pkg) => setNewPackage(pkg)}
+                  mode="create"
+                  draft={newPackage}
+                  existingSlugs={existingSlugs}
+                  onChange={(d) => setNewPackage({ ...newPackage, ...d })}
                   onSave={handleAddPackage}
+                  saving={saving}
                 />
               </div>
             </div>
@@ -2558,62 +2831,625 @@ function PackagesManagement({
   );
 }
 
-function PackageForm({
-  pkg,
+type CreditPackDraft = {
+  id: string;
+  name: string;
+  credits: number;
+  priceVnd: number;
+  discountPercent: number | null;
+  sortOrder: number;
+  isActive: boolean;
+};
+
+function emptyCreditPackDraft(): CreditPackDraft {
+  return {
+    id: "",
+    name: "",
+    credits: 200,
+    priceVnd: 29_000,
+    discountPercent: null,
+    sortOrder: 0,
+    isActive: true,
+  };
+}
+
+function CreditPacksManagement() {
+  const [packs, setPacks] = useState<CreditPackItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingPack, setEditingPack] = useState<CreditPackItem | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<CreditPackItem | null>(null);
+  const [newPack, setNewPack] = useState<CreditPackDraft>(emptyCreditPackDraft());
+
+  const existingIds = new Set(packs.map((p) => p.id));
+
+  const reload = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchAdminCreditPacks();
+      setPacks([...data].sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch {
+      toast.error("Không tải được gói mua thêm xu");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    reload();
+  }, []);
+
+  const handleEdit = (pack: CreditPackItem) => {
+    setEditingPack({ ...pack });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPack) return;
+    if (!editingPack.name.trim()) {
+      toast.error("Vui lòng nhập tên gói");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await updateAdminCreditPack(editingPack.id, {
+        name: editingPack.name.trim(),
+        credits: editingPack.credits,
+        priceVnd: editingPack.priceVnd,
+        discountPercent: editingPack.discountPercent,
+        sortOrder: editingPack.sortOrder,
+        isActive: editingPack.isActive,
+      });
+      setPacks((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      setShowEditModal(false);
+      setEditingPack(null);
+      toast.success("Đã cập nhật gói xu");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Cập nhật thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    if (!newPack.id.trim() || !newPack.name.trim()) {
+      toast.error("Nhập mã gói (id) và tên");
+      return;
+    }
+    if (existingIds.has(newPack.id.trim().toLowerCase())) {
+      toast.error(`Mã gói "${newPack.id}" đã tồn tại`);
+      return;
+    }
+    setSaving(true);
+    try {
+      const created = await createAdminCreditPack({
+        id: newPack.id.trim().toLowerCase(),
+        name: newPack.name.trim(),
+        credits: newPack.credits,
+        priceVnd: newPack.priceVnd,
+        discountPercent: newPack.discountPercent,
+        sortOrder: newPack.sortOrder,
+        isActive: newPack.isActive,
+      });
+      setPacks((prev) => [...prev, created].sort((a, b) => a.sortOrder - b.sortOrder));
+      setShowAddModal(false);
+      setNewPack(emptyCreditPackDraft());
+      toast.success("Đã thêm gói xu");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Thêm gói thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyCreditPackTemplate = (template: (typeof CREDIT_PACKS_FALLBACK)[number]) => {
+    setNewPack({
+      id: template.id,
+      name: template.name ?? "",
+      credits: template.credits,
+      priceVnd: template.priceVnd,
+      discountPercent: template.discountPercent ?? null,
+      sortOrder: template.sortOrder ?? 0,
+      isActive: true,
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      if (deleteTarget.isActive) {
+        await deleteAdminCreditPack(deleteTarget.id);
+        await reload();
+        toast.success(`Đã ẩn gói "${deleteTarget.name}"`);
+      } else {
+        await hardDeleteAdminCreditPack(deleteTarget.id);
+        setPacks((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+        toast.success(`Đã xóa gói "${deleteTarget.name}"`);
+      }
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Xóa gói thất bại");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <Coins className="w-6 h-6 text-success" />
+            Gói mua thêm xu
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Hiển thị tại mục &quot;Hoặc mua thêm xu&quot; trên trang Gói dịch vụ — thanh toán một lần
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setNewPack(emptyCreditPackDraft());
+            setShowAddModal(true);
+          }}
+          disabled={saving}
+          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
+        >
+          <Plus className="w-5 h-5" />
+          Thêm gói xu
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      ) : packs.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">Chưa có gói xu — bấm &quot;Thêm gói xu&quot; để tạo mới.</p>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {packs.map((pack) => (
+            <div
+              key={pack.id}
+              className={`bg-card border rounded-xl p-6 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] ${
+                pack.isActive ? "border-border" : "border-destructive/40 opacity-70"
+              }`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">
+                      {pack.id}
+                    </span>
+                    {!pack.isActive && (
+                      <span className="text-xs bg-destructive/20 text-destructive px-2 py-0.5 rounded">
+                        Đã ẩn
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">#{pack.sortOrder}</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-1">{pack.name}</h3>
+                  <p className="text-2xl font-bold text-primary font-mono">
+                    {pack.priceVnd.toLocaleString("vi-VN")}đ
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {pack.credits.toLocaleString("vi-VN")} xu
+                    {pack.discountPercent != null && pack.discountPercent > 0 && (
+                      <span className="ml-2 text-warning font-medium">-{pack.discountPercent}%</span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(pack)}
+                    disabled={saving}
+                    className="text-warning hover:text-warning/80 transition-colors disabled:opacity-50"
+                  >
+                    <Edit className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(pack)}
+                    disabled={saving}
+                    className="text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
+                    aria-label={`Ẩn gói ${pack.name}`}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !saving) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent className="bg-card border-border sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              {deleteTarget?.isActive ? "Ẩn gói xu?" : "Xóa vĩnh viễn gói xu?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <p className="text-muted-foreground text-sm">
+                Gói <strong className="text-foreground">{deleteTarget?.name}</strong>{" "}
+                <span className="font-mono text-xs">({deleteTarget?.id})</span>
+                {deleteTarget?.isActive
+                  ? " sẽ không còn hiển thị trên trang Gói dịch vụ."
+                  : " sẽ bị xóa hẳn khỏi database."}
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving} className="border-border hover:bg-muted/50">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDelete();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+            >
+              {saving ? "Đang xử lý..." : deleteTarget?.isActive ? "Ẩn gói" : "Xóa vĩnh viễn"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Sheet
+        open={showEditModal && !!editingPack}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowEditModal(false);
+            setEditingPack(null);
+          }
+        }}
+      >
+        {editingPack && (
+          <SheetContent className="p-0 sm:max-w-2xl">
+            <div className="flex h-full flex-col">
+              <SheetHeader className="border-b border-border p-6">
+                <SheetTitle>Chỉnh sửa gói xu — {editingPack.id}</SheetTitle>
+                <SheetDescription className="hidden sm:block">
+                  Mã gói không đổi sau khi tạo. Thay đổi đồng bộ lên trang Gói dịch vụ.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-6">
+                <CreditPackForm
+                  mode="edit"
+                  draft={editingPack}
+                  onChange={(d) => setEditingPack({ ...editingPack, ...d })}
+                  onSave={handleSaveEdit}
+                  saving={saving}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={showAddModal}
+        onOpenChange={(open) => {
+          if (!open) setShowAddModal(false);
+        }}
+      >
+        {showAddModal && (
+          <SheetContent className="p-0 sm:max-w-2xl">
+            <div className="flex h-full flex-col">
+              <SheetHeader className="border-b border-border p-6">
+                <SheetTitle>Thêm gói xu</SheetTitle>
+                <SheetDescription className="hidden sm:block">
+                  Chọn mẫu nhanh hoặc nhập thủ công trước khi lưu.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
+                    Mẫu nhanh (theo Pricing)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {CREDIT_PACKS_FALLBACK.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        disabled={existingIds.has(tpl.id) || saving}
+                        onClick={() => applyCreditPackTemplate(tpl)}
+                        className="px-3 py-1.5 text-sm rounded-lg border border-border hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {tpl.name} ({tpl.priceVnd.toLocaleString("vi-VN")}đ)
+                        {existingIds.has(tpl.id) ? " ✓" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <CreditPackForm
+                  mode="create"
+                  draft={newPack}
+                  existingIds={existingIds}
+                  onChange={(d) => setNewPack({ ...newPack, ...d })}
+                  onSave={handleAdd}
+                  saving={saving}
+                />
+              </div>
+            </div>
+          </SheetContent>
+        )}
+      </Sheet>
+    </div>
+  );
+}
+
+function CreditPackForm({
+  mode,
+  draft,
+  existingIds,
   onChange,
   onSave,
+  saving,
 }: {
-  pkg: Partial<PackageData>;
-  onChange: (pkg: any) => void;
+  mode: "create" | "edit";
+  draft: CreditPackDraft | CreditPackItem;
+  existingIds?: Set<string>;
+  onChange: (patch: Partial<CreditPackDraft>) => void;
   onSave: () => void;
+  saving: boolean;
 }) {
   return (
     <div className="space-y-4">
+      {mode === "create" && (
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">
+            Mã gói (id) *
+          </label>
+          <input
+            className={cn(componentClasses.input, "font-mono")}
+            placeholder="pack-500"
+            value={draft.id}
+            onChange={(e) => onChange({ id: e.target.value })}
+          />
+          {existingIds?.has(draft.id.trim().toLowerCase()) && (
+            <p className="text-xs text-destructive mt-1">Mã gói đã tồn tại</p>
+          )}
+        </div>
+      )}
       <div>
-        <label className="block text-sm font-medium text-muted-foreground mb-2">
-          Tên gói
-        </label>
+        <label className="block text-sm font-medium text-muted-foreground mb-2">Tên hiển thị *</label>
         <input
-          type="text"
-          value={pkg.name || ""}
-          onChange={(e) => onChange({ ...pkg, name: e.target.value })}
-          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          className={componentClasses.input}
+          value={draft.name}
+          onChange={(e) => onChange({ name: e.target.value })}
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-2">
-            Giá (xu)
-          </label>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Số xu *</label>
           <input
             type="number"
-            value={pkg.price || 0}
-            onChange={(e) =>
-              onChange({ ...pkg, price: parseInt(e.target.value) || 0 })
-            }
-            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            className={componentClasses.input}
+            value={draft.credits}
+            onChange={(e) => onChange({ credits: parseInt(e.target.value, 10) || 0 })}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-muted-foreground mb-2">
-            Credits
-          </label>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Giá (VND) *</label>
           <input
             type="number"
-            value={pkg.credits || 0}
-            onChange={(e) =>
-              onChange({ ...pkg, credits: parseInt(e.target.value) || 0 })
-            }
-            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            className={componentClasses.input}
+            value={draft.priceVnd}
+            onChange={(e) => onChange({ priceVnd: parseInt(e.target.value, 10) || 0 })}
           />
         </div>
       </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">% giảm (hiển thị)</label>
+          <input
+            type="number"
+            className={componentClasses.input}
+            value={draft.discountPercent ?? ""}
+            onChange={(e) =>
+              onChange({
+                discountPercent: e.target.value === "" ? null : parseInt(e.target.value, 10),
+              })
+            }
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Thứ tự</label>
+          <input
+            type="number"
+            className={componentClasses.input}
+            value={draft.sortOrder}
+            onChange={(e) => onChange({ sortOrder: parseInt(e.target.value, 10) || 0 })}
+          />
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={draft.isActive}
+          onChange={(e) => onChange({ isActive: e.target.checked })}
+        />
+        Hiển thị trên trang Gói dịch vụ
+      </label>
+      <Button
+        type="button"
+        variant="gradient"
+        className="w-full"
+        onClick={onSave}
+        disabled={saving}
+      >
+        {saving ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Đang lưu...
+          </>
+        ) : mode === "create" ? (
+          "Thêm gói xu"
+        ) : (
+          "Lưu thay đổi"
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function PackageForm({
+  mode,
+  draft,
+  existingSlugs,
+  onChange,
+  onSave,
+  saving,
+}: {
+  mode: "create" | "edit";
+  draft: SubscriptionPlanDraft | SubscriptionPlan;
+  existingSlugs?: Set<string>;
+  onChange: (patch: Partial<SubscriptionPlanDraft>) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  const featuresText = draft.features.join("\n");
+
+  return (
+    <div className="space-y-4">
+      {mode === "create" && (
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Slug *</label>
+          <select
+            value={draft.slug}
+            onChange={(e) => {
+              const slug = e.target.value as PlanSlug;
+              onChange(SUBSCRIPTION_PLAN_TEMPLATES[slug] ?? { slug });
+            }}
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {PLAN_SLUG_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value} disabled={existingSlugs?.has(opt.value)}>
+                {opt.label}
+                {existingSlugs?.has(opt.value) ? " (đã có)" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-muted-foreground mb-2">Tên gói *</label>
+        <input
+          type="text"
+          value={draft.name}
+          onChange={(e) => onChange({ name: e.target.value })}
+          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-muted-foreground mb-2">Mô tả</label>
+        <textarea
+          value={draft.description ?? ""}
+          onChange={(e) => onChange({ description: e.target.value })}
+          rows={2}
+          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Giá (VND/tháng)</label>
+          <input
+            type="number"
+            min={0}
+            value={draft.priceVnd}
+            onChange={(e) => onChange({ priceVnd: parseInt(e.target.value, 10) || 0 })}
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Thứ tự hiển thị</label>
+          <input
+            type="number"
+            min={0}
+            value={draft.sortOrder}
+            onChange={(e) => onChange({ sortOrder: parseInt(e.target.value, 10) || 0 })}
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={draft.isUnlimited}
+          onChange={(e) =>
+            onChange({
+              isUnlimited: e.target.checked,
+              creditsMonthly: e.target.checked ? null : draft.creditsMonthly ?? 0,
+            })
+          }
+          className="rounded border-border"
+        />
+        <span className="text-sm text-foreground">Xu không giới hạn (indie/pro)</span>
+      </label>
+
+      {!draft.isUnlimited && (
+        <div>
+          <label className="block text-sm font-medium text-muted-foreground mb-2">Xu/tháng</label>
+          <input
+            type="number"
+            min={0}
+            value={draft.creditsMonthly ?? 0}
+            onChange={(e) => onChange({ creditsMonthly: parseInt(e.target.value, 10) || 0 })}
+            className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
+          Tính năng (mỗi dòng một mục)
+        </label>
+        <textarea
+          value={featuresText}
+          onChange={(e) =>
+            onChange({
+              features: e.target.value.split("\n").map((l) => l.trim()).filter(Boolean),
+            })
+          }
+          rows={5}
+          placeholder={"100 xu miễn phí khi đăng ký\nGợi ý assets cơ bản\n..."}
+          className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+        />
+      </div>
+
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={draft.isActive}
+          onChange={(e) => onChange({ isActive: e.target.checked })}
+          className="rounded border-border"
+        />
+        <span className="text-sm text-foreground">Hiển thị trên trang Gói dịch vụ (isActive)</span>
+      </label>
+
       <button
         onClick={onSave}
-        className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
+        disabled={saving}
+        className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
       >
-        <Save className="w-5 h-5" />
-        Lưu
+        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+        {saving ? "Đang lưu..." : "Lưu"}
       </button>
     </div>
   );

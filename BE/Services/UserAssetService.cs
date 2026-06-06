@@ -1,6 +1,7 @@
 using Exe.Configuration;
 using Exe.DTOs.Commerce;
 using Exe.Repositories.Commerce;
+using Exe.Repositories.Marketplace;
 using Exe.Services.IServices;
 using Microsoft.Extensions.Options;
 
@@ -8,6 +9,7 @@ namespace Exe.Services;
 
 public class UserAssetService(
     IUserAssetRepository userAssetRepository,
+    IAssetStorageRepository assetStorageRepository,
     IStorageService storageService,
     IOptions<StorageOptions> storageOptions) : IUserAssetService
 {
@@ -34,10 +36,13 @@ public class UserAssetService(
         if (userAsset is null)
             return null;
 
-        userAsset.DownloadCount++;
-        userAsset.LastDownloadAt = DateTime.UtcNow;
-        var detail = await MapDetailAsync(userAsset, includeDownloadUrl: true, cancellationToken);
-        return detail;
+        await assetStorageRepository.IncrementDownloadStatsAsync(assetId, userId, cancellationToken);
+
+        userAsset = await userAssetRepository.GetAsync(userId, assetId, cancellationToken);
+        if (userAsset is null)
+            return null;
+
+        return await MapDetailAsync(userAsset, includeDownloadUrl: true, cancellationToken);
     }
 
     private static UserAssetListItemResponse MapListItem(Models.Entities.UserAsset ua) =>
@@ -59,7 +64,9 @@ public class UserAssetService(
     {
         string? downloadUrl = null;
         int? expires = null;
-        var primary = ua.Asset.Files.OrderByDescending(f => f.IsPrimary).FirstOrDefault();
+        var primary = includeDownloadUrl
+            ? await assetStorageRepository.GetPrimaryFileAsync(ua.AssetId, cancellationToken)
+            : null;
         if (includeDownloadUrl && primary is not null)
         {
             downloadUrl = await storageService.CreateSignedDownloadUrlAsync(

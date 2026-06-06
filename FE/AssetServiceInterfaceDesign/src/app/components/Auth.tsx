@@ -206,7 +206,7 @@ export default function Auth() {
               <p className="auth-body text-sm text-[#cbc3d7]">
                 {isLogin
                   ? "Nhập thông tin để vào trung tâm sáng tạo của bạn."
-                  : "Đăng ký và nhận 10 xu miễn phí ngay hôm nay."}
+                  : "Đăng ký và nhận 100 xu miễn phí ngay hôm nay."}
               </p>
             </header>
 

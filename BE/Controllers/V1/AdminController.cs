@@ -1,5 +1,6 @@
 using Exe.DTOs.Admin;
 using Exe.DTOs.Auth;
+using Exe.DTOs.Billing;
 using Exe.DTOs.Common;
 using Exe.DTOs.Support;
 using Exe.Extensions;
@@ -16,7 +17,7 @@ namespace Exe.Controllers.V1;
 [Tags("4.13 Admin")]
 [Authorize]
 [Produces("application/json")]
-public class AdminController(IAdminService adminService) : ControllerBase
+public class AdminController(IAdminService adminService, ICreditPackService creditPackService) : ControllerBase
 {
     [HttpGet("overview")]
     [ProducesResponseType(typeof(AdminOverviewResponse), StatusCodes.Status200OK)]
@@ -311,6 +312,121 @@ public class AdminController(IAdminService adminService) : ControllerBase
         try
         {
             var deleted = await adminService.DeleteSubscriptionPlanAsync(userId.Value, id, cancellationToken);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
+    /// <summary>Xóa vĩnh viễn gói khỏi DB — chỉ khi không còn subscription/order tham chiếu.</summary>
+    [HttpDelete("subscription-plans/{id:guid}/permanent")]
+    public async Task<IActionResult> HardDeleteSubscriptionPlan(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var deleted = await adminService.HardDeleteSubscriptionPlanAsync(userId.Value, id, cancellationToken);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "plan_in_use"));
+        }
+    }
+
+    [HttpGet("credit-packs")]
+    [ProducesResponseType(typeof(CreditPackListResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListCreditPacks(CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            return Ok(await creditPackService.ListAdminAsync(userId.Value, cancellationToken));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
+    [HttpPost("credit-packs")]
+    [ProducesResponseType(typeof(CreditPackResponse), StatusCodes.Status201Created)]
+    public async Task<IActionResult> CreateCreditPack(
+        [FromBody] AdminCreateCreditPackRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        try
+        {
+            var pack = await creditPackService.CreateAsync(userId.Value, request, cancellationToken);
+            return CreatedAtAction(nameof(ListCreditPacks), pack);
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+    }
+
+    [HttpPatch("credit-packs/{id}")]
+    [ProducesResponseType(typeof(CreditPackResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateCreditPack(
+        string id,
+        [FromBody] AdminUpdateCreditPackRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var pack = await creditPackService.UpdateAsync(userId.Value, id, request, cancellationToken);
+            return pack is null ? NotFound() : Ok(pack);
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
+    [HttpDelete("credit-packs/{id}")]
+    public async Task<IActionResult> DeleteCreditPack(string id, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var deleted = await creditPackService.DeleteAsync(userId.Value, id, cancellationToken);
+            return deleted ? NoContent() : NotFound();
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
+    [HttpDelete("credit-packs/{id}/permanent")]
+    public async Task<IActionResult> HardDeleteCreditPack(string id, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var deleted = await creditPackService.HardDeleteAsync(userId.Value, id, cancellationToken);
             return deleted ? NoContent() : NotFound();
         }
         catch (ForbiddenException ex)

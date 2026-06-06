@@ -22,6 +22,9 @@ export interface Order {
   items: OrderItem[];
   paymentId?: string | null;
   paymentRedirectUrl?: string | null;
+  userId?: string | null;
+  userEmail?: string | null;
+  userName?: string | null;
 }
 
 export interface OrdersSummary {

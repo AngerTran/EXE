@@ -12,6 +12,7 @@ export interface AppUser {
   email: string;
   name: string;
   credits: number;
+  isUnlimited: boolean;
   role: UserRole;
   subscription: SubscriptionPlan | null;
   subscriptionExpiry?: string;
@@ -25,6 +26,7 @@ export function mapMeToUser(me: MeResponse): AppUser {
     email: me.email,
     name: me.name,
     credits: me.wallet?.balance ?? 0,
+    isUnlimited: me.wallet?.isUnlimited ?? false,
     role: (me.role === "admin" ? "admin" : "customer") as UserRole,
     subscription: plan as SubscriptionPlan,
     subscriptionExpiry: me.subscription?.expiredAt ?? undefined,
