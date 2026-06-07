@@ -43,6 +43,14 @@ export interface AssetListItem {
   isFree: boolean;
 }
 
+export interface AssetImageItem {
+  id: string;
+  storagePath: string;
+  altText?: string | null;
+  isThumbnail: boolean;
+  sortOrder: number;
+}
+
 export interface AssetDetail extends AssetListItem {
   fullDescription?: string | null;
   uploaderId: string;
@@ -58,6 +66,7 @@ export interface AssetDetail extends AssetListItem {
   featureVrReady: boolean;
   version?: string | null;
   createdAt: string;
+  images?: AssetImageItem[];
 }
 
 export interface CreateAssetBody {

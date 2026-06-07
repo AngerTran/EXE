@@ -66,8 +66,10 @@ function migrateLegacyIfNeeded() {
 
 function mapLegacyCategory(category: string): AssetRecord["category"] {
   const map: Record<string, AssetRecord["category"]> = {
-    "2D Characters": "3D Model",
-    "2D Environments": "3D Model",
+    "2D Characters": "2D Model",
+    "2D Environments": "2D Model",
+    "2D Model": "2D Model",
+    "Mô hình 2D": "2D Model",
     "UI/UX": "UI",
     "Sound Effects": "Audio",
     Music: "Audio",

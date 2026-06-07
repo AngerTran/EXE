@@ -206,6 +206,8 @@ export function isAdmin(user: { role: string } | null): boolean {
  */
 export function getCategoryIcon(category: string): string {
   const icons: Record<string, string> = {
+    '2D Model': '🖼️',
+    'Mô hình 2D': '🖼️',
     '2D Characters': '👥',
     '2D Environments': '🏞️',
     'UI/UX': '🎨',

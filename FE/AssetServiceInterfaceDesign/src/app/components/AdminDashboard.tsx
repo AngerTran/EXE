@@ -26,8 +26,6 @@ import {
   Star,
   Upload,
   ImageIcon,
-  Mail,
-  ScrollText,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
@@ -54,9 +52,6 @@ import {
   fetchAdminAnalyticsUsers,
   fetchAdminAnalyticsAssets,
   fetchAdminAnalyticsOrders,
-  fetchAdminContactInquiries,
-  updateAdminContactInquiry,
-  fetchAdminAuditLogs,
 } from "../../api/admin";
 import type {
   AdminAnalyticsAssets,
@@ -64,8 +59,6 @@ import type {
   AdminAnalyticsRevenue,
   AdminAnalyticsUsers,
   AdminOverview,
-  AdminAuditLog,
-  ContactInquiry,
 } from "../../api/types/admin";
 import {
   buildAdminUpdateBody,
@@ -136,7 +129,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 
-type Tab = "overview" | "users" | "assets" | "orders" | "packages" | "contact" | "audit";
+type Tab = "overview" | "users" | "assets" | "orders" | "packages";
 
 const PLAN_CHART_COLORS: Record<string, string> = {
   free: "#64748b",
@@ -431,8 +424,6 @@ export default function AdminDashboard() {
               { id: "assets", label: "Assets", icon: <Package className="w-4 h-4" /> },
               { id: "orders", label: "Đơn hàng", icon: <ShoppingCart className="w-4 h-4" /> },
               { id: "packages", label: "Gói dịch vụ", icon: <CreditCard className="w-4 h-4" /> },
-              { id: "contact", label: "Liên hệ", icon: <Mail className="w-4 h-4" /> },
-              { id: "audit", label: "Audit log", icon: <ScrollText className="w-4 h-4" /> },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -505,9 +496,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {activeTab === "contact" && <ContactInquiriesManagement />}
-
-        {activeTab === "audit" && <AuditLogsManagement />}
       </div>
     </div>
   );
@@ -3929,180 +3917,6 @@ function ConfirmActionDialog({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
-}
-
-function ContactInquiriesManagement() {
-  const [items, setItems] = useState<ContactInquiry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await fetchAdminContactInquiries(page, pageSize, statusFilter || undefined);
-      setItems(res.data);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Không tải được liên hệ");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, [page, statusFilter]);
-
-  const { paged, totalPages } = getPageSlice(items, 1, items.length || pageSize);
-
-  const updateStatus = async (id: string, status: string) => {
-    try {
-      const updated = await updateAdminContactInquiry(id, status);
-      setItems((prev) => prev.map((i) => (i.id === id ? updated : i)));
-      toast.success("Đã cập nhật trạng thái");
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Cập nhật thất bại");
-    }
-  };
-
-  return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-foreground">Yêu cầu liên hệ</h2>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="new">new</option>
-          <option value="in_progress">in_progress</option>
-          <option value="resolved">resolved</option>
-          <option value="closed">closed</option>
-        </select>
-      </div>
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : items.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Chưa có yêu cầu liên hệ.</p>
-      ) : (
-        <div className="space-y-4">
-          {paged.map((item) => (
-            <div key={item.id} className="border border-border rounded-xl p-4 bg-card/40">
-              <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
-                <div>
-                  <p className="font-bold text-foreground">{item.name}</p>
-                  <p className="text-sm text-muted-foreground">{item.email}{item.phone ? ` · ${item.phone}` : ""}</p>
-                </div>
-                <select
-                  value={item.status}
-                  onChange={(e) => void updateStatus(item.id, e.target.value)}
-                  className="bg-card border border-border rounded-lg px-2 py-1 text-xs"
-                >
-                  <option value="new">new</option>
-                  <option value="in_progress">in_progress</option>
-                  <option value="resolved">resolved</option>
-                  <option value="closed">closed</option>
-                </select>
-              </div>
-              <p className="text-xs text-primary mb-1">{item.consultType}</p>
-              <p className="text-sm text-foreground whitespace-pre-wrap">{item.message}</p>
-              {item.gameIdea && (
-                <p className="text-xs text-muted-foreground mt-2">Ý tưởng: {item.gameIdea}</p>
-              )}
-              <p className="text-xs text-muted-foreground mt-2">
-                {new Date(item.createdAt).toLocaleString("vi-VN")}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-      {totalPages > 1 && (
-        <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
-      )}
-    </div>
-  );
-}
-
-function AuditLogsManagement() {
-  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      try {
-        const res = await fetchAdminAuditLogs(page, pageSize);
-        if (!cancelled) setLogs(res.data);
-      } catch (error) {
-        if (!cancelled) {
-          toast.error(error instanceof ApiError ? error.message : "Không tải được audit log");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [page]);
-
-  const { paged, totalPages } = getPageSlice(logs, 1, logs.length || pageSize);
-
-  return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-      <h2 className="text-2xl font-bold text-foreground mb-6">Audit log</h2>
-      {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : logs.length === 0 ? (
-        <p className="text-muted-foreground text-center py-12">Chưa có audit log.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left py-2 px-2">Thời gian</th>
-                <th className="text-left py-2 px-2">Action</th>
-                <th className="text-left py-2 px-2">Entity</th>
-                <th className="text-left py-2 px-2">User</th>
-                <th className="text-left py-2 px-2">IP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paged.map((log) => (
-                <tr key={log.id} className="border-b border-border/40">
-                  <td className="py-2 px-2 text-muted-foreground whitespace-nowrap">
-                    {new Date(log.createdAt).toLocaleString("vi-VN")}
-                  </td>
-                  <td className="py-2 px-2 font-mono">{log.action}</td>
-                  <td className="py-2 px-2 text-muted-foreground">
-                    {log.entityType ?? "—"}
-                    {log.entityId ? ` · ${log.entityId.slice(0, 8)}…` : ""}
-                  </td>
-                  <td className="py-2 px-2 font-mono text-xs">{log.userId?.slice(0, 8) ?? "—"}</td>
-                  <td className="py-2 px-2 text-muted-foreground">{log.ipAddress ?? "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {totalPages > 1 && (
-        <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} className="mt-6" />
-      )}
-    </div>
   );
 }
 

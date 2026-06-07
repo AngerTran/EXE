@@ -258,7 +258,12 @@ export default function MyOrders() {
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
                     <div>
-                      <p className="font-bold text-foreground font-mono">{order.orderCode}</p>
+                      <p className="font-bold text-foreground">
+                        <span className="text-muted-foreground font-medium text-sm mr-2">
+                          Mã đơn hàng:
+                        </span>
+                        <span className="font-mono">{order.orderCode}</span>
+                      </p>
                       <p className="text-muted-foreground mt-1">{order.date}</p>
                     </div>
                     <span className={`px-4 py-2 rounded-full text-xs font-bold ${st.className}`}>

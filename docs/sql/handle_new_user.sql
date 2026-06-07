@@ -40,15 +40,13 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT id, COALESCE(credits_monthly, 100)
-  INTO free_plan_id, welcome_xu
+  welcome_xu := 100;
+
+  SELECT id
+  INTO free_plan_id
   FROM public.subscription_plans
   WHERE slug = 'free'
   LIMIT 1;
-
-  IF free_plan_id IS NULL THEN
-    welcome_xu := 100;
-  END IF;
 
   INSERT INTO public.wallets (user_id, balance)
   VALUES (NEW.id, welcome_xu);
@@ -83,8 +81,10 @@ DECLARE
   final_username TEXT;
   suffix INT;
 BEGIN
-  SELECT id, COALESCE(credits_monthly, 100)
-  INTO free_plan_id, welcome_xu
+  welcome_xu := 100;
+
+  SELECT id
+  INTO free_plan_id
   FROM public.subscription_plans
   WHERE slug = 'free'
   LIMIT 1;

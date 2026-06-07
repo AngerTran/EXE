@@ -9,7 +9,8 @@ public record UserAssetListItemResponse(
     string AcquiredVia,
     int DownloadCount,
     DateTime? LastDownloadAt,
-    DateTime AcquiredAt);
+    DateTime AcquiredAt,
+    bool IsDelisted);
 
 public record UserAssetDetailResponse(
     Guid AssetId,
@@ -22,4 +23,5 @@ public record UserAssetDetailResponse(
     int DownloadCount,
     DateTime AcquiredAt,
     string? DownloadUrl,
-    int? DownloadExpiresInSeconds);
+    int? DownloadExpiresInSeconds,
+    bool IsDelisted);

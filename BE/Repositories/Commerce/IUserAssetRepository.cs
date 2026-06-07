@@ -13,4 +13,6 @@ public interface IUserAssetRepository
     void Add(UserAsset userAsset);
 
     void AddRange(IEnumerable<UserAsset> items);
+
+    void Remove(UserAsset userAsset);
 }

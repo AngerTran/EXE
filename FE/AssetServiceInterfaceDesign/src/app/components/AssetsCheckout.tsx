@@ -119,7 +119,7 @@ export default function AssetsCheckout() {
       await refreshUserData();
       setIsProcessing(false);
       setShowSuccess(true);
-      setTimeout(() => navigate("/my-assets"), 3000);
+      setTimeout(() => navigate("/my-assets"), 10000);
     } catch (error) {
       setIsProcessing(false);
       if (error instanceof ApiError && error.code === "insufficient_credits") {
@@ -143,54 +143,107 @@ export default function AssetsCheckout() {
   }
 
   if (showSuccess) {
+    const successGridBg =
+      "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMGQ5ZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00em0wIDI4YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00ek0xMiAxNmMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHptMCAyOGMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHoiLz48L2c+PC9nPjwvc3ZnPg==";
+
     return (
-      <div className="min-h-screen flex items-center justify-center py-12 px-4">
-        <div className="max-w-md w-full text-center">
-          <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
-            <div className="w-16 h-16 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="w-9 h-9 text-success" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-3">
-              {isFreeOnly ? "Đã thêm vào thư viện" : "Mua thành công"}
-            </h2>
-            <p className="text-sm text-muted-foreground mb-2">
-              Bạn đã {isFreeOnly ? "thêm vào thư viện" : "mua"}{" "}
-              <span className="font-semibold text-foreground">{selectedAssets.length}</span> asset
-            </p>
-            <p className="text-sm text-muted-foreground mb-6">
-              {isFreeOnly ? (
-                <span className="text-success font-medium">Không trừ xu</span>
-              ) : (
-                <>
-                  Đã trừ{" "}
-                  <span className="font-mono font-semibold text-foreground">
-                    {totalPrice.toLocaleString("vi-VN")} xu
-                  </span>
-                </>
-              )}
-            </p>
-            <div className="bg-muted/30 border border-border rounded-xl p-4 mb-6 text-left">
-              <div className="flex items-center gap-2 text-foreground mb-1">
-                <Library className="w-4 h-4 text-primary" />
-                <p className="text-sm font-semibold">Bước tiếp theo</p>
+      <div className="relative min-h-screen flex items-center justify-center py-12 px-4 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-secondary/10" />
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{ backgroundImage: `url('${successGridBg}')` }}
+        />
+        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-secondary/15 blur-3xl" />
+
+        <div className="relative max-w-lg w-full">
+          <div className={cn(componentClasses.card, "overflow-hidden hover:scale-100 p-0")}>
+            <div className="p-8 pb-6 text-center">
+              <div className="w-16 h-16 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-5">
+                <CheckCircle className="w-9 h-9 text-success" />
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Vào <strong className="text-foreground">Thư viện</strong> và nhấn{" "}
-                <strong className="text-foreground">Tải xuống</strong> để lấy file về máy.
+              <h2 className="text-2xl font-bold text-foreground mb-3">
+                {isFreeOnly ? "Đã thêm vào thư viện" : "Mua thành công"}
+              </h2>
+              <p className="text-sm text-muted-foreground mb-2">
+                Bạn đã {isFreeOnly ? "thêm vào thư viện" : "mua"}{" "}
+                <span className="font-semibold text-foreground">{selectedAssets.length}</span> asset
+              </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                {isFreeOnly ? (
+                  <span className="text-success font-medium">Không trừ xu</span>
+                ) : (
+                  <>
+                    Đã trừ{" "}
+                    <span className="font-mono font-semibold text-foreground">
+                      {totalPrice.toLocaleString("vi-VN")} xu
+                    </span>
+                  </>
+                )}
+              </p>
+              <div className="bg-muted/30 border border-border rounded-xl p-4 text-left">
+                <div className="flex items-center gap-2 text-foreground mb-1">
+                  <Library className="w-4 h-4 text-primary" />
+                  <p className="text-sm font-semibold">Bước tiếp theo</p>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Vào <strong className="text-foreground">Thư viện</strong> và nhấn{" "}
+                  <strong className="text-foreground">Tải xuống</strong> để lấy file về máy.
+                </p>
+              </div>
+            </div>
+
+            <div className="relative h-44 border-y border-border/60 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/25 via-secondary/20 to-primary/25" />
+              <div
+                className="absolute inset-0 opacity-40 mix-blend-overlay"
+                style={{
+                  backgroundImage:
+                    "url('https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80')",
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              />
+              <div className="absolute inset-0 bg-background/55 backdrop-blur-[1px]" />
+              <div className="relative z-10 flex h-full items-center justify-center gap-3 px-6 py-4">
+                {selectedAssets.slice(0, 4).map((asset) => (
+                  <div
+                    key={asset.id}
+                    className="h-24 w-24 shrink-0 overflow-hidden rounded-xl border-2 border-white/20 shadow-lg ring-1 ring-primary/20"
+                    title={asset.title}
+                  >
+                    <ImageWithFallback
+                      src={
+                        asset.thumbnailUrl ||
+                        `https://source.unsplash.com/200x200/?${encodeURIComponent(asset.preview)}`
+                      }
+                      alt={asset.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                ))}
+                {selectedAssets.length > 4 && (
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-primary/40 bg-card/80 text-sm font-bold text-primary">
+                    +{selectedAssets.length - 4}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-8 pt-6 text-center">
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button variant="gradient" asChild>
+                  <Link to="/my-assets">Mở thư viện</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/orders">Lịch sử mua</Link>
+                </Button>
+              </div>
+              <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
+                <Clock className="w-3.5 h-3.5" />
+                Tự chuyển sang Thư viện sau 10 giây...
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Button variant="gradient" asChild>
-                <Link to="/my-assets">Mở thư viện</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/orders">Lịch sử mua</Link>
-              </Button>
-            </div>
-            <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
-              <Clock className="w-3.5 h-3.5" />
-              Tự chuyển sang Thư viện...
-            </p>
           </div>
         </div>
       </div>

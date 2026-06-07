@@ -34,6 +34,7 @@ import { fetchUserAssets } from "../../api/userAssets";
 import { addBookmark, fetchBookmarks, removeBookmark } from "../../api/bookmarks";
 import { mapAssetListItem, mapAssetDetail, getMarketplaceAssetDescription, getMarketplaceAssetFeatures, type MarketplaceAsset, type MarketplaceAssetDetail } from "../../api/mappers";
 import { AssetReviewsPanel } from "./AssetReviewsPanel";
+import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import type { CategoryItem } from "../../api/types/marketplace";
 import type { CartItem } from "../../api/types/commerce";
 import { componentClasses } from "../../constants/theme";
@@ -814,29 +815,26 @@ function AssetDetailDrawerContent({
 
       {/* Content */}
       <div ref={contentRef} className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Preview Image */}
-          <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
-            <ImageWithFallback
-              src={
-                asset.thumbnailUrl ||
-                asset.thumbnailPreview ||
-                `https://source.unsplash.com/800x600/?${encodeURIComponent(asset.preview)}`
-              }
-              alt={asset.title}
-              className="w-full h-full object-cover"
-            />
-            {asset.isFree && !isPurchased && (
-              <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                MIỄN PHÍ
-              </div>
-            )}
-            {isPurchased && (
-              <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
-                <CheckCircle className="w-4 h-4" />
-                ĐÃ SỞ HỮU
-              </div>
-            )}
-          </div>
+          <AssetPreviewGallery
+            images={detail?.previewImages ?? []}
+            loading={detailLoading}
+            assetTitle={asset.title}
+            overlay={
+              <>
+                {asset.isFree && !isPurchased && (
+                  <div className="bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                    MIỄN PHÍ
+                  </div>
+                )}
+                {isPurchased && (
+                  <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                    <CheckCircle className="w-4 h-4" />
+                    ĐÃ SỞ HỮU
+                  </div>
+                )}
+              </>
+            }
+          />
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">

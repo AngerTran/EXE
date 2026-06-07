@@ -30,7 +30,7 @@ public class ProfileProvisioningService(
         var now = DateTime.UtcNow;
 
         var freePlan = await subscriptionPlanRepository.GetBySlugAsync(SubscriptionTier.Free, true, cancellationToken);
-        var welcomeXu = freePlan?.CreditsMonthly ?? 100;
+        var welcomeXu = BillingConstants.WelcomeSignupXu;
 
         db.Profiles.Add(new Profile
         {

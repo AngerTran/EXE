@@ -68,6 +68,7 @@ export interface UserAssetItem {
   downloadCount: number;
   lastDownloadAt?: string | null;
   acquiredAt: string;
+  isDelisted: boolean;
 }
 
 export interface UserAssetDetail extends UserAssetItem {

@@ -23,4 +23,8 @@ public interface IAssetStorageService
         Guid userId,
         Guid assetId,
         CancellationToken cancellationToken = default);
+    Task<AssetFileStreamResult?> OpenDownloadStreamAsync(
+        Guid userId,
+        Guid assetId,
+        CancellationToken cancellationToken = default);
 }

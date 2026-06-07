@@ -1,5 +1,6 @@
 export type AssetCategory =
   | "3D Model"
+  | "2D Model"
   | "UI"
   | "Audio"
   | "Animation"
@@ -64,6 +65,7 @@ export interface AssetRecord {
 
 export const ASSET_CATEGORIES: AssetCategory[] = [
   "3D Model",
+  "2D Model",
   "UI",
   "Audio",
   "Animation",
@@ -121,6 +123,7 @@ export const TAG_GROUPS = [
       "Military",
       "Magic",
       "Zombie",
+      "Character",
     ],
   },
   {
@@ -143,6 +146,7 @@ export const TAG_GROUPS = [
       "Rigged",
       "Animated",
       "Tileset",
+      "Tile",
       "Modular",
       "Particle",
       "SFX Pack",
@@ -150,6 +154,14 @@ export const TAG_GROUPS = [
       "Loop",
       "Sprite Sheet",
     ],
+  },
+  {
+    label: "Thành phần UI",
+    tags: ["Input", "Prompt", "Button", "Gamepad", "Control", "Interface"],
+  },
+  {
+    label: "Phương tiện",
+    tags: ["Car", "Vehicle", "Transportation", "Oopi"],
   },
 ] as const;
 

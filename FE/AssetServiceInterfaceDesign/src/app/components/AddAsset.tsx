@@ -10,6 +10,7 @@ import {
   Sparkles,
   Loader2,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -86,11 +87,40 @@ function FieldLabel({ htmlFor, children, hint }: { htmlFor?: string; children: R
 const inputClass =
   "w-full bg-background/60 border border-border rounded-lg px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all";
 
+const MAX_PREVIEW_IMAGES = 10;
+const PREVIEW_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/jpg"]);
+const PREVIEW_EXTENSION = /\.(png|jpe?g|webp)$/i;
+
+function isPreviewImageFile(file: File): boolean {
+  const mime = file.type.toLowerCase();
+  if (PREVIEW_MIME_TYPES.has(mime)) return true;
+  return PREVIEW_EXTENSION.test(file.name);
+}
+
+function resolveImageContentType(file: File): string {
+  const mime = file.type.toLowerCase();
+  if (PREVIEW_MIME_TYPES.has(mime)) return mime === "image/jpg" ? "image/jpeg" : mime;
+  if (file.name.toLowerCase().endsWith(".png")) return "image/png";
+  if (file.name.toLowerCase().endsWith(".webp")) return "image/webp";
+  return "image/jpeg";
+}
+
+function mergePreviewFiles(existing: File[], incoming: File[]): File[] {
+  const merged = [...existing];
+  for (const file of incoming) {
+    if (merged.length >= MAX_PREVIEW_IMAGES) break;
+    const duplicate = merged.some((f) => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified);
+    if (!duplicate) merged.push(file);
+  }
+  return merged;
+}
+
 export default function AddAsset() {
   const { user, isAdmin } = useAuth();
   const thumbnailRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
+  const errorsRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -119,7 +149,7 @@ export default function AddAsset() {
   const [thumbnailName, setThumbnailName] = useState("");
   const [thumbnailPreview, setThumbnailPreview] = useState("");
   const [previewFiles, setPreviewFiles] = useState<File[]>([]);
-  const [previewNames, setPreviewNames] = useState<string[]>([]);
+  const [previewObjectUrls, setPreviewObjectUrls] = useState<string[]>([]);
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [zipFileName, setZipFileName] = useState("");
 
@@ -133,15 +163,22 @@ export default function AddAsset() {
       .catch(() => toast.error("Không tải được danh mục/tags"));
   }, []);
 
+  useEffect(() => {
+    const urls = previewFiles.map((file) => URL.createObjectURL(file));
+    setPreviewObjectUrls(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [previewFiles]);
+
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
   const handleThumbnail = (file: File | null) => {
     if (!file) return;
-    const allowed = ["image/png", "image/jpeg", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      setErrors(["Thumbnail phải là PNG, JPG hoặc WEBP"]);
+    if (!isPreviewImageFile(file)) {
+      const msg = "Thumbnail phải là PNG, JPG hoặc WEBP";
+      setErrors([msg]);
+      toast.error(msg);
       return;
     }
     setThumbnailFile(file);
@@ -149,15 +186,39 @@ export default function AddAsset() {
     const reader = new FileReader();
     reader.onload = () => setThumbnailPreview(reader.result as string);
     reader.readAsDataURL(file);
+    if (thumbnailRef.current) thumbnailRef.current.value = "";
   };
 
   const handlePreviews = (files: FileList | null) => {
-    if (!files) return;
-    const list = Array.from(files).slice(0, 10);
-    const allowed = ["image/png", "image/jpeg", "image/webp"];
-    const valid = list.filter((f) => allowed.includes(f.type));
-    setPreviewFiles(valid);
-    setPreviewNames(valid.map((f) => f.name));
+    if (!files?.length) return;
+
+    const incoming = Array.from(files);
+    const valid = incoming.filter(isPreviewImageFile);
+    const rejected = incoming.length - valid.length;
+
+    if (valid.length === 0) {
+      toast.error("Chỉ chấp nhận ảnh PNG, JPG hoặc WEBP");
+      if (previewRef.current) previewRef.current.value = "";
+      return;
+    }
+
+    setPreviewFiles((prev) => {
+      const merged = mergePreviewFiles(prev, valid);
+      if (merged.length >= MAX_PREVIEW_IMAGES && prev.length + valid.length > MAX_PREVIEW_IMAGES) {
+        toast.message(`Tối đa ${MAX_PREVIEW_IMAGES} ảnh preview`);
+      }
+      return merged;
+    });
+
+    if (rejected > 0) {
+      toast.error(`${rejected} file không hợp lệ — chỉ PNG, JPG, WEBP`);
+    }
+
+    if (previewRef.current) previewRef.current.value = "";
+  };
+
+  const removePreviewAt = (index: number) => {
+    setPreviewFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleZip = (file: File | null) => {
@@ -188,12 +249,28 @@ export default function AddAsset() {
     return errs;
   };
 
+  const showValidationErrors = (errs: string[]) => {
+    setErrors(errs);
+    toast.error(errs[0] ?? "Vui lòng kiểm tra lại form");
+    requestAnimationFrame(() => {
+      errorsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
-    setErrors(errs);
-    if (errs.length > 0 || !thumbnailFile || !zipFile) return;
+    if (errs.length > 0 || !thumbnailFile || !zipFile) {
+      if (errs.length === 0) {
+        if (!thumbnailFile) errs.push("Tải lên ảnh thumbnail (PNG/JPG/WEBP)");
+        if (previewFiles.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
+        if (!zipFile) errs.push("Tải lên file asset.zip");
+      }
+      showValidationErrors(errs);
+      return;
+    }
 
+    setErrors([]);
     setSubmitting(true);
     try {
       const tagIds: string[] = [];
@@ -234,10 +311,10 @@ export default function AddAsset() {
         assetId,
         "Image",
         thumbnailFile.name,
-        thumbnailFile.type,
+        resolveImageContentType(thumbnailFile),
         thumbnailFile.size
       );
-      await uploadToSignedUrl(thumbMeta.uploadUrl, thumbnailFile, thumbnailFile.type);
+      await uploadToSignedUrl(thumbMeta.uploadUrl, thumbnailFile, resolveImageContentType(thumbnailFile));
       await registerAssetImage(assetId, {
         storagePath: thumbMeta.storagePath,
         altText: title.trim(),
@@ -247,8 +324,9 @@ export default function AddAsset() {
 
       for (let i = 0; i < previewFiles.length; i++) {
         const file = previewFiles[i];
-        const meta = await getAssetUploadUrl(assetId, "Image", file.name, file.type, file.size);
-        await uploadToSignedUrl(meta.uploadUrl, file, file.type);
+        const contentType = resolveImageContentType(file);
+        const meta = await getAssetUploadUrl(assetId, "Image", file.name, contentType, file.size);
+        await uploadToSignedUrl(meta.uploadUrl, file, contentType);
         await registerAssetImage(assetId, {
           storagePath: meta.storagePath,
           altText: `${title} preview ${i + 1}`,
@@ -347,7 +425,7 @@ export default function AddAsset() {
         </header>
 
         {errors.length > 0 && (
-          <div className="mb-6 bg-destructive/10 border border-destructive/30 rounded-xl p-4">
+          <div ref={errorsRef} className="mb-6 bg-destructive/10 border border-destructive/30 rounded-xl p-4">
             <p className="font-bold text-destructive mb-2">Vui lòng kiểm tra lại:</p>
             <ul className="list-disc list-inside text-sm text-destructive space-y-1">
               {errors.map((err) => (
@@ -530,22 +608,61 @@ export default function AddAsset() {
               </div>
 
               <div>
-                <FieldLabel hint="1–10 ảnh showcase (gameplay, wireframe, animation...)">Ảnh preview</FieldLabel>
-                <input ref={previewRef} type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={(e) => handlePreviews(e.target.files)} />
+                <FieldLabel hint="1–10 ảnh showcase (gameplay, wireframe, animation...) — giữ Ctrl để chọn nhiều ảnh cùng lúc, hoặc bấm thêm nhiều lần">
+                  Ảnh preview
+                </FieldLabel>
+                <input
+                  ref={previewRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => handlePreviews(e.target.files)}
+                />
+                {previewFiles.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+                    {previewFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${file.size}-${file.lastModified}`}
+                        className="relative aspect-video rounded-lg overflow-hidden border border-border bg-background/40 group"
+                      >
+                        <img
+                          src={previewObjectUrls[index]}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePreviewAt(index)}
+                          className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                          aria-label={`Xóa ${file.name}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                        <p className="absolute bottom-0 inset-x-0 bg-black/55 text-[10px] text-white px-1.5 py-1 truncate">
+                          {file.name}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => previewRef.current?.click()}
-                  className="w-full border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-all text-center"
+                  disabled={previewFiles.length >= MAX_PREVIEW_IMAGES}
+                  className="w-full border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">
-                    {previewNames.length > 0
-                      ? `${previewNames.length} ảnh đã chọn`
+                    {previewFiles.length > 0
+                      ? previewFiles.length >= MAX_PREVIEW_IMAGES
+                        ? `Đã đủ ${MAX_PREVIEW_IMAGES} ảnh preview`
+                        : `Thêm ảnh preview (${previewFiles.length}/${MAX_PREVIEW_IMAGES})`
                       : "Tải ảnh preview"}
                   </p>
-                  {previewNames.length > 0 && (
-                    <p className="text-xs text-muted-foreground font-mono mt-2 truncate max-w-full px-4">
-                      {previewNames.join(", ")}
+                  {previewFiles.length > 0 && previewFiles.length < MAX_PREVIEW_IMAGES && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Bấm để thêm ảnh — có thể chọn nhiều file một lúc
                     </p>
                   )}
                 </button>

@@ -17,84 +17,84 @@ static string FindBeRoot()
     throw new DirectoryNotFoundException("Could not find BE root.");
 }
 
+static string FindSqlFile(string beRoot)
+{
+    var fromBe = Path.GetFullPath(Path.Combine(beRoot, "..", "docs", "sql", "handle_new_user.sql"));
+    if (File.Exists(fromBe))
+        return fromBe;
+
+    var fromRepo = Path.GetFullPath(Path.Combine(beRoot, "..", "..", "docs", "sql", "handle_new_user.sql"));
+    if (File.Exists(fromRepo))
+        return fromRepo;
+
+    throw new FileNotFoundException("Could not find docs/sql/handle_new_user.sql");
+}
+
+var beRoot = FindBeRoot();
 var config = new ConfigurationBuilder()
-    .SetBasePath(FindBeRoot())
+    .SetBasePath(beRoot)
     .AddJsonFile("appsettings.json", optional: false)
     .Build();
 
 var connectionString = config.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:DefaultConnection");
 
-const string sql = """
+var triggerSql = await File.ReadAllTextAsync(FindSqlFile(beRoot));
+
+const string backfillShortWelcomeSql = """
+    WITH short_welcome AS (
+      SELECT w.id AS wallet_id
+      FROM public.wallets w
+      WHERE EXISTS (
+        SELECT 1
+        FROM public.wallet_transactions wt
+        WHERE wt.wallet_id = w.id
+          AND wt.type = 'BONUS'
+          AND wt.amount = 10
+          AND wt.description = 'Xu chào mừng khi đăng ký'
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM public.wallet_transactions wt2
+        WHERE wt2.wallet_id = w.id
+          AND wt2.type = 'BONUS'
+          AND wt2.description = 'Bù xu chào mừng (cập nhật 10 → 100)'
+      )
+    ),
+    updated AS (
+      UPDATE public.wallets w
+      SET balance = w.balance + 90,
+          updated_at = NOW()
+      FROM short_welcome sw
+      WHERE w.id = sw.wallet_id
+      RETURNING w.id AS wallet_id, w.balance AS balance_after
+    )
+    INSERT INTO public.wallet_transactions (id, wallet_id, type, amount, balance_after, description, created_at)
+    SELECT gen_random_uuid(), u.wallet_id, 'BONUS', 90, u.balance_after,
+           'Bù xu chào mừng (cập nhật 10 → 100)', NOW()
+    FROM updated u;
+    """;
+
+const string planSql = """
     UPDATE subscription_plans
     SET credits_monthly = 100,
-        features = '["100 xu miễn phí khi đăng ký", "Gợi ý assets cơ bản", "Truy cập marketplace đầy đủ", "Hỗ trợ qua email"]'::jsonb,
+        features = '["100 xu tặng ngay khi đăng ký tài khoản", "Chat AI gợi ý asset phù hợp dự án của bạn", "Duyệt & mua asset trên marketplace bằng xu", "Hỗ trợ qua email trong giờ hành chính"]'::jsonb,
         updated_at = NOW()
     WHERE slug = 'free';
-
-    CREATE OR REPLACE FUNCTION public.handle_new_user()
-    RETURNS trigger
-    LANGUAGE plpgsql
-    SECURITY DEFINER
-    SET search_path = public
-    AS $function$
-    DECLARE
-      free_plan_id UUID;
-      welcome_xu INT := 100;
-      base_username TEXT;
-      final_username TEXT;
-      suffix INT := 0;
-    BEGIN
-      base_username := COALESCE(
-        NULLIF(NEW.raw_user_meta_data->>'username', ''),
-        split_part(NEW.email, '@', 1)
-      );
-      final_username := base_username;
-
-      WHILE EXISTS (SELECT 1 FROM public.profiles WHERE username = final_username) LOOP
-        suffix := suffix + 1;
-        final_username := base_username || suffix::TEXT;
-      END LOOP;
-
-      INSERT INTO public.profiles (id, username, email, name, role, avatar_url)
-      VALUES (
-        NEW.id,
-        final_username,
-        NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'name', final_username),
-        'customer',
-        NEW.raw_user_meta_data->>'avatar_url'
-      );
-
-      SELECT id, COALESCE(credits_monthly, 100)
-      INTO free_plan_id, welcome_xu
-      FROM public.subscription_plans
-      WHERE slug = 'free'
-      LIMIT 1;
-
-      IF free_plan_id IS NULL THEN
-        welcome_xu := 100;
-      END IF;
-
-      INSERT INTO public.wallets (user_id, balance)
-      VALUES (NEW.id, welcome_xu);
-
-      IF free_plan_id IS NOT NULL THEN
-        INSERT INTO public.subscriptions (user_id, plan_id, status, started_at)
-        VALUES (NEW.id, free_plan_id, 'active', NOW());
-
-        INSERT INTO public.wallet_transactions (wallet_id, type, amount, balance_after, description)
-        SELECT w.id, 'BONUS', welcome_xu, welcome_xu, 'Xu chào mừng khi đăng ký'
-        FROM public.wallets w WHERE w.user_id = NEW.id;
-      END IF;
-
-      RETURN NEW;
-    END;
-    $function$;
     """;
 
 await using var conn = new NpgsqlConnection(connectionString);
 await conn.OpenAsync();
-await using var cmd = new NpgsqlCommand(sql, conn);
-await cmd.ExecuteNonQueryAsync();
-Console.WriteLine("Updated free plan welcome credits to 100 and handle_new_user() trigger.");
+
+await using (var planCmd = new NpgsqlCommand(planSql, conn))
+    await planCmd.ExecuteNonQueryAsync();
+
+await using (var triggerCmd = new NpgsqlCommand(triggerSql, conn))
+    await triggerCmd.ExecuteNonQueryAsync();
+
+int backfilled;
+await using (var backfillCmd = new NpgsqlCommand(backfillShortWelcomeSql, conn))
+    backfilled = await backfillCmd.ExecuteNonQueryAsync();
+
+Console.WriteLine("Updated free plan to 100 xu, deployed handle_new_user() trigger.");
+Console.WriteLine($"Backfilled welcome bonus for {backfilled} wallet(s) that had 10 xu.");

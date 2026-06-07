@@ -6,6 +6,46 @@ const API_BASE =
 
 const ACCESS_TOKEN_KEY = "exe_access_token";
 const REFRESH_TOKEN_KEY = "exe_refresh_token";
+export const REMEMBER_ME_KEY = "exe_remember_me";
+
+export function getRememberMePreference(): boolean {
+  return localStorage.getItem(REMEMBER_ME_KEY) === "1";
+}
+
+export function setRememberMePreference(remember: boolean): void {
+  if (remember) {
+    localStorage.setItem(REMEMBER_ME_KEY, "1");
+  } else {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+  }
+}
+
+export function getAccessToken(): string | null {
+  return (
+    localStorage.getItem(ACCESS_TOKEN_KEY) ?? sessionStorage.getItem(ACCESS_TOKEN_KEY)
+  );
+}
+
+export function setAuthTokens(
+  accessToken: string,
+  refreshToken?: string | null,
+  rememberMe = true
+): void {
+  clearAuthTokens();
+  const storage = rememberMe ? localStorage : sessionStorage;
+  setRememberMePreference(rememberMe);
+  storage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) {
+    storage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+}
+
+export function clearAuthTokens(): void {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -21,22 +61,6 @@ export class ApiError extends Error {
 
 export function getApiBaseUrl(): string {
   return API_BASE;
-}
-
-export function getAccessToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-export function setAuthTokens(accessToken: string, refreshToken?: string | null): void {
-  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-  if (refreshToken) {
-    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-  }
-}
-
-export function clearAuthTokens(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 type RequestOptions = RequestInit & {

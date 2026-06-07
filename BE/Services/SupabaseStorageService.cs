@@ -21,9 +21,8 @@ public class SupabaseStorageService(HttpClient http, IOptions<SupabaseOptions> s
 
         using var req = new HttpRequestMessage(
             HttpMethod.Post,
-            $"storage/v1/object/upload/sign/{bucket}/{Uri.EscapeDataString(objectPath)}");
-        req.Headers.Add("apikey", _supabase.ServiceRoleKey);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supabase.ServiceRoleKey);
+            BuildObjectEndpoint($"object/upload/sign/{bucket}/{EncodeStorageObjectPath(objectPath)}"));
+        AddServiceRoleHeaders(req);
         req.Content = JsonContent.Create(new { expiresIn = expiresInSeconds });
 
         using var res = await http.SendAsync(req, cancellationToken);
@@ -32,9 +31,9 @@ public class SupabaseStorageService(HttpClient http, IOptions<SupabaseOptions> s
             throw new InvalidOperationException($"Cannot create upload URL: {payload}");
 
         using var doc = JsonDocument.Parse(payload);
-        var signedPath = doc.RootElement.GetProperty("url").GetString()
+        var signedPath = ReadSignedPath(doc.RootElement)
             ?? throw new InvalidOperationException("Supabase upload signed URL missing.");
-        return $"{_supabase.Url.TrimEnd('/')}/storage/v1{signedPath}";
+        return ResolveSignedStorageUrl(_supabase.Url, signedPath);
     }
 
     public async Task<string> CreateSignedDownloadUrlAsync(
@@ -47,9 +46,8 @@ public class SupabaseStorageService(HttpClient http, IOptions<SupabaseOptions> s
 
         using var req = new HttpRequestMessage(
             HttpMethod.Post,
-            $"storage/v1/object/sign/{bucket}/{Uri.EscapeDataString(objectPath)}");
-        req.Headers.Add("apikey", _supabase.ServiceRoleKey);
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supabase.ServiceRoleKey);
+            BuildObjectEndpoint($"object/sign/{bucket}/{EncodeStorageObjectPath(objectPath)}"));
+        AddServiceRoleHeaders(req);
         req.Content = JsonContent.Create(new { expiresIn = expiresInSeconds });
 
         using var res = await http.SendAsync(req, cancellationToken);
@@ -58,13 +56,86 @@ public class SupabaseStorageService(HttpClient http, IOptions<SupabaseOptions> s
             throw new InvalidOperationException($"Cannot create download URL: {payload}");
 
         using var doc = JsonDocument.Parse(payload);
-        var signedPath = doc.RootElement.GetProperty("signedURL").GetString()
+        var signedPath = ReadSignedPath(doc.RootElement)
             ?? throw new InvalidOperationException("Supabase download signed URL missing.");
-        return $"{_supabase.Url.TrimEnd('/')}/storage/v1{signedPath}";
+        return ResolveSignedStorageUrl(_supabase.Url, signedPath);
+    }
+
+    public async Task<(Stream Content, string ContentType)> OpenObjectAsync(
+        string bucket,
+        string objectPath,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureServiceRole();
+
+        using var req = new HttpRequestMessage(
+            HttpMethod.Get,
+            BuildObjectEndpoint($"object/{bucket}/{EncodeStorageObjectPath(objectPath)}"));
+        AddServiceRoleHeaders(req);
+
+        using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!res.IsSuccessStatusCode)
+        {
+            var payload = await res.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Cannot read storage object: {payload}");
+        }
+
+        var memory = new MemoryStream();
+        await res.Content.CopyToAsync(memory, cancellationToken);
+        memory.Position = 0;
+        var contentType = res.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        return (memory, contentType);
     }
 
     public string GetPublicObjectUrl(string bucket, string objectPath) =>
-        $"{_supabase.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{objectPath.TrimStart('/')}";
+        $"{_supabase.Url.TrimEnd('/')}/storage/v1/object/public/{bucket}/{EncodeStorageObjectPath(objectPath)}";
+
+    private void AddServiceRoleHeaders(HttpRequestMessage req)
+    {
+        req.Headers.Add("apikey", _supabase.ServiceRoleKey);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _supabase.ServiceRoleKey);
+    }
+
+    private static string BuildObjectEndpoint(string relativePath) =>
+        $"storage/v1/{relativePath.TrimStart('/')}";
+
+    private static string EncodeStorageObjectPath(string objectPath) =>
+        string.Join('/',
+            objectPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(Uri.EscapeDataString));
+
+    private static string? ReadSignedPath(JsonElement root)
+    {
+        foreach (var property in root.EnumerateObject())
+        {
+            if (property.NameEquals("signedURL")
+                || property.NameEquals("signedUrl")
+                || property.NameEquals("signed_url")
+                || property.NameEquals("url"))
+            {
+                var value = property.Value.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+        }
+
+        return null;
+    }
+
+    internal static string ResolveSignedStorageUrl(string supabaseUrl, string signedPathOrUrl)
+    {
+        if (signedPathOrUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || signedPathOrUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return signedPathOrUrl;
+
+        var baseUrl = supabaseUrl.TrimEnd('/');
+        var path = signedPathOrUrl.StartsWith('/') ? signedPathOrUrl : $"/{signedPathOrUrl}";
+
+        if (path.StartsWith("/storage/v1/", StringComparison.OrdinalIgnoreCase))
+            return $"{baseUrl}{path}";
+
+        return $"{baseUrl}/storage/v1{path}";
+    }
 
     private void EnsureServiceRole()
     {

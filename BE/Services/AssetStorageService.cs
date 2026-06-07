@@ -125,15 +125,21 @@ public class AssetStorageService(
         Guid assetId,
         CancellationToken cancellationToken = default)
     {
-        var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
+        var isAdmin = await profileRepository.GetRoleAsync(userId, cancellationToken) == UserRole.Admin;
+        var hasPurchased = await assetStorageRepository.UserHasPurchasedAsync(userId, assetId, cancellationToken);
+
+        var asset = hasPurchased || isAdmin
+            ? await assetStorageRepository.GetAssetIncludingDeletedAsync(assetId, cancellationToken)
+            : await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
         if (asset is null)
             return null;
 
-        var isAdmin = await profileRepository.GetRoleAsync(userId, cancellationToken) == UserRole.Admin;
         var canDownload = isAdmin
             || asset.UploaderId == userId
-            || (asset.Status == AssetStatus.Approved && asset.PriceType == PriceType.Free)
-            || await assetStorageRepository.UserHasPurchasedAsync(userId, assetId, cancellationToken);
+            || hasPurchased
+            || (asset.DeletedAt == null
+                && asset.Status == AssetStatus.Approved
+                && asset.PriceType == PriceType.Free);
 
         if (!canDownload)
             return null;
@@ -156,6 +162,44 @@ public class AssetStorageService(
             file.FileSizeBytes,
             file.UnityVersion,
             _options.DownloadUrlExpiresSeconds);
+    }
+
+    public async Task<AssetFileStreamResult?> OpenDownloadStreamAsync(
+        Guid userId,
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        var isAdmin = await profileRepository.GetRoleAsync(userId, cancellationToken) == UserRole.Admin;
+        var hasPurchased = await assetStorageRepository.UserHasPurchasedAsync(userId, assetId, cancellationToken);
+
+        var asset = hasPurchased || isAdmin
+            ? await assetStorageRepository.GetAssetIncludingDeletedAsync(assetId, cancellationToken)
+            : await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
+        if (asset is null)
+            return null;
+
+        var canDownload = isAdmin
+            || asset.UploaderId == userId
+            || hasPurchased
+            || (asset.DeletedAt == null
+                && asset.Status == AssetStatus.Approved
+                && asset.PriceType == PriceType.Free);
+
+        if (!canDownload)
+            return null;
+
+        var file = await assetStorageRepository.GetPrimaryFileAsync(assetId, cancellationToken);
+        if (file is null)
+            return null;
+
+        await assetStorageRepository.IncrementDownloadStatsAsync(assetId, userId, cancellationToken);
+
+        var (content, contentType) = await storageService.OpenObjectAsync(
+            _options.AssetFilesBucket,
+            file.StoragePath,
+            cancellationToken);
+
+        return new AssetFileStreamResult(content, file.FileName, contentType);
     }
 
     private static bool CanEditAsset(Guid userId, Asset asset) =>

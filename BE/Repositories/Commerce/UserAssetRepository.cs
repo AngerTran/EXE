@@ -27,4 +27,6 @@ public class UserAssetRepository(AppDbContext db) : IUserAssetRepository
     public void Add(UserAsset userAsset) => db.UserAssets.Add(userAsset);
 
     public void AddRange(IEnumerable<UserAsset> items) => db.UserAssets.AddRange(items);
+
+    public void Remove(UserAsset userAsset) => db.UserAssets.Remove(userAsset);
 }

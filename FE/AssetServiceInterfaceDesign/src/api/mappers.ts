@@ -1,4 +1,4 @@
-import type { AssetDetail, AssetListItem } from "./types/marketplace";
+import type { AssetDetail, AssetImageItem, AssetListItem } from "./types/marketplace";
 import { ART_STYLE_OPTIONS } from "../constants/artStyles";
 import type { Order } from "./types/commerce";
 import type { UserAssetItem } from "./types/commerce";
@@ -32,6 +32,14 @@ export interface MarketplaceAssetDetail extends MarketplaceAsset {
   featureAnimated: boolean;
   featurePbr: boolean;
   featureVrReady: boolean;
+  images: AssetImageItem[];
+  previewImages: AssetImageItem[];
+}
+
+export function getAssetPreviewImages(images: AssetImageItem[] | undefined): AssetImageItem[] {
+  return (images ?? [])
+    .filter((img) => !img.isThumbnail)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 export function mapAssetListItem(item: AssetListItem): MarketplaceAsset {
@@ -51,6 +59,7 @@ export function mapAssetListItem(item: AssetListItem): MarketplaceAsset {
 }
 
 export function mapAssetDetail(detail: AssetDetail): MarketplaceAssetDetail {
+  const images = detail.images ?? [];
   return {
     ...mapAssetListItem(detail),
     shortDescription: detail.shortDescription,
@@ -65,6 +74,8 @@ export function mapAssetDetail(detail: AssetDetail): MarketplaceAssetDetail {
     featureAnimated: detail.featureAnimated,
     featurePbr: detail.featurePbr,
     featureVrReady: detail.featureVrReady,
+    images,
+    previewImages: getAssetPreviewImages(images),
   };
 }
 
@@ -137,6 +148,7 @@ export interface PurchasedAssetUi {
   fileSize: string;
   fileType: string;
   thumbnailUrl?: string | null;
+  isDelisted: boolean;
 }
 
 export function mapUserAssetToUi(item: UserAssetItem): PurchasedAssetUi {
@@ -150,5 +162,6 @@ export function mapUserAssetToUi(item: UserAssetItem): PurchasedAssetUi {
     fileSize: "—",
     fileType: item.categoryName,
     thumbnailUrl: item.thumbnailUrl,
+    isDelisted: item.isDelisted,
   };
 }

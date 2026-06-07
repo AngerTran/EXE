@@ -11,6 +11,9 @@ public class AssetStorageRepository(AppDbContext db) : IAssetStorageRepository
         db.Assets
             .FirstOrDefaultAsync(a => a.Id == assetId && a.DeletedAt == null, cancellationToken);
 
+    public Task<Asset?> GetAssetIncludingDeletedAsync(Guid assetId, CancellationToken cancellationToken = default) =>
+        db.Assets.FirstOrDefaultAsync(a => a.Id == assetId, cancellationToken);
+
     public Task<int> CountImagesAsync(Guid assetId, CancellationToken cancellationToken = default) =>
         db.AssetImages.CountAsync(i => i.AssetId == assetId, cancellationToken);
 

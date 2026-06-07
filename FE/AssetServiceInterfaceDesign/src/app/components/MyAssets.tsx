@@ -15,25 +15,29 @@ import {
   Folder,
   CheckCircle,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
-import { fetchUserAssets, downloadUserAsset } from "../../api/userAssets";
-import { mapUserAssetToUi } from "../../api/mappers";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import { fetchUserAssets, downloadUserAssetFile, removeUserAssetFromLibrary } from "../../api/userAssets";
+import { mapUserAssetToUi, type PurchasedAssetUi } from "../../api/mappers";
 import { ApiError } from "../../api/client";
 
-interface PurchasedAsset {
-  id: string;
-  title: string;
-  category: string;
-  price: number;
-  purchaseDate: string;
-  downloadCount: number;
-  fileSize: string;
-  fileType: string;
+function assetThumbnailSrc(asset: PurchasedAssetUi): string {
+  if (asset.thumbnailUrl) return asset.thumbnailUrl;
+  return `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.title)}`;
 }
 
 export default function MyAssets() {
@@ -41,8 +45,10 @@ export default function MyAssets() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [page, setPage] = useState(1);
-  const [purchasedAssets, setPurchasedAssets] = useState<PurchasedAsset[]>([]);
-  const [viewingAsset, setViewingAsset] = useState<PurchasedAsset | null>(null);
+  const [purchasedAssets, setPurchasedAssets] = useState<PurchasedAssetUi[]>([]);
+  const [viewingAsset, setViewingAsset] = useState<PurchasedAssetUi | null>(null);
+  const [assetToRemove, setAssetToRemove] = useState<PurchasedAssetUi | null>(null);
+  const [removing, setRemoving] = useState(false);
   const [downloadProgressById, setDownloadProgressById] = useState<
     Record<string, number>
   >({});
@@ -108,27 +114,21 @@ export default function MyAssets() {
   const pageSize = 12;
   const { paged: pagedAssets, totalPages } = getPageSlice(filteredAssets, page, pageSize);
 
-  const handleDownload = async (asset: PurchasedAsset) => {
+  const handleDownload = async (asset: PurchasedAssetUi) => {
     if (downloadIntervalsRef.current[asset.id]) return;
 
     setDownloadProgressById((prev) => ({ ...prev, [asset.id]: 0 }));
     toast.message(`Đang tải "${asset.title}"...`);
 
     try {
-      const detail = await downloadUserAsset(asset.id);
+      await downloadUserAssetFile(asset.id, `${asset.title.replace(/[^\w\s-]/g, "").trim() || "asset"}.zip`);
       setPurchasedAssets((prev) =>
         prev.map((a) =>
           a.id === asset.id ? { ...a, downloadCount: a.downloadCount + 1 } : a
         )
       );
       setDownloadProgressById((prev) => ({ ...prev, [asset.id]: 100 }));
-
-      if (detail.downloadUrl) {
-        window.open(detail.downloadUrl, "_blank", "noopener,noreferrer");
-        toast.success(`Đã mở link tải "${asset.title}"`);
-      } else {
-        toast.success(`Đã ghi nhận tải "${asset.title}"`);
-      }
+      toast.success(`Đã tải "${asset.title}"`);
 
       window.setTimeout(() => {
         setDownloadProgressById((after) => {
@@ -142,6 +142,23 @@ export default function MyAssets() {
         return rest;
       });
       toast.error(error instanceof ApiError ? error.message : "Tải xuống thất bại");
+    }
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!assetToRemove || removing) return;
+
+    setRemoving(true);
+    try {
+      await removeUserAssetFromLibrary(assetToRemove.id);
+      setPurchasedAssets((prev) => prev.filter((a) => a.id !== assetToRemove.id));
+      if (viewingAsset?.id === assetToRemove.id) setViewingAsset(null);
+      toast.success(`Đã xóa "${assetToRemove.title}" khỏi thư viện`);
+      setAssetToRemove(null);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không xóa được asset");
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -312,9 +329,7 @@ export default function MyAssets() {
                   onClick={() => setViewingAsset(asset)}
                 >
                   <ImageWithFallback
-                    src={`https://source.unsplash.com/400x300/?${encodeURIComponent(
-                      asset.title
-                    )}`}
+                    src={assetThumbnailSrc(asset)}
                     alt={asset.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
@@ -324,9 +339,16 @@ export default function MyAssets() {
                       Xem chi tiết
                     </div>
                   </div>
-                  <div className="absolute top-3 left-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
-                    <CheckCircle className="w-3 h-3" />
-                    ĐÃ SỞ HỮU
+                  <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                    <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                      <CheckCircle className="w-3 h-3" />
+                      ĐÃ SỞ HỮU
+                    </div>
+                    {asset.isDelisted && (
+                      <div className="bg-warning/90 text-warning-foreground px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                        Ngừng bán
+                      </div>
+                    )}
                   </div>
                   <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-sm text-foreground px-3 py-1 rounded-full text-xs flex items-center gap-1 font-mono">
                     <Download className="w-3 h-3" />
@@ -384,6 +406,14 @@ export default function MyAssets() {
                         Chi tiết
                       </button>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setAssetToRemove(asset)}
+                      className="mt-2 w-full text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center justify-center gap-1 py-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Xóa khỏi thư viện
+                    </button>
                   </div>
 
                   {isDownloading && (
@@ -438,17 +468,22 @@ export default function MyAssets() {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {/* Preview (match Marketplace layout) */}
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
+                <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10 border border-border">
                   <ImageWithFallback
-                    src={`https://source.unsplash.com/800x600/?${encodeURIComponent(
-                      viewingAsset.title
-                    )}`}
+                    src={assetThumbnailSrc(viewingAsset)}
                     alt={viewingAsset.title}
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute top-4 left-4 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
-                    <CheckCircle className="w-4 h-4" />
-                    ĐÃ SỞ HỮU
+                  <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                      <CheckCircle className="w-4 h-4" />
+                      ĐÃ SỞ HỮU
+                    </div>
+                    {viewingAsset.isDelisted && (
+                      <div className="bg-warning/90 text-warning-foreground px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+                        Ngừng bán trên Marketplace
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -507,6 +542,14 @@ export default function MyAssets() {
                   </div>
                 </div>
 
+                {viewingAsset.isDelisted && (
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                    <p className="text-foreground text-sm">
+                      Asset này đã bị gỡ khỏi Marketplace nhưng bạn vẫn giữ quyền tải xuống vì đã mua trước đó.
+                    </p>
+                  </div>
+                )}
+
                 <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
                   <p className="text-foreground text-sm">
                     <strong>Lưu ý:</strong> Bạn có quyền sử dụng asset này cho dự án
@@ -515,7 +558,7 @@ export default function MyAssets() {
                 </div>
               </div>
 
-              <div className="border-t border-border p-6">
+              <div className="border-t border-border p-6 space-y-3">
                 <button
                   onClick={() => handleDownload(viewingAsset)}
                   disabled={typeof downloadProgressById[viewingAsset.id] === "number"}
@@ -526,11 +569,48 @@ export default function MyAssets() {
                     ? "Đang tải..."
                     : "Tải xuống"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAssetToRemove(viewingAsset)}
+                  className="w-full border border-border hover:border-destructive/50 text-muted-foreground hover:text-destructive py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa khỏi thư viện
+                </button>
               </div>
             </div>
           </SheetContent>
         )}
       </Sheet>
+
+      <AlertDialog
+        open={!!assetToRemove}
+        onOpenChange={(open) => {
+          if (!open && !removing) setAssetToRemove(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa khỏi thư viện?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {assetToRemove
+                ? `"${assetToRemove.title}" sẽ bị gỡ khỏi thư viện của bạn. Hành động này không hoàn xu và không xóa asset trên hệ thống.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Hủy</AlertDialogCancel>
+            <button
+              type="button"
+              onClick={handleConfirmRemove}
+              disabled={removing}
+              className="inline-flex items-center justify-center rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {removing ? "Đang xóa..." : "Xóa"}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

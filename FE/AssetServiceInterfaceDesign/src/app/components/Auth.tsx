@@ -16,7 +16,7 @@ import { useAuth } from "../contexts/AuthContext";
 import authHero from "../../assets/auth-hero.png";
 import { toast } from "sonner";
 import { forgotPassword } from "../../api/auth";
-import { ApiError } from "../../api/client";
+import { ApiError, getRememberMePreference, setRememberMePreference } from "../../api/client";
 import { getSupabase } from "../../lib/supabase";
 
 type AuthView = "login" | "register" | "forgot";
@@ -71,7 +71,7 @@ export default function Auth() {
   const isLogin = view === "login";
   const isForgot = view === "forgot";
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(getRememberMePreference);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -112,7 +112,7 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const result = await login(formData.email, formData.password);
+        const result = await login(formData.email, formData.password, rememberMe);
         if (result.ok) {
           didSucceed = true;
           setSuccess(true);
@@ -395,10 +395,14 @@ export default function Auth() {
                   <input
                     type="checkbox"
                     checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setRememberMe(checked);
+                      setRememberMePreference(checked);
+                    }}
                     className="w-4 h-4 rounded border-white/10 bg-[#171f33] text-[#4cd7f6] focus:ring-[#4cd7f6] focus:ring-offset-[#131b2e]"
                   />
-                  <span className="text-xs text-[#cbc3d7]">Ghi nhớ đăng nhập 30 ngày</span>
+                  <span className="text-xs text-[#cbc3d7]">Ghi nhớ đăng nhập</span>
                 </label>
               )}
 

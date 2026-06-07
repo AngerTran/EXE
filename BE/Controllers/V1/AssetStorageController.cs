@@ -159,4 +159,37 @@ public class AssetStorageController(IAssetStorageService assetStorageService) : 
                 new ErrorResponse(ex.Message, "storage_unavailable"));
         }
     }
+
+    [HttpGet("download/file")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DownloadFileStream(
+        Guid assetId,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null)
+            return Unauthorized(new ErrorResponse("Invalid token.", "invalid_token"));
+
+        try
+        {
+            var file = await assetStorageService.OpenDownloadStreamAsync(
+                userId.Value,
+                assetId,
+                cancellationToken);
+
+            if (file is null)
+                return NotFound(new ErrorResponse(
+                    "Không tải được file. Asset chưa có zip hoặc bạn chưa có quyền tải.",
+                    "download_forbidden"));
+
+            return File(file.Content, file.ContentType, file.FileName, enableRangeProcessing: true);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new ErrorResponse(ex.Message, "storage_unavailable"));
+        }
+    }
 }

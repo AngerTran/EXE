@@ -6,6 +6,8 @@ public interface IAssetStorageRepository
 {
     Task<Asset?> GetAssetForStorageAsync(Guid assetId, CancellationToken cancellationToken = default);
 
+    Task<Asset?> GetAssetIncludingDeletedAsync(Guid assetId, CancellationToken cancellationToken = default);
+
     Task<int> CountImagesAsync(Guid assetId, CancellationToken cancellationToken = default);
 
     Task<AssetFile?> GetPrimaryFileAsync(Guid assetId, CancellationToken cancellationToken = default);

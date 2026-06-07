@@ -1,19 +1,20 @@
-using Exe.Configuration;
 using Exe.DTOs.Commerce;
+using Exe.Repositories;
 using Exe.Repositories.Commerce;
 using Exe.Repositories.Marketplace;
 using Exe.Services.IServices;
-using Microsoft.Extensions.Options;
 
 namespace Exe.Services;
 
 public class UserAssetService(
     IUserAssetRepository userAssetRepository,
     IAssetStorageRepository assetStorageRepository,
+    IAssetStorageService assetStorageService,
     IStorageService storageService,
-    IOptions<StorageOptions> storageOptions) : IUserAssetService
+    IUnitOfWork unitOfWork,
+    Microsoft.Extensions.Options.IOptions<Exe.Configuration.StorageOptions> storageOptions) : IUserAssetService
 {
-    private readonly StorageOptions _storageOptions = storageOptions.Value;
+    private readonly Exe.Configuration.StorageOptions _storageOptions = storageOptions.Value;
 
     public async Task<IReadOnlyList<UserAssetListItemResponse>> ListAsync(Guid userId, CancellationToken cancellationToken = default)
     {
@@ -45,6 +46,40 @@ public class UserAssetService(
         return await MapDetailAsync(userAsset, includeDownloadUrl: true, cancellationToken);
     }
 
+    public async Task<UserAssetFileDownloadResult?> DownloadFileAsync(
+        Guid userId,
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        var userAsset = await userAssetRepository.GetAsync(userId, assetId, cancellationToken);
+        if (userAsset is null)
+            throw new KeyNotFoundException("Asset không có trong thư viện của bạn.");
+
+        var primary = await assetStorageRepository.GetPrimaryFileAsync(assetId, cancellationToken);
+        if (primary is null)
+            throw new KeyNotFoundException("Asset chưa có file zip được đăng ký. Vui lòng liên hệ người bán.");
+
+        var file = await assetStorageService.OpenDownloadStreamAsync(userId, assetId, cancellationToken);
+        if (file is null)
+            throw new KeyNotFoundException("Không thể tải file. Bạn có thể chưa có quyền tải asset này.");
+
+        return new UserAssetFileDownloadResult(file.Content, file.FileName, file.ContentType);
+    }
+
+    public async Task<bool> RemoveFromLibraryAsync(
+        Guid userId,
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        var userAsset = await userAssetRepository.GetAsync(userId, assetId, cancellationToken);
+        if (userAsset is null)
+            return false;
+
+        userAssetRepository.Remove(userAsset);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     private static UserAssetListItemResponse MapListItem(Models.Entities.UserAsset ua) =>
         new(
             ua.AssetId,
@@ -55,7 +90,8 @@ public class UserAssetService(
             ua.AcquiredVia,
             ua.DownloadCount,
             ua.LastDownloadAt,
-            ua.AcquiredAt);
+            ua.AcquiredAt,
+            ua.Asset.DeletedAt is not null);
 
     private async Task<UserAssetDetailResponse> MapDetailAsync(
         Models.Entities.UserAsset ua,
@@ -88,6 +124,7 @@ public class UserAssetService(
             ua.DownloadCount,
             ua.AcquiredAt,
             downloadUrl,
-            expires);
+            expires,
+            ua.Asset.DeletedAt is not null);
     }
 }

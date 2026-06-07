@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun } from "lucide-react";
+import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { Toaster } from "./ui/sonner";
@@ -355,6 +355,13 @@ export default function Root() {
               <p className="text-muted-foreground text-sm">
                 Hỗ trợ làm game cho người mới bắt đầu với AI và kho assets chất lượng cao.
               </p>
+              <a
+                href="tel:0972362174"
+                className="inline-flex items-center gap-2 mt-3 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+              >
+                <Phone className="w-4 h-4" />
+                Hotline: 0972362174
+              </a>
             </div>
 
             {/* Quick Links */}

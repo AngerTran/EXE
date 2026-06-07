@@ -30,7 +30,7 @@ export type AuthResult =
 interface AuthContextType {
   user: AppUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<AuthResult>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<AuthResult>;
   register: (email: string, password: string, name: string) => Promise<AuthResult>;
   loginWithGoogle: () => Promise<AuthResult>;
   completeOAuthSession: (accessToken: string, refreshToken?: string | null) => Promise<AuthResult>;
@@ -103,16 +103,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const applySession = useCallback(async (accessToken: string, refreshToken?: string | null) => {
-    setAuthTokens(accessToken, refreshToken);
-    const me = await fetchMe();
-    const mapped = mapMeToUser(me);
-    setUser(mapped);
-    return mapped;
-  }, []);
+  const applySession = useCallback(
+    async (accessToken: string, refreshToken?: string | null, rememberMe = true) => {
+      setAuthTokens(accessToken, refreshToken, rememberMe);
+      const me = await fetchMe();
+      const mapped = mapMeToUser(me);
+      setUser(mapped);
+      return mapped;
+    },
+    []
+  );
 
   const login = useCallback(
-    async (email: string, password: string): Promise<AuthResult> => {
+    async (email: string, password: string, rememberMe = false): Promise<AuthResult> => {
       try {
         const session = await apiLogin(email, password);
         if (!session.accessToken) {
@@ -121,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             message: "Đăng nhập thất bại — không nhận được token",
           };
         }
-        const mapped = await applySession(session.accessToken, session.refreshToken);
+        const mapped = await applySession(session.accessToken, session.refreshToken, rememberMe);
         return { ok: true, role: mapped.role };
       } catch (error) {
         return { ok: false, message: authErrorMessage(error, "Đăng nhập thất bại") };

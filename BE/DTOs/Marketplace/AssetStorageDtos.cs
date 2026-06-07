@@ -41,3 +41,5 @@ public record AssetDownloadResponse(
     long FileSizeBytes,
     string? UnityVersion,
     int ExpiresInSeconds);
+
+public record AssetFileStreamResult(Stream Content, string FileName, string ContentType);
