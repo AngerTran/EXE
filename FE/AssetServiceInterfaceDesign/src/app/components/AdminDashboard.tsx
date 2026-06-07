@@ -1424,7 +1424,6 @@ function AssetsManagement({
   const [showEditModal, setShowEditModal] = useState(false);
   const [rejectingAsset, setRejectingAsset] = useState<AssetRecord | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [autoApprove, setAutoApprove] = useState(() => localStorage.getItem("admin_auto_approve") === "true");
   const [viewingApprovedAsset, setViewingApprovedAsset] = useState<AssetRecord | null>(null);
   const [pendingPage, setPendingPage] = useState(1);
   const [approvedPage, setApprovedPage] = useState(1);
@@ -1605,32 +1604,6 @@ function AssetsManagement({
 
   return (
     <div className="space-y-8">
-      {/* Auto-approve toggle */}
-      <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Thiết lập duyệt asset</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Bật Auto-approve để asset do admin submit được duyệt ngay; user khác vẫn chờ duyệt.
-            </p>
-          </div>
-          <label className="flex items-center gap-3 select-none">
-            <input
-              type="checkbox"
-              checked={autoApprove}
-              onChange={(e) => {
-                const next = e.target.checked;
-                setAutoApprove(next);
-                localStorage.setItem("admin_auto_approve", String(next));
-                toast.success(next ? "Đã bật Auto-approve" : "Đã tắt Auto-approve");
-              }}
-              className="w-5 h-5 rounded bg-card border-border"
-            />
-            <span className="text-foreground font-medium">Auto-approve (admin submit)</span>
-          </label>
-        </div>
-      </div>
-
       {/* Pending Assets */}
       {pendingAssets.length > 0 && (
         <div className="bg-card/50 backdrop-blur-sm border border-warning/30 rounded-2xl p-6">

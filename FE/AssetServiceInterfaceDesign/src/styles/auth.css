@@ -146,3 +146,11 @@
 .auth-hero-vignette {
   background: radial-gradient(ellipse at center, transparent 40%, rgba(6, 14, 32, 0.45) 100%);
 }
+
+/* Auth inline footer — never inherit site footer light-mode panel styles */
+.auth-page footer {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}

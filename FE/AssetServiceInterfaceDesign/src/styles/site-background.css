@@ -1,0 +1,114 @@
+/**
+ * Global site background — cyberpunk tunnel art.
+ * Light mode: visible art with a lighter frosted scrim (not washed-out white).
+ * Dark mode: richer art + deep navy scrim.
+ */
+
+:root {
+  --site-bg-image: url("/images/site-background.png");
+  --site-bg-image-opacity: 1;
+  --site-bg-image-filter: brightness(0.78) saturate(0.42) contrast(1.08);
+  --site-bg-scrim: linear-gradient(
+    180deg,
+    rgba(11, 19, 38, 0.48) 0%,
+    rgba(11, 19, 38, 0.58) 45%,
+    rgba(6, 14, 32, 0.66) 100%
+  ),
+  linear-gradient(
+    180deg,
+    rgba(120, 135, 165, 0.28) 0%,
+    rgba(95, 112, 145, 0.34) 100%
+  );
+}
+
+.dark {
+  --site-bg-image-opacity: 1;
+  --site-bg-image-filter: none;
+  --site-bg-scrim: linear-gradient(
+    180deg,
+    rgba(11, 19, 38, 0.78) 0%,
+    rgba(11, 19, 38, 0.85) 45%,
+    rgba(6, 14, 32, 0.9) 100%
+  );
+}
+
+html {
+  min-height: 100%;
+  background-color: #2d3748;
+}
+
+html::before,
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    background 0.35s ease,
+    filter 0.35s ease;
+}
+
+html::before {
+  z-index: -2;
+  background-image: var(--site-bg-image);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  opacity: var(--site-bg-image-opacity);
+  filter: var(--site-bg-image-filter);
+}
+
+html::after {
+  z-index: -1;
+  background: var(--site-bg-scrim);
+}
+
+/* Auth pages keep their own hero — no global background */
+html.no-site-bg::before,
+html.no-site-bg::after {
+  opacity: 0;
+  background: transparent;
+}
+
+html.no-site-bg {
+  background-color: var(--auth-surface-lowest, #060e20);
+}
+
+html.no-site-bg body {
+  background-color: var(--auth-surface-lowest, #060e20);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html::before {
+    background-attachment: fixed;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --site-bg-image-filter: brightness(0.72) saturate(0.4) contrast(1.08);
+    --site-bg-scrim: linear-gradient(
+      180deg,
+      rgba(11, 19, 38, 0.52) 0%,
+      rgba(6, 14, 32, 0.68) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(120, 135, 165, 0.32) 0%,
+      rgba(95, 112, 145, 0.38) 100%
+    );
+  }
+
+  .dark {
+    --site-bg-scrim: linear-gradient(
+      180deg,
+      rgba(11, 19, 38, 0.82) 0%,
+      rgba(6, 14, 32, 0.92) 100%
+    );
+  }
+
+  html::before {
+    background-attachment: scroll;
+  }
+}

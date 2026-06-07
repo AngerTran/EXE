@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Sparkles, Coins, AlertCircle, Loader2, Lock, ShoppingBag, ExternalLink, Trash2 } from "lucide-react";
+import { Send, Coins, AlertCircle, Loader2, Lock, ShoppingBag, ExternalLink, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,6 +10,8 @@ import {
   sendAiMessage,
 } from "../../api/ai";
 import type { AiSuggestedAsset } from "../../api/types/ai";
+import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
+import { AppLogo, LOGO_ICON_SRC } from "./AppLogo";
 
 interface Message {
   id: string;
@@ -65,7 +67,7 @@ export default function Dashboard() {
   const welcomeMessage = (): Message => ({
     id: "welcome",
     role: "assistant",
-    content: `Xin chào ${user?.name || "bạn"}! Tôi là AI Assistant của GameAssets. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
+    content: `Xin chào ${user?.name || "bạn"}! Tôi là AssetBox AI. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
     timestamp: new Date(),
   });
 
@@ -74,7 +76,7 @@ export default function Dashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const session = await createAiSession("GameAssets Chat");
+        const session = await createAiSession("AssetBox AI Chat");
         if (!cancelled) {
           setSessionId(session.id);
           setMessages([welcomeMessage()]);
@@ -111,7 +113,7 @@ export default function Dashboard() {
     let activeSessionId = sessionId;
     if (!activeSessionId) {
       try {
-        const session = await createAiSession("GameAssets Chat");
+        const session = await createAiSession("AssetBox AI Chat");
         activeSessionId = session.id;
         setSessionId(session.id);
       } catch (error) {
@@ -161,7 +163,7 @@ export default function Dashboard() {
     if (!confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) return;
     try {
       if (sessionId) await deleteAiSession(sessionId);
-      const session = await createAiSession("GameAssets Chat");
+      const session = await createAiSession("AssetBox AI Chat");
       setSessionId(session.id);
       setMessages([welcomeMessage()]);
     } catch {
@@ -189,8 +191,8 @@ export default function Dashboard() {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-                <Sparkles className="w-8 h-8 text-primary" />
-                AI Assistant
+                <AppLogo size="md" showText={false} />
+                AssetBox AI
               </h1>
               <p className="text-muted-foreground">Hỏi tôi về assets cho game của bạn</p>
             </div>
@@ -212,8 +214,8 @@ export default function Dashboard() {
                 <Coins className="w-6 h-6 text-warning" />
                 <div>
                   <p className="text-xs text-muted-foreground font-mono">Xu còn lại</p>
-                  <p className="text-2xl font-bold text-foreground font-mono">
-                    {isUnlimited ? "∞" : credits}
+                  <p className="text-2xl font-bold text-foreground font-mono flex items-center min-h-8">
+                    {isUnlimited ? <UnlimitedXuIcon size="md" /> : credits}
                   </p>
                 </div>
               </div>
@@ -236,7 +238,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-foreground font-medium">Xu sắp hết!</p>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Bạn chỉ còn {credits} xu. Nạp thêm để tiếp tục sử dụng AI Assistant.
+                  Bạn chỉ còn {credits} xu. Nạp thêm để tiếp tục sử dụng AssetBox AI.
                 </p>
               </div>
             </div>
@@ -265,7 +267,12 @@ export default function Dashboard() {
                   {message.role === "user" ? (
                     <span className="text-primary font-bold">U</span>
                   ) : (
-                    <Sparkles className="w-5 h-5 text-secondary" />
+                    <img
+                      src={LOGO_ICON_SRC}
+                      alt=""
+                      aria-hidden
+                      className="w-6 h-6 object-contain"
+                    />
                   )}
                 </div>
 
@@ -346,8 +353,13 @@ export default function Dashboard() {
 
             {isLoading && (
               <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-secondary/20 border-2 border-secondary flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-secondary" />
+                <div className="w-10 h-10 rounded-full bg-secondary/20 border-2 border-secondary flex items-center justify-center p-1">
+                  <img
+                    src={LOGO_ICON_SRC}
+                    alt=""
+                    aria-hidden
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div className="bg-card border border-border rounded-xl px-6 py-4 flex items-center gap-3">
                   <Loader2 className="w-5 h-5 text-primary animate-spin" />

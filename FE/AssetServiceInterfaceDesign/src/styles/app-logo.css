@@ -1,0 +1,71 @@
+/**
+ * AssetBox wordmark + icon — transparent mark on all surfaces.
+ */
+
+.app-logo {
+  overflow: visible;
+}
+
+.app-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
+  background: transparent;
+  box-shadow: none;
+  line-height: 0;
+  overflow: visible;
+}
+
+.app-logo-mark img {
+  display: block;
+  max-height: 100%;
+  max-width: 100%;
+}
+
+.app-logo-wordmark {
+  font-family: "Montserrat", "Space Grotesk", sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Dark mode */
+.dark .app-logo-wordmark {
+  color: #dae2fd;
+  text-shadow: 0 0 18px rgba(208, 188, 255, 0.28);
+}
+
+.dark .app-logo-mark img {
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.35))
+    drop-shadow(0 0 6px rgba(76, 215, 246, 0.25));
+}
+
+/* Light mode — no background box; glow via drop-shadow only */
+html:not(.dark) .app-logo-mark img {
+  filter: saturate(1.12) brightness(0.95)
+    drop-shadow(0 1px 2px rgba(11, 19, 38, 0.12))
+    drop-shadow(0 0 10px rgba(109, 59, 215, 0.28))
+    drop-shadow(0 0 6px rgba(6, 182, 212, 0.22));
+}
+
+html:not(.dark) .app-logo-wordmark {
+  background: linear-gradient(135deg, #5516be 0%, #6d3bd7 45%, #008fa8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Auth pages — dark panels */
+.auth-page .app-logo-wordmark {
+  color: #dae2fd !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+  text-shadow: 0 0 20px rgba(208, 188, 255, 0.32);
+}
+
+.auth-page .app-logo-mark img {
+  filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.4))
+    drop-shadow(0 0 8px rgba(76, 215, 246, 0.3));
+}

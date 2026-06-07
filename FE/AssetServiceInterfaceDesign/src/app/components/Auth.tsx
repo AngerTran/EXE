@@ -10,9 +10,9 @@ import {
   CheckCircle2,
   AlertCircle,
   User,
-  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { AppLogo } from "./AppLogo";
 import authHero from "../../assets/auth-hero.png";
 import { toast } from "sonner";
 import { forgotPassword } from "../../api/auth";
@@ -221,10 +221,8 @@ export default function Auth() {
             <div className="absolute inset-0 auth-hero-overlay-bottom" />
             <div className="absolute inset-0 auth-hero-overlay-side" />
           </div>
-          <div className="relative z-10 px-8 lg:px-12 text-center w-full max-w-md">
-            <h1 className="auth-display text-4xl lg:text-[2.75rem] text-[#d0bcff] mb-3 drop-shadow-[0_0_24px_rgba(139,92,246,0.35)]">
-              GameAssets AI
-            </h1>
+          <div className="relative z-10 px-8 lg:px-12 text-center w-full max-w-md flex flex-col items-center">
+            <AppLogo size="lg" className="mb-4" />
             <p className="auth-body text-base text-[#cbc3d7] max-w-sm mx-auto leading-relaxed">
               Làm chủ tương lai game dev. Thiết kế, tạo và triển khai assets chất lượng cao với sức mạnh AI.
             </p>
@@ -245,9 +243,8 @@ export default function Auth() {
         {/* Right: form — fills remaining width */}
         <section className="auth-form-panel flex-1 md:w-1/2 bg-[#131b2e] flex flex-col justify-center px-5 sm:px-8 md:px-10 lg:px-12 py-8 md:py-10 relative z-20 min-h-0 overflow-y-auto overscroll-contain">
           <div className="md:hidden mb-8 text-center">
-            <Link to="/" className="inline-flex items-center gap-2 text-[#4cd7f6] auth-headline text-xl">
-              <Sparkles className="w-6 h-6 text-[#d0bcff]" />
-              GameAssets AI
+            <Link to="/" className="inline-flex items-center justify-center">
+              <AppLogo size="md" />
             </Link>
           </div>
 

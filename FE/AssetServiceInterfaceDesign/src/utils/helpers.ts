@@ -15,10 +15,19 @@ export function formatPrice(price: number): string {
 }
 
 /**
+ * Format wallet balance for UI (navbar, profile).
+ * Pro / unlimited plans show infinity symbol.
+ */
+export function formatWalletBalance(balance: number, isUnlimited?: boolean): string {
+  if (isUnlimited) return "∞";
+  return String(balance ?? 0);
+}
+
+/**
  * Format credits display with "xu" terminology
  */
-export function formatCredits(credits: number): string {
-  if (credits === -1) return '∞ Unlimited';
+export function formatCredits(credits: number, isUnlimited?: boolean): string {
+  if (isUnlimited || credits === -1) return "∞ xu";
   return `${credits} ${creditsConfig.displayName}`;
 }
 

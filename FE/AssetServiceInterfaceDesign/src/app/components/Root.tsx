@@ -1,7 +1,11 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Sparkles, Menu, X, LogOut, User, Coins, Moon, Sun, Phone } from "lucide-react";
+import { Menu, X, LogOut, User, Coins, Moon, Sun, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
+import { formatWalletBalance } from "../../utils/helpers";
+import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
+import { SubscriptionPlanBadge } from "./SubscriptionPlanBadge";
+import { AppLogo, APP_NAME } from "./AppLogo";
 import { Toaster } from "./ui/sonner";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -10,6 +14,14 @@ export default function Root() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout, refreshUserData } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  const isAuthPage =
+    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("no-site-bg", isAuthPage);
+    return () => document.documentElement.classList.remove("no-site-bg");
+  }, [isAuthPage]);
 
   useEffect(() => {
     if (!user) return;
@@ -28,8 +40,6 @@ export default function Root() {
   }, [user, refreshUserData]);
 
   const isActive = (path: string) => location.pathname === path;
-  const isAuthPage =
-    location.pathname === "/auth" || location.pathname.startsWith("/auth/");
 
   const handleLogout = () => {
     void logout().finally(() => setMobileMenuOpen(false));
@@ -38,19 +48,15 @@ export default function Root() {
   const avatarSrc = getUserAvatarSrc(user);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen relative">
       <Toaster />
       {/* Navigation */}
       {!isAuthPage && (
-      <nav className="border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-50">
+      <nav className="border-b border-border bg-white/95 dark:bg-card/70 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="relative">
-                <Sparkles className="w-8 h-8 text-primary transition-transform group-hover:scale-110" />
-                <div className="absolute inset-0 bg-primary/20 blur-xl group-hover:blur-2xl transition-all" />
-              </div>
-              <span className="text-xl font-bold text-foreground">GameAssets AI</span>
+            <Link to="/" className="flex items-center group">
+              <AppLogo size="md" />
             </Link>
 
             {/* Desktop Menu */}
@@ -72,7 +78,7 @@ export default function Root() {
                   isActive("/dashboard") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                AI Assistant
+                AssetBox AI
                 {isActive("/dashboard") && (
                   <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
                 )}
@@ -83,7 +89,7 @@ export default function Root() {
                   isActive("/marketplace") ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Marketplace
+                Chợ Assets
                 {isActive("/marketplace") && (
                   <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
                 )}
@@ -138,7 +144,7 @@ export default function Root() {
                     <button
                       type="button"
                       onClick={toggleTheme}
-                      className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg hover:bg-card/80 hover:border-primary/50 transition-all"
+                      className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-card border border-border rounded-lg hover:bg-white dark:hover:bg-card/80 hover:border-primary/50 transition-all"
                       title={theme === "dark" ? "Chuyển sang sáng" : "Chuyển sang tối"}
                     >
                       {theme === "dark" ? (
@@ -147,13 +153,22 @@ export default function Root() {
                         <Moon className="w-4 h-4 text-primary" />
                       )}
                     </button>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full font-mono text-sm">
-                      <Coins className="w-4 h-4 text-warning" />
-                      <span className="text-foreground font-medium">{user.credits || 0}</span>
+                    <div
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-card border border-border rounded-full font-mono text-sm"
+                      title={user.isUnlimited ? "Xu không giới hạn (gói Pro)" : undefined}
+                    >
+                      <Coins className="w-4 h-4 text-warning shrink-0" />
+                      {user.isUnlimited ? (
+                        <UnlimitedXuIcon size="sm" />
+                      ) : (
+                        <span className="text-foreground font-medium tabular-nums">
+                          {formatWalletBalance(user.credits, false)}
+                        </span>
+                      )}
                     </div>
                     <Link
                       to="/profile"
-                      className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded-full hover:border-primary/50 hover:bg-card/80 transition-all whitespace-nowrap"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-card border border-border rounded-full hover:border-primary/50 hover:bg-white dark:hover:bg-card/80 transition-all whitespace-nowrap"
                     >
                       <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
                         {avatarSrc ? (
@@ -167,6 +182,7 @@ export default function Root() {
                         )}
                       </div>
                       <span className="text-sm text-foreground">{user.name}</span>
+                      <SubscriptionPlanBadge plan={user.subscription} />
                       {user.role === "admin" && (
                         <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full">
                           ADMIN
@@ -220,7 +236,7 @@ export default function Root() {
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                AI Assistant
+                AssetBox AI
               </Link>
               <Link
                 to="/marketplace"
@@ -229,7 +245,7 @@ export default function Root() {
                 }`}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Marketplace
+                Chợ Assets
               </Link>
               {user && (
                 <>
@@ -286,8 +302,17 @@ export default function Root() {
                       </span>
                     </button>
                     <div className="flex items-center gap-2 text-sm">
-                      <Coins className="w-4 h-4 text-warning" />
-                      <span className="text-foreground font-mono font-medium">{user.credits || 0} xu</span>
+                      <Coins className="w-4 h-4 text-warning shrink-0" />
+                      {user.isUnlimited ? (
+                        <span className="flex items-center gap-1.5">
+                          <UnlimitedXuIcon size="sm" />
+                          <span className="text-foreground font-medium text-sm">xu</span>
+                        </span>
+                      ) : (
+                        <span className="text-foreground font-mono font-medium">
+                          {user.credits || 0} xu
+                        </span>
+                      )}
                     </div>
                     <Link
                       to="/profile"
@@ -306,6 +331,7 @@ export default function Root() {
                         )}
                       </div>
                       <span className="text-foreground">{user.name}</span>
+                      <SubscriptionPlanBadge plan={user.subscription} />
                       {user.role === "admin" && (
                         <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full ml-1">
                           ADMIN
@@ -343,14 +369,13 @@ export default function Root() {
 
       {/* Footer */}
       {!isAuthPage && (
-      <footer className="border-t border-border bg-card/30 backdrop-blur-lg mt-20">
+      <footer className="site-footer border-t border-border bg-white/95 dark:bg-card/60 backdrop-blur-lg mt-20 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Company Info */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Sparkles className="w-6 h-6 text-primary" />
-                <h3 className="text-foreground font-bold text-lg">GameAssets AI</h3>
+                <AppLogo size="sm" />
               </div>
               <p className="text-muted-foreground text-sm">
                 Hỗ trợ làm game cho người mới bắt đầu với AI và kho assets chất lượng cao.
@@ -372,10 +397,10 @@ export default function Root() {
                   Gói dịch vụ
                 </Link>
                 <Link to="/marketplace" className="block text-muted-foreground hover:text-primary text-sm transition-colors">
-                  Marketplace
+                  Chợ Assets
                 </Link>
                 <Link to="/dashboard" className="block text-muted-foreground hover:text-primary text-sm transition-colors">
-                  AI Assistant
+                  AssetBox AI
                 </Link>
               </div>
             </div>
@@ -395,7 +420,7 @@ export default function Root() {
           </div>
 
           <div className="border-t border-border pt-6 text-center text-muted-foreground text-sm">
-            <p>© 2026 GameAssets AI. Phát triển bởi AI với ❤️ cho game creators Việt Nam.</p>
+            <p>© 2026 {APP_NAME}. Phát triển bởi AI với ❤️ cho game creators Việt Nam.</p>
           </div>
         </div>
       </footer>

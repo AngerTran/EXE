@@ -22,6 +22,8 @@ import {
 import { fetchMyWalletTransactions } from "../../api/wallets";
 import type { SubscriptionHistoryItem, SubscriptionMe, WalletTransaction } from "../../api/types/billing";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
+import { formatWalletBalance } from "../../utils/helpers";
+import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { ClientPagination } from "./ui/ClientPagination";
 
 function formatSubscription(sub: string | null | undefined) {
@@ -351,11 +353,18 @@ export default function Profile() {
             <div className="bg-card border border-border rounded-xl p-4">
               <p className="text-sm text-muted-foreground mb-1">Credits (xu)</p>
               <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-warning" />
-                <p className="text-2xl font-bold text-foreground font-mono">
-                  {user.credits ?? 0}
-                </p>
+                <Coins className="w-5 h-5 text-warning shrink-0" />
+                {user.isUnlimited ? (
+                  <UnlimitedXuIcon size="lg" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground font-mono tabular-nums">
+                    {formatWalletBalance(user.credits, false)}
+                  </p>
+                )}
               </div>
+              {user.isUnlimited && (
+                <p className="text-xs text-success mt-2 font-medium">Không giới hạn đến hết kỳ gói</p>
+              )}
             </div>
 
             <div className="bg-card border border-border rounded-xl p-4">

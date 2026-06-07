@@ -382,7 +382,7 @@ export default function AddAsset() {
           </p>
           <p className="text-sm text-muted-foreground mb-8">
             {submittedStatus === "approved"
-              ? "Vì bạn là admin và đang bật Auto-approve, asset đã được duyệt và sẽ xuất hiện trên Marketplace."
+              ? "Vì bạn là admin, asset đã được duyệt ngay và sẽ xuất hiện trên Marketplace."
               : "Admin sẽ xem preview, duyệt hoặc từ chối. Sau khi được duyệt, asset sẽ hiện trên Marketplace."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

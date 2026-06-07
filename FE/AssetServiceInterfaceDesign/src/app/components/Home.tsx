@@ -271,7 +271,7 @@ export default function Home() {
                 <span className="text-primary text-sm font-medium">Powered by AI</span>
               </div>
 
-              <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight">
+              <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight text-foreground">
                 Tìm Assets Cho Game{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary animate-gradient">
                   Dễ Dàng Hơn
@@ -311,22 +311,22 @@ export default function Home() {
 
             {/* Right Visual */}
             <div className="relative">
-              <div className="relative bg-gradient-to-br from-card to-card/50 border border-border rounded-2xl p-8 backdrop-blur-sm">
+              <div className="relative bg-gradient-to-br from-card to-card/50 border border-border/80 rounded-2xl p-8 backdrop-blur-md shadow-xl shadow-black/10">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl" />
 
                 <div className="relative space-y-4">
                   {/* AI Chat Preview */}
-                  <div className="bg-background/80 border border-primary/30 rounded-xl p-4 shadow-[0_0_20px_rgba(0,217,255,0.15)]">
+                  <div className="bg-white/95 dark:bg-background/80 border border-primary/30 rounded-xl p-4 shadow-[0_0_20px_rgba(0,217,255,0.15)]">
                     <div className="flex items-center gap-2 mb-2">
                       <Brain className="w-5 h-5 text-primary" />
-                      <span className="text-sm font-medium text-foreground">AI Assistant</span>
+                      <span className="text-sm font-medium text-foreground">AssetBox AI</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       "Game platformer 2D phong cách retro với pixel art, nhân vật có thể nhảy đôi..."
                     </p>
                   </div>
 
-                  <div className="bg-background/80 border border-secondary/30 rounded-xl p-4">
+                  <div className="bg-white/95 dark:bg-background/80 border border-secondary/30 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-5 h-5 text-secondary" />
                       <span className="text-sm font-medium text-foreground">Phân tích</span>
@@ -365,7 +365,7 @@ export default function Home() {
                           <Link
                             key={asset.id ?? asset.title}
                             to={linkTo}
-                            className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-background/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
+                            className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-white/95 dark:bg-background/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
                           >
                             <div className={`absolute inset-0 bg-gradient-to-br ${asset.previewBg}`} />
                             <div className="relative h-[calc(100%-2.25rem)]">
@@ -401,7 +401,7 @@ export default function Home() {
               </div>
 
               {/* Floating Badge */}
-              <div className="absolute -top-4 -right-4 bg-card border border-border rounded-xl p-3 shadow-lg backdrop-blur-sm">
+              <div className="absolute -top-4 -right-4 bg-white/95 dark:bg-card border border-border rounded-xl p-3 shadow-lg backdrop-blur-md">
                 <div className="flex items-center gap-2">
                   <Star className="w-5 h-5 text-warning fill-warning" />
                   <div>
@@ -433,7 +433,7 @@ export default function Home() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="group bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 hover:bg-card hover:border-primary/50 transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.15)]"
+                className="group bg-white/92 dark:bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 hover:bg-white dark:hover:bg-card hover:border-primary/50 transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.15)]"
               >
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/20 transition-colors group-hover:shadow-[0_0_20px_rgba(0,217,255,0.3)]">
                   {feature.icon}

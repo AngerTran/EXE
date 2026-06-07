@@ -350,15 +350,15 @@ export default function AssetsMarketplace() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4 flex items-center justify-center gap-3">
             <ShoppingBag className="w-10 h-10 text-primary" />
-            Assets Marketplace
+            Chợ Assets
           </h1>
           <p className="text-xl text-muted-foreground">
-            Kho assets miễn phí chất lượng cao cho game của bạn
+            Kho assets đa dạng chất lượng dành cho game của bạn
           </p>
         </div>
 
         {/* Search & Filters */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 mb-8">
+        <div className="bg-white/95 dark:bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 mb-8 shadow-md shadow-black/5">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">
@@ -379,7 +379,7 @@ export default function AssetsMarketplace() {
                 className={`px-4 py-2 rounded-lg transition-all font-medium ${
                   priceFilter === "all"
                     ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(0,217,255,0.3)]"
-                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground"
+                    : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground font-semibold"
                 }`}
               >
                 Tất cả
@@ -389,7 +389,7 @@ export default function AssetsMarketplace() {
                 className={`px-4 py-2 rounded-lg transition-all font-medium ${
                   priceFilter === "free"
                     ? "bg-success text-white shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground"
+                    : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground font-semibold"
                 }`}
               >
                 Miễn phí
@@ -399,7 +399,7 @@ export default function AssetsMarketplace() {
                 className={`px-4 py-2 rounded-lg transition-all font-medium ${
                   priceFilter === "paid"
                     ? "bg-warning text-primary-foreground shadow-[0_0_20px_rgba(245,158,11,0.3)]"
-                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground"
+                    : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground font-semibold"
                 }`}
               >
                 Trả phí
@@ -415,7 +415,7 @@ export default function AssetsMarketplace() {
                 className={`px-4 py-2 rounded-lg transition-all font-medium flex items-center gap-2 ${
                   viewMode === "saved"
                     ? "bg-secondary text-white shadow-[0_0_20px_rgba(168,85,247,0.3)]"
-                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground"
+                    : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground font-semibold"
                 }`}
               >
                 <Bookmark className="w-4 h-4" />
@@ -454,7 +454,7 @@ export default function AssetsMarketplace() {
                 className={`px-6 py-3 rounded-lg whitespace-nowrap transition-all font-medium ${
                   selectedCategory === category
                     ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground scale-105 shadow-[0_0_20px_rgba(0,217,255,0.4)]"
-                    : "bg-card border border-border text-muted-foreground hover:bg-card/80 hover:text-foreground hover:border-primary/50"
+                    : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground hover:border-primary/50 font-semibold"
                 }`}
               >
                 {category}

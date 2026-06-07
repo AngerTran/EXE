@@ -1,4 +1,7 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+@import './site-background.css';
+@import './light-mode-contrast.css';
+@import './app-logo.css';
 @import './auth.css';

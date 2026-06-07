@@ -1,0 +1,212 @@
+/**
+ * Light mode + atmospheric background:
+ * - Light text on page background (hero, headings)
+ * - Dark sharp text on panels/cards/buttons/footer
+ */
+
+html:not(.dark) {
+  --surface-solid: #ffffff;
+  --surface-elevated: #f8fafc;
+  --atmosphere-foreground: #f8fafc;
+  --atmosphere-muted: #e2e8f0;
+  --surface-foreground: #020617;
+  --surface-muted: #1e293b;
+}
+
+html:not(.dark) nav,
+html:not(.dark) footer.site-footer {
+  --foreground: #0f172a;
+  --muted-foreground: #1e293b;
+  --card: #ffffff;
+  --background: #ffffff;
+  --border: rgba(15, 23, 42, 0.14);
+}
+
+html:not(.dark) nav {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(11, 19, 38, 0.08);
+}
+
+html:not(.dark) nav .text-foreground {
+  color: #0f172a !important;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html:not(.dark) nav .text-muted-foreground {
+  color: #1e293b !important;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+html:not(.dark) nav a.text-primary,
+html:not(.dark) nav .text-primary {
+  color: #008fa8 !important;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html:not(.dark) nav [class*="bg-card"] {
+  background-color: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+html:not(.dark) footer.site-footer {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+html:not(.dark) footer.site-footer .text-foreground,
+html:not(.dark) footer.site-footer h3 {
+  color: #0f172a;
+  text-shadow: none;
+}
+
+html:not(.dark) footer.site-footer .text-muted-foreground,
+html:not(.dark) footer.site-footer p,
+html:not(.dark) footer.site-footer a.text-muted-foreground {
+  color: #334155 !important;
+  font-weight: 500;
+  text-shadow: none;
+}
+
+html:not(.dark) main {
+  --foreground: var(--atmosphere-foreground);
+  --muted-foreground: var(--atmosphere-muted);
+  --primary: #22d3ee;
+  --secondary: #c4b5fd;
+}
+
+/* Headings on atmospheric background */
+html:not(.dark) main h1,
+html:not(.dark) main h2,
+html:not(.dark) main h3,
+html:not(.dark) main h4 {
+  text-shadow:
+    0 2px 18px rgba(11, 19, 38, 0.62),
+    0 1px 3px rgba(11, 19, 38, 0.45);
+}
+
+/* Muted text only when NOT on a solid surface */
+html:not(.dark) main .text-muted-foreground:not([class*="bg-card"]):not([class*="bg-background"]):not([class*="bg-white"]):not([class*="bg-popover"]) {
+  color: var(--atmosphere-muted);
+  font-weight: 500;
+  text-shadow: 0 1px 12px rgba(11, 19, 38, 0.5);
+}
+
+html:not(.dark) main p:not(:is([class*="bg-card"] *, [class*="bg-background"] *, [class*="bg-white"] *)) {
+  text-shadow: 0 1px 12px rgba(11, 19, 38, 0.45);
+}
+
+/* Surface panels — reset tokens */
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"],
+  [class*="from-card"],
+  [class*="to-card"]
+) {
+  --foreground: var(--surface-foreground);
+  --muted-foreground: var(--surface-muted);
+  --card: #ffffff;
+  --background: #ffffff;
+  --primary: #008fa8;
+  --secondary: #6d28d9;
+  --border: rgba(15, 23, 42, 0.14);
+  text-shadow: none;
+}
+
+/* Dark text on surface elements (same node or children) */
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+).text-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) .text-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+).text-muted-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) .text-muted-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) input,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) input::placeholder {
+  text-shadow: none;
+}
+
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+).text-muted-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) .text-muted-foreground {
+  color: #1e293b !important;
+  font-weight: 600;
+}
+
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+).text-foreground,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"]
+) .text-foreground {
+  color: #020617 !important;
+}
+
+html:not(.dark) main [class*="from-card"][class*="to-card"] {
+  background-image: linear-gradient(
+    to bottom right,
+    rgba(255, 255, 255, 0.98),
+    rgba(248, 250, 252, 0.96)
+  ) !important;
+  box-shadow: 0 12px 40px rgba(11, 19, 38, 0.14);
+}
+
+html:not(.dark) main [class*="bg-card/"] {
+  background-color: color-mix(in srgb, var(--card) 94%, white) !important;
+  box-shadow: 0 4px 24px rgba(11, 19, 38, 0.08);
+}
+
+html:not(.dark) main [class*="bg-white/"] {
+  box-shadow: 0 4px 20px rgba(11, 19, 38, 0.08);
+}
+
+html:not(.dark) main h1 .bg-clip-text {
+  filter: drop-shadow(0 2px 14px rgba(11, 19, 38, 0.55));
+  text-shadow: none;
+}
