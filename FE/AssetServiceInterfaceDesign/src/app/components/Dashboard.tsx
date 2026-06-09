@@ -12,6 +12,7 @@ import {
 import type { AiSuggestedAsset } from "../../api/types/ai";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { AppLogo, LOGO_ICON_SRC } from "./AppLogo";
+import { BeamPanel } from "./BeamPanel";
 
 interface Message {
   id: string;
@@ -184,8 +185,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-200px)] py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-[calc(100dvh-8rem)] py-6 sm:py-8 flex flex-col">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col flex-1 min-h-0">
         {/* Header */}
         <div className="mb-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -198,7 +199,7 @@ export default function Dashboard() {
             </div>
 
             {/* Credits Display */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {messages.length > 1 && (
                 <button
                   onClick={clearChatHistory}
@@ -210,7 +211,7 @@ export default function Dashboard() {
                 </button>
               )}
 
-              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl px-6 py-3 flex items-center gap-3 shadow-lg">
+              <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-6 py-3 flex items-center gap-3 shadow-lg" beam={3.5}>
                 <Coins className="w-6 h-6 text-warning" />
                 <div>
                   <p className="text-xs text-muted-foreground font-mono">Xu còn lại</p>
@@ -218,7 +219,7 @@ export default function Dashboard() {
                     {isUnlimited ? <UnlimitedXuIcon size="md" /> : credits}
                   </p>
                 </div>
-              </div>
+              </BeamPanel>
 
               {!isUnlimited && credits < 5 && (
                 <Link
@@ -246,9 +247,13 @@ export default function Dashboard() {
         </div>
 
         {/* Chat Container */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden shadow-lg">
+        <BeamPanel
+          className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl shadow-sm flex-1 flex flex-col min-h-0"
+          contentClassName="overflow-hidden rounded-xl flex flex-col flex-1 min-h-0"
+          beam={4.2}
+        >
           {/* Messages */}
-          <div className="h-[500px] overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+          <div className="flex-1 min-h-[min(32rem,calc(100dvh-18rem))] overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -286,7 +291,7 @@ export default function Dashboard() {
                     className={`inline-block rounded-xl px-6 py-4 max-w-[80%] ${
                       message.role === "user"
                         ? "bg-primary/10 border border-primary/30 text-foreground shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-                        : "bg-card border border-border text-foreground"
+                        : "bg-white/95 dark:bg-card/70 border border-border text-foreground backdrop-blur-lg"
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
@@ -304,7 +309,7 @@ export default function Dashboard() {
                             <Link
                               key={asset.assetId}
                               to={`/marketplace?details=${asset.assetId}`}
-                              className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-lg p-3 transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+                              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-lg p-3 transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
                             >
                               <div className="flex items-start gap-3">
                                 {asset.thumbnailUrl ? (
@@ -361,7 +366,7 @@ export default function Dashboard() {
                     className="w-full h-full object-contain"
                   />
                 </div>
-                <div className="bg-card border border-border rounded-xl px-6 py-4 flex items-center gap-3">
+                <div className="bg-white/95 dark:bg-card/70 border border-border rounded-xl px-6 py-4 flex items-center gap-3 backdrop-blur-lg">
                   <Loader2 className="w-5 h-5 text-primary animate-spin" />
                   <span className="text-muted-foreground text-sm">AI đang suy nghĩ...</span>
                 </div>
@@ -372,7 +377,7 @@ export default function Dashboard() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-border p-4 bg-card/30">
+          <div className="border-t border-border p-4 bg-white/95 dark:bg-card/70 backdrop-blur-lg">
             <div className="flex gap-3">
               <input
                 type="text"
@@ -401,7 +406,7 @@ export default function Dashboard() {
               {isUnlimited ? "Không giới hạn xu" : `Còn ${credits} xu`}
             </p>
           </div>
-        </div>
+        </BeamPanel>
 
         {/* Quick Actions */}
         <div className="mt-8">
@@ -409,7 +414,7 @@ export default function Dashboard() {
           <div className="grid md:grid-cols-4 gap-4">
             <button
               onClick={() => setInput("Tôi muốn làm game thành phố")}
-              className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
             >
               <p className="text-foreground font-medium group-hover:text-primary transition-colors">🏙️ Game Thành Phố</p>
               <p className="text-muted-foreground text-sm mt-1">Assets cần thiết</p>
@@ -417,7 +422,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setInput("Assets nào cần cho game RPG 2D?")}
-              className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
             >
               <p className="text-foreground font-medium group-hover:text-primary transition-colors">🎮 Game RPG 2D</p>
               <p className="text-muted-foreground text-sm mt-1">Assets cần thiết</p>
@@ -425,7 +430,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setInput("Gợi ý character sprites cho platformer")}
-              className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
             >
               <p className="text-foreground font-medium group-hover:text-primary transition-colors">🏃 Platformer Game</p>
               <p className="text-muted-foreground text-sm mt-1">Character sprites</p>
@@ -433,7 +438,7 @@ export default function Dashboard() {
 
             <button
               onClick={() => setInput("UI elements cho mobile game")}
-              className="bg-card/50 hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
             >
               <p className="text-foreground font-medium group-hover:text-primary transition-colors">📱 Mobile UI</p>
               <p className="text-muted-foreground text-sm mt-1">UI elements</p>

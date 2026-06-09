@@ -4,6 +4,7 @@ import { Sparkles, Zap, Brain, Palette, Code, ArrowRight, CheckCircle, Star, Box
 import { fetchAssets } from "../../api/assets";
 import { mapAssetListItem } from "../../api/mappers";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { BorderBeam } from "./BorderBeam";
 
 const PIXEL_HERO = [
   "transparent", "transparent", "#fbbf24", "#fbbf24", "transparent",
@@ -271,7 +272,7 @@ export default function Home() {
                 <span className="text-primary text-sm font-medium">Powered by AI</span>
               </div>
 
-              <h1 className="text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight text-foreground">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-tight text-foreground">
                 Tìm Assets Cho Game{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary animate-gradient">
                   Dễ Dàng Hơn
@@ -311,12 +312,13 @@ export default function Home() {
 
             {/* Right Visual */}
             <div className="relative">
-              <div className="relative bg-gradient-to-br from-card to-card/50 border border-border/80 rounded-2xl p-8 backdrop-blur-md shadow-xl shadow-black/10">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl" />
+              <div className="relative overflow-visible bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border/80 rounded-2xl p-8 shadow-xl shadow-black/10">
+                <BorderBeam duration={4.5} />
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl pointer-events-none" />
 
                 <div className="relative space-y-4">
                   {/* AI Chat Preview */}
-                  <div className="bg-white/95 dark:bg-background/80 border border-primary/30 rounded-xl p-4 shadow-[0_0_20px_rgba(0,217,255,0.15)]">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-primary/30 rounded-xl p-4 shadow-[0_0_20px_rgba(0,217,255,0.15)]">
                     <div className="flex items-center gap-2 mb-2">
                       <Brain className="w-5 h-5 text-primary" />
                       <span className="text-sm font-medium text-foreground">AssetBox AI</span>
@@ -326,7 +328,7 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div className="bg-white/95 dark:bg-background/80 border border-secondary/30 rounded-xl p-4">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-secondary/30 rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-5 h-5 text-secondary" />
                       <span className="text-sm font-medium text-foreground">Phân tích</span>
@@ -365,7 +367,7 @@ export default function Home() {
                           <Link
                             key={asset.id ?? asset.title}
                             to={linkTo}
-                            className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-white/95 dark:bg-background/80 backdrop-blur-sm transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
+                            className={`group relative aspect-square overflow-hidden rounded-xl border border-border bg-white/95 dark:bg-card/70 backdrop-blur-lg transition-all duration-300 hover:scale-[1.03] ${asset.hoverBorder} ${asset.hoverGlow}`}
                           >
                             <div className={`absolute inset-0 bg-gradient-to-br ${asset.previewBg}`} />
                             <div className="relative h-[calc(100%-2.25rem)]">
@@ -401,8 +403,9 @@ export default function Home() {
               </div>
 
               {/* Floating Badge */}
-              <div className="absolute -top-4 -right-4 bg-white/95 dark:bg-card border border-border rounded-xl p-3 shadow-lg backdrop-blur-md">
-                <div className="flex items-center gap-2">
+              <div className="absolute -top-4 -right-4 overflow-visible bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-3 shadow-lg">
+                <BorderBeam duration={3.2} />
+                <div className="relative flex items-center gap-2">
                   <Star className="w-5 h-5 text-warning fill-warning" />
                   <div>
                     <div className="text-sm font-bold text-foreground">100 xu miễn phí</div>
@@ -421,7 +424,7 @@ export default function Home() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground mb-4">
               Tại sao chọn AssetBox?
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -433,13 +436,14 @@ export default function Home() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="group bg-white/92 dark:bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 hover:bg-white dark:hover:bg-card hover:border-primary/50 transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.15)]"
+                className="group relative overflow-visible bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-6 hover:bg-white dark:hover:bg-card hover:border-primary/50 transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.15)]"
               >
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/20 transition-colors group-hover:shadow-[0_0_20px_rgba(0,217,255,0.3)]">
+                <BorderBeam duration={3.8 + index * 0.4} />
+                <div className="relative w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/20 transition-colors group-hover:shadow-[0_0_20px_rgba(0,217,255,0.3)]">
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-bold text-foreground mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground">{feature.description}</p>
+                <h3 className="relative text-xl font-bold text-foreground mb-2">{feature.title}</h3>
+                <p className="relative text-muted-foreground">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -450,7 +454,7 @@ export default function Home() {
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+            <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground mb-4">
               Cách hoạt động
             </h2>
             <p className="text-xl text-muted-foreground">
@@ -481,11 +485,12 @@ export default function Home() {
       {/* CTA Section */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative overflow-hidden bg-gradient-to-br from-primary/20 via-secondary/20 to-primary/20 border border-primary/30 rounded-2xl p-12">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMGQ5ZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00em0wIDI4YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00ek0xMiAxNmMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHptMCAyOGMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+          <div className="relative overflow-visible bg-gradient-to-br from-primary/20 via-secondary/20 to-primary/20 border border-primary/30 rounded-2xl p-12">
+            <BorderBeam duration={5} />
+            <div className="absolute inset-0 overflow-hidden rounded-2xl bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMGQ5ZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDE2YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00em0wIDI4YzAtMi4yMSAxLjc5LTQgNC00czQgMS43OSA0IDQtMS43OSA0LTQgNC00LTEuNzktNC00ek0xMiAxNmMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHptMCAyOGMwLTIuMjEgMS43OS00IDQtNHM0IDEuNzkgNCA0LTEuNzkgNC00IDQtNC0xLjc5LTQtNHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30 pointer-events-none" />
 
             <div className="relative text-center">
-              <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
+              <h2 className="text-2xl sm:text-3xl lg:text-5xl font-bold text-foreground mb-4">
                 Sẵn sàng bắt đầu?
               </h2>
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">

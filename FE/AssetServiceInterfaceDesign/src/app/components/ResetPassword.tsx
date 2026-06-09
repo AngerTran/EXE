@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { AppLogo } from "./AppLogo";
+import { BeamPanel } from "./BeamPanel";
 import authHero from "../../assets/auth-hero.png";
 import { resetPassword } from "../../api/auth";
 import { ApiError } from "../../api/client";
@@ -128,7 +129,7 @@ export default function ResetPassword() {
             </Link>
           </div>
 
-          <div className="w-full max-w-[var(--auth-form-max)] mx-auto">
+          <BeamPanel className="w-full max-w-[var(--auth-form-max)] mx-auto auth-glass-card auth-hud-frame relative p-6 lg:p-8" beam={3.6}>
             <header className="auth-form-header mb-6 text-center md:text-left">
               <h2 className="auth-headline text-2xl lg:text-[1.75rem] text-[#dae2fd] mb-2">
                 Đặt lại mật khẩu
@@ -243,7 +244,7 @@ export default function ResetPassword() {
                 ← Quay lại đăng nhập
               </Link>
             </footer>
-          </div>
+          </BeamPanel>
         </section>
       </main>
     </div>

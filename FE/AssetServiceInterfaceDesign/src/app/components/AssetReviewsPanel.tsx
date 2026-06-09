@@ -13,6 +13,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { cn } from "./ui/utils";
+import { BeamPanel } from "./BeamPanel";
 
 interface AssetReviewsPanelProps {
   assetId: string;
@@ -211,9 +212,10 @@ export function AssetReviewsPanel({
         <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
           {reviews.map((review) =>
             editingId === review.id ? (
-              <div
+              <BeamPanel
                 key={review.id}
-                className="bg-card/50 border border-primary/30 rounded-xl p-4 space-y-3"
+                beam={3.4}
+                className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-primary/30 rounded-xl p-4 space-y-3"
               >
                 <StarRating value={editRating} onChange={setEditRating} />
                 <Textarea
@@ -231,11 +233,12 @@ export function AssetReviewsPanel({
                     Hủy
                   </Button>
                 </div>
-              </div>
+              </BeamPanel>
             ) : (
-              <div
+              <BeamPanel
                 key={review.id}
-                className="bg-card/50 border border-border rounded-xl p-4 space-y-2"
+                beam={3.2}
+                className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 space-y-2"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -269,14 +272,14 @@ export function AssetReviewsPanel({
                 {review.comment && (
                   <p className="text-sm text-muted-foreground leading-relaxed">{review.comment}</p>
                 )}
-              </div>
+              </BeamPanel>
             )
           )}
         </div>
       )}
 
       {canReview && (
-        <div className="bg-card/50 border border-border rounded-xl p-4 space-y-3">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 space-y-3" beam={3.6}>
           <p className="text-sm font-medium text-foreground">Viết đánh giá của bạn</p>
           <StarRating value={rating} onChange={setRating} />
           <Textarea
@@ -289,7 +292,7 @@ export function AssetReviewsPanel({
           <Button variant="gradient" onClick={handleSubmit} disabled={submitting || rating < 1}>
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gửi đánh giá"}
           </Button>
-        </div>
+        </BeamPanel>
       )}
 
       {user && !isPurchased && !isFree && !ownReview && (

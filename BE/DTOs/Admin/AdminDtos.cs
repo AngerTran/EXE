@@ -69,7 +69,18 @@ public record AdminAnalyticsAssetsResponse(
 
 public record AdminAnalyticsOrdersResponse(
     int TotalOrders,
-    IReadOnlyList<AdminOrderStatusStatResponse> ByStatus);
+    IReadOnlyList<AdminOrderStatusStatResponse> ByStatus,
+    IReadOnlyList<AdminOrderTypeStatResponse> ByType,
+    IReadOnlyList<AdminPurchaseStatResponse> PurchasesByPlan);
+
+public record AdminOrderTypeStatResponse(string OrderType, int Count);
+
+public record AdminPurchaseStatResponse(
+    string Category,
+    string ItemName,
+    string? PlanSlug,
+    int Count,
+    long RevenueVnd);
 
 public record AdminDailyCountResponse(string Date, long Count);
 

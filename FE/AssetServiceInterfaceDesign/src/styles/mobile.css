@@ -1,0 +1,51 @@
+/**
+ * Mobile / native-app readiness
+ * — safe areas, touch targets, reduced hover on touch devices
+ */
+
+:root {
+  --touch-min: 44px;
+  --mobile-nav-height: 4rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+/* Main content clearance when bottom tab bar is visible */
+.has-mobile-tab-bar main {
+  padding-bottom: calc(var(--mobile-nav-height) + var(--safe-bottom) + 1rem);
+}
+
+/* Minimum touch target for icon / compact controls */
+.touch-target {
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Horizontal scroll regions — snap like native tab bars */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-snap-item {
+  scroll-snap-align: start;
+}
+
+/* Disable hover scale on touch — avoids layout jank */
+@media (hover: none) and (pointer: coarse) {
+  .hover\:scale-105:hover,
+  .hover\:scale-\[1\.02\]:hover {
+    transform: none;
+  }
+}
+
+/* Slightly tighter page padding on very small screens */
+@media (max-width: 380px) {
+  .page-container {
+    padding-left: 0.875rem;
+    padding-right: 0.875rem;
+  }
+}

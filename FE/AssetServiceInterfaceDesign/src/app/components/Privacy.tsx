@@ -1,4 +1,5 @@
 import { Shield, Lock, Eye, Database, UserCheck, AlertTriangle } from "lucide-react";
+import { BeamPanel } from "./BeamPanel";
 
 export default function Privacy() {
   return (
@@ -16,7 +17,7 @@ export default function Privacy() {
         </div>
 
         {/* Content */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8 space-y-8">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg rounded-2xl border border-border p-8 space-y-8" beam={5}>
 
           {/* Introduction */}
           <section>
@@ -212,7 +213,7 @@ export default function Privacy() {
             </div>
           </section>
 
-        </div>
+        </BeamPanel>
 
         {/* Bottom Notice */}
         <div className="mt-8 p-6 bg-green-600/10 border border-green-500/20 rounded-xl">

@@ -5,7 +5,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ArrowRight,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -13,7 +12,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AppLogo } from "./AppLogo";
-import authHero from "../../assets/auth-hero.png";
+import { BorderBeam } from "./BorderBeam";
+import authFormBg from "../../assets/auth-form-bg.png";
 import { toast } from "../../utils/notify";
 import { forgotPassword } from "../../api/auth";
 import { ApiError, getRememberMePreference, setRememberMePreference } from "../../api/client";
@@ -21,24 +21,35 @@ import { getSupabase } from "../../lib/supabase";
 
 type AuthView = "login" | "register" | "forgot";
 
+function HudCorners() {
+  return (
+    <>
+      <span className="auth-corner auth-corner-tl" aria-hidden />
+      <span className="auth-corner auth-corner-tr" aria-hidden />
+      <span className="auth-corner auth-corner-bl" aria-hidden />
+      <span className="auth-corner auth-corner-br" aria-hidden />
+    </>
+  );
+}
+
 function GoogleIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
+    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden>
       <path
         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-        fill="currentColor"
+        fill="#4285F4"
       />
       <path
         d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-        fill="currentColor"
+        fill="#34A853"
       />
       <path
         d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81.38z"
-        fill="currentColor"
+        fill="#FBBC05"
       />
       <path
         d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 6.13l3.66 2.84c.87-2.6 3.3-4.53 6.14-4.53z"
-        fill="currentColor"
+        fill="#EA4335"
       />
     </svg>
   );
@@ -200,95 +211,113 @@ export default function Auth() {
 
   return (
     <div className="auth-page auth-shell relative flex flex-col selection:bg-[#d0bcff]/30">
-      {/* Ambient glow — purple + cyan per brand */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="absolute top-[10%] left-[5%] w-[40vw] h-[40vw] rounded-full bg-[#8b5cf6]/15 blur-[120px]" />
-        <div className="absolute bottom-[10%] right-[5%] w-[30vw] h-[30vw] rounded-full bg-[#4cd7f6]/12 blur-[100px]" />
+      {/* Single full-page background */}
+      <div className="fixed inset-0 z-0 pointer-events-none" aria-hidden>
+        <img
+          src={authFormBg}
+          alt=""
+          className="w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 auth-page-bg-overlay" />
+        <div className="absolute inset-0 auth-page-bg-vignette" />
+        <div className="absolute inset-0 auth-page-bg-glow" />
+        <div className="absolute inset-0 auth-page-scanlines" />
+        <div className="absolute inset-0 auth-grid-bg opacity-[0.18]" />
       </div>
 
-      <main className="auth-shell flex flex-1 flex-col md:flex-row w-full overflow-hidden relative">
-        <div className="absolute inset-0 auth-grid-bg opacity-25 pointer-events-none" />
+      {/* HUD decorations */}
+      <div className="auth-hud-tl hidden md:flex" aria-hidden>
+        <span className="auth-status-dot" />
+        <span className="auth-code text-[#4cd7f6]/80">ASSETBOX // SYS.ONLINE</span>
+      </div>
+      <div className="auth-float-code auth-float-code--left hidden lg:block" aria-hidden>
+        <span className="auth-code text-[#4cd7f6]/40">mesh.load(&quot;hero.glb&quot;)</span>
+        <span className="auth-code text-[#d0bcff]/35">ai.generate(texture)</span>
+      </div>
+      <div className="auth-float-code auth-float-code--right hidden lg:block" aria-hidden>
+        <span className="auth-code text-[#4edea3]/40">seed: 0x4F2A91</span>
+        <span className="auth-code text-[#4cd7f6]/35">render.pbr(true)</span>
+      </div>
 
-        {/* Left: hero image + branding — ~52% width on desktop */}
-        <section className="hidden md:flex md:w-1/2 relative items-center justify-center overflow-hidden bg-[#171f33] min-h-0">
-          <div className="absolute inset-0 z-0">
-            <img
-              src={authHero}
-              alt="Studio game developer tương lai — màn hình 3D, code và ánh sáng neon"
-              className="w-full h-full object-cover object-center"
-            />
-            <div className="absolute inset-0 auth-hero-vignette" />
-            <div className="absolute inset-0 auth-hero-overlay-bottom" />
-            <div className="absolute inset-0 auth-hero-overlay-side" />
-          </div>
-          <div className="relative z-10 px-8 lg:px-12 text-center w-full max-w-md flex flex-col items-center">
-            <AppLogo size="lg" className="mb-4" />
-            <p className="auth-body text-base text-[#cbc3d7] max-w-sm mx-auto leading-relaxed">
-              Làm chủ tương lai game dev. Thiết kế, tạo và triển khai assets chất lượng cao với sức mạnh AI.
-            </p>
-            <div className="auth-hero-stats mt-10 flex justify-center gap-8">
-              <div className="flex flex-col items-center">
-                <span className="auth-headline text-2xl text-[#4cd7f6] auth-code">500k+</span>
-                <span className="auth-label mt-1 opacity-70">Assets gợi ý</span>
+      <main className="auth-shell relative z-10 flex flex-1 flex-col md:flex-row w-full overflow-hidden">
+        <div className="auth-panel-divider hidden md:block" aria-hidden />
+
+        {/* Left: branding */}
+        <section className="hidden md:flex md:w-1/2 relative items-center justify-center min-h-0 px-8 lg:px-12">
+          <div className="auth-hero-card auth-hud-frame w-full max-w-md">
+            <BorderBeam duration={4.2} />
+            <HudCorners />
+            <div className="relative z-10 flex flex-col items-center text-center">
+              <AppLogo size="lg" className="mb-5" />
+              <p className="auth-body text-base text-[#cbc3d7] max-w-sm mx-auto leading-relaxed">
+                Làm chủ tương lai game dev. Thiết kế, tạo và triển khai assets chất lượng cao với sức mạnh AI.
+              </p>
+              <div className="auth-hero-stats mt-8 flex justify-center gap-4 w-full">
+                <div className="auth-stat-pill auth-stat-pill--cyan flex-1">
+                  <span className="auth-headline text-2xl text-[#4cd7f6] auth-code">500k+</span>
+                  <span className="auth-label mt-1.5 opacity-80">Assets gợi ý</span>
+                </div>
+                <div className="auth-stat-pill auth-stat-pill--green flex-1">
+                  <span className="auth-headline text-2xl text-[#4edea3] auth-code">100</span>
+                  <span className="auth-label mt-1.5 opacity-80">Xu miễn phí</span>
+                </div>
               </div>
-              <div className="w-px h-10 bg-white/10" />
-              <div className="flex flex-col items-center">
-                <span className="auth-headline text-2xl text-[#4edea3] auth-code">10</span>
-                <span className="auth-label mt-1 opacity-70">Xu miễn phí</span>
+              <div className="auth-feature-chips mt-6 flex flex-wrap justify-center gap-2">
+                <span className="auth-chip">AI Generation</span>
+                <span className="auth-chip">3D Assets</span>
+                <span className="auth-chip">Marketplace</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Right: form — fills remaining width */}
-        <section className="auth-form-panel flex-1 md:w-1/2 bg-[#131b2e] flex flex-col justify-center px-5 sm:px-8 md:px-10 lg:px-12 py-8 md:py-10 relative z-20 min-h-0 overflow-y-auto overscroll-contain">
-          <div className="md:hidden mb-8 text-center">
-            <Link to="/" className="inline-flex items-center justify-center">
+        {/* Right: form */}
+        <section className="auth-form-panel flex-1 md:w-1/2 flex flex-col justify-center px-5 sm:px-8 md:px-10 lg:px-14 py-8 md:py-10 min-h-0 overflow-y-auto overscroll-contain">
+          <div className="md:hidden mb-6 text-center">
+            <Link to="/" className="inline-flex items-center justify-center auth-mobile-logo">
               <AppLogo size="md" />
             </Link>
           </div>
 
           <div className="w-full max-w-[var(--auth-form-max)] mx-auto">
+            <div className="auth-glass-card auth-hud-frame relative">
+            <BorderBeam duration={3.6} />
+            <HudCorners />
+            <div className="relative z-10">
             <header className="auth-form-header mb-6 text-center md:text-left">
-              <h2 className="auth-headline text-2xl lg:text-[1.75rem] text-[#dae2fd] mb-2">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[#4cd7f6]/90 mb-2">
+                {isForgot ? "Khôi phục" : isLogin ? "Đăng nhập" : "Đăng ký"}
+              </p>
+              <h2 className="auth-headline text-2xl lg:text-[1.65rem] text-[#dae2fd] mb-2">
                 {isForgot ? "Quên mật khẩu" : isLogin ? "Chào mừng trở lại" : "Tạo tài khoản"}
               </h2>
               <p className="auth-body text-sm text-[#cbc3d7]">
                 {isForgot
-                  ? "Nhập email đã đăng ký — Supabase sẽ gửi link đặt lại mật khẩu."
+                  ? "Nhập email đã đăng ký — chúng tôi sẽ gửi link đặt lại mật khẩu."
                   : isLogin
-                    ? "Nhập thông tin để vào trung tâm sáng tạo của bạn."
-                    : "Đăng ký và nhận 100 xu miễn phí ngay hôm nay."}
+                    ? "Đăng nhập để vào AssetBox AI và Chợ Assets."
+                    : "Đăng ký miễn phí — nhận 100 xu khi tạo tài khoản."}
               </p>
             </header>
 
-            {/* Social (Google only) */}
             {isLogin && !isForgot && (
               <>
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={googleLoading || loading}
-                    className="auth-btn-secondary w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-[#dae2fd] hover:bg-white/5 border border-white/10 hover:border-[#4cd7f6]/40 transition-all disabled:opacity-60"
-                  >
-                    {googleLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <GoogleIcon />
-                    )}
-                    <span className="text-sm font-semibold">
-                      {googleLoading ? "Đang chuyển sang Google..." : "Tiếp tục với Google"}
-                    </span>
-                  </button>
-                </div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-px bg-white/10 flex-1" />
-                  <span className="auth-label opacity-50 normal-case tracking-widest">
-                    hoặc tiếp tục với email
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading || loading}
+                  className="auth-btn-google w-full flex items-center justify-center gap-3 py-3 px-4 text-[#dae2fd] disabled:opacity-60 mb-5"
+                >
+                  {googleLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-[#4cd7f6]" />
+                  ) : (
+                    <GoogleIcon />
+                  )}
+                  <span className="text-sm font-semibold">
+                    {googleLoading ? "Đang chuyển sang Google..." : "Tiếp tục với Google"}
                   </span>
-                  <div className="h-px bg-white/10 flex-1" />
-                </div>
+                </button>
+                <div className="auth-divider mb-5">hoặc email</div>
               </>
             )}
 
@@ -297,18 +326,18 @@ export default function Auth() {
               className="auth-form-stack flex flex-col gap-4"
             >
               {error && (
-                <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+                <div className="flex items-start gap-3 rounded-xl border border-destructive/35 bg-destructive/10 p-3.5">
                   <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-sm text-destructive">{error}</p>
+                  <p className="text-sm text-destructive leading-relaxed">{error}</p>
                 </div>
               )}
 
               {!isLogin && !isForgot && (
                 <div className="space-y-1.5">
-                  <label htmlFor="name" className="auth-label text-xs">
+                  <label htmlFor="name" className="auth-label">
                     Tên của bạn
                   </label>
-                  <div className="auth-neon-glow auth-input-surface relative flex items-center rounded-md transition-all">
+                  <div className="auth-neon-glow auth-input-surface relative flex items-center transition-all">
                     <User className="absolute left-3.5 w-4 h-4 text-[#958ea0]" />
                     <input
                       id="name"
@@ -318,17 +347,17 @@ export default function Auth() {
                       onChange={handleChange}
                       required
                       placeholder="Nguyễn Văn A"
-                      className="auth-input-field w-full bg-transparent border-none pl-10 pr-4 text-[#dae2fd] placeholder:text-[#958ea0]/60 focus:ring-0 focus:outline-none"
+                      className="auth-input-field w-full bg-transparent border-none pl-10 pr-4 focus:ring-0 focus:outline-none"
                     />
                   </div>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label htmlFor="email" className="auth-label text-xs">
+                <label htmlFor="email" className="auth-label">
                   Email
                 </label>
-                <div className="auth-neon-glow auth-input-surface relative flex items-center rounded-md transition-all">
+                <div className="auth-neon-glow auth-input-surface relative flex items-center transition-all">
                   <AtSign className="absolute left-3.5 w-4 h-4 text-[#958ea0]" />
                   <input
                     id="email"
@@ -338,7 +367,7 @@ export default function Auth() {
                     onChange={handleChange}
                     required
                     placeholder="name@studio.com"
-                    className="auth-input-field w-full bg-transparent border-none pl-10 pr-4 text-[#dae2fd] placeholder:text-[#958ea0]/60 focus:ring-0 focus:outline-none"
+                    className="auth-input-field w-full bg-transparent border-none pl-10 pr-4 focus:ring-0 focus:outline-none"
                   />
                 </div>
               </div>
@@ -346,20 +375,20 @@ export default function Auth() {
               {!isForgot && (
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <label htmlFor="password" className="auth-label text-xs">
+                    <label htmlFor="password" className="auth-label">
                       Mật khẩu
                     </label>
                     {isLogin && (
                       <button
                         type="button"
                         onClick={openForgot}
-                        className="text-xs text-[#4cd7f6] hover:underline"
+                        className="text-xs font-medium text-[#4cd7f6] hover:text-[#acedff] transition-colors"
                       >
                         Quên mật khẩu?
                       </button>
                     )}
                   </div>
-                  <div className="auth-neon-glow auth-input-surface relative flex items-center rounded-md transition-all">
+                  <div className="auth-neon-glow auth-input-surface relative flex items-center transition-all">
                     <Lock className="absolute left-3.5 w-4 h-4 text-[#958ea0]" />
                     <input
                       id="password"
@@ -370,12 +399,12 @@ export default function Auth() {
                       required
                       minLength={6}
                       placeholder="••••••••"
-                      className="auth-input-field w-full bg-transparent border-none pl-10 pr-10 text-[#dae2fd] placeholder:text-[#958ea0]/60 focus:ring-0 focus:outline-none"
+                      className="auth-input-field w-full bg-transparent border-none pl-10 pr-10 focus:ring-0 focus:outline-none"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 text-[#958ea0] hover:text-[#dae2fd] transition-colors"
+                      className="absolute right-3.5 text-[#958ea0] hover:text-[#4cd7f6] transition-colors"
                       aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -388,7 +417,7 @@ export default function Auth() {
               )}
 
               {isLogin && !isForgot && (
-                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none py-0.5">
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -397,19 +426,19 @@ export default function Auth() {
                       setRememberMe(checked);
                       setRememberMePreference(checked);
                     }}
-                    className="w-4 h-4 rounded border-white/10 bg-[#171f33] text-[#4cd7f6] focus:ring-[#4cd7f6] focus:ring-offset-[#131b2e]"
+                    className="auth-checkbox"
                   />
-                  <span className="text-xs text-[#cbc3d7]">Ghi nhớ đăng nhập</span>
+                  <span className="text-sm text-[#cbc3d7]">Ghi nhớ đăng nhập</span>
                 </label>
               )}
 
               <button
                 type="submit"
                 disabled={loading || success}
-                className={`w-full py-3 rounded-md text-white font-semibold uppercase tracking-widest text-sm flex items-center justify-center gap-2 group active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed ${
+                className={`w-full py-3.5 font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed ${
                   success
-                    ? "bg-gradient-to-br from-[#4edea3] to-[#00a572] shadow-[0_0_20px_rgba(78,222,163,0.4)]"
-                    : "auth-btn-primary"
+                    ? "rounded-lg bg-gradient-to-r from-[#4edea3] to-[#00a572] text-[#003824] shadow-[0_0_24px_rgba(78,222,163,0.35)]"
+                    : "auth-btn-primary text-white"
                 }`}
               >
                 {loading ? (
@@ -423,32 +452,27 @@ export default function Auth() {
                     {isForgot ? "Đã gửi email!" : "Thành công!"}
                   </>
                 ) : (
-                  <>
-                    {isForgot ? "Gửi link reset" : isLogin ? "Đăng nhập" : "Đăng ký"}
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </>
+                  isForgot ? "Gửi link reset" : isLogin ? "Đăng nhập" : "Đăng ký"
                 )}
               </button>
             </form>
 
-            <footer className="mt-6 text-center">
+            <footer className="mt-6 pt-5 border-t border-white/8 text-center">
               {isForgot ? (
-                <p className="text-sm text-[#cbc3d7]">
-                  <button
-                    type="button"
-                    onClick={backToLogin}
-                    className="text-[#d0bcff] font-bold hover:underline"
-                  >
-                    ← Quay lại đăng nhập
-                  </button>
-                </p>
+                <button
+                  type="button"
+                  onClick={backToLogin}
+                  className="text-sm font-semibold text-[#d0bcff] hover:text-[#e9ddff] transition-colors"
+                >
+                  Quay lại đăng nhập
+                </button>
               ) : (
                 <p className="text-sm text-[#cbc3d7]">
                   {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
                   <button
                     type="button"
                     onClick={toggleMode}
-                    className="text-[#d0bcff] font-bold hover:underline ml-1"
+                    className="font-semibold text-[#d0bcff] hover:text-[#e9ddff] transition-colors"
                   >
                     {isLogin ? "Đăng ký ngay" : "Đăng nhập"}
                   </button>
@@ -456,18 +480,22 @@ export default function Auth() {
               )}
               <Link
                 to="/"
-                className="inline-block mt-3 text-xs text-[#958ea0] hover:text-[#4cd7f6] transition-colors"
+                className="inline-flex items-center justify-center gap-1 mt-4 text-xs text-[#958ea0] hover:text-[#4cd7f6] transition-colors"
               >
-                ← Quay lại trang chủ
+                Quay lại trang chủ
               </Link>
             </footer>
+            </div>
+            </div>
           </div>
 
-          <div className="absolute bottom-4 right-4 opacity-20 pointer-events-none hidden md:block">
-            <span className="auth-code text-[#4cd7f6] opacity-80">SYSTEM_AUTH_READY: 1.0.4</span>
-          </div>
         </section>
       </main>
+
+      <div className="auth-hud-br hidden md:flex" aria-hidden>
+        <span className="auth-code text-[#958ea0]/60">AUTH_GATE v1.0.4</span>
+        <span className="auth-code text-[#4edea3]/70">● SECURE</span>
+      </div>
     </div>
   );
 }

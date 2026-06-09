@@ -7,10 +7,13 @@ import {
   Save,
   Shield,
   ShoppingCart,
+  Sparkles,
   Upload,
   User,
   XCircle,
+  ChevronRight,
 } from "lucide-react";
+import { componentClasses } from "../../constants/theme";
 import { toast } from "../../utils/notify";
 import { Link } from "react-router";
 import { ApiError } from "../../api/client";
@@ -24,7 +27,10 @@ import type { SubscriptionHistoryItem, SubscriptionMe, WalletTransaction } from 
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { formatWalletBalance } from "../../utils/helpers";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
-import { ClientPagination } from "./ui/ClientPagination";
+import { BeamPanel } from "./BeamPanel";
+import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
+
+const PROFILE_LIST_PAGE_SIZE = 5;
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -78,6 +84,7 @@ export default function Profile() {
 
   const [subscription, setSubscription] = useState<SubscriptionMe | null>(null);
   const [subHistory, setSubHistory] = useState<SubscriptionHistoryItem[]>([]);
+  const [subHistoryPage, setSubHistoryPage] = useState(1);
   const [subLoading, setSubLoading] = useState(true);
   const [cancellingSub, setCancellingSub] = useState(false);
   const [cancelSubDialogOpen, setCancelSubDialogOpen] = useState(false);
@@ -120,7 +127,7 @@ export default function Profile() {
     (async () => {
       setWalletLoading(true);
       try {
-        const res = await fetchMyWalletTransactions(walletPage, 10);
+        const res = await fetchMyWalletTransactions(walletPage, PROFILE_LIST_PAGE_SIZE);
         if (!cancelled) {
           setWalletTx(res.data);
           setWalletTotalPages(Math.max(1, Math.ceil(res.total / res.pageSize)));
@@ -236,6 +243,7 @@ export default function Profile() {
       ]);
       setSubscription(sub);
       setSubHistory(history);
+      setSubHistoryPage(1);
       setCancelSubDialogOpen(false);
       toast.success("Đã hủy gói đăng ký");
     } catch (error) {
@@ -247,38 +255,163 @@ export default function Profile() {
 
   const subStatus = subscription ? subscriptionStatusLabel(subscription.status) : null;
 
+  const {
+    paged: pagedSubHistory,
+    totalPages: subHistoryTotalPages,
+    page: safeSubHistoryPage,
+  } = useMemo(
+    () => getPageSlice(subHistory, subHistoryPage, PROFILE_LIST_PAGE_SIZE),
+    [subHistory, subHistoryPage]
+  );
+
+  useEffect(() => {
+    if (subHistoryPage !== safeSubHistoryPage) {
+      setSubHistoryPage(safeSubHistoryPage);
+    }
+  }, [subHistoryPage, safeSubHistoryPage]);
+
   return (
-    <div className="min-h-[calc(100vh-200px)] py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-primary/20 border border-primary/30 p-3 rounded-xl">
-              <User className="w-6 h-6 text-primary" />
+    <div className={`${componentClasses.page} min-h-[calc(100dvh-8rem)]`}>
+      <div className={`${componentClasses.container} space-y-6`}>
+        {/* Hero — full width */}
+        <BeamPanel
+          className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 sm:p-8 overflow-hidden relative"
+          beam={4}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5 pointer-events-none" />
+          <div className="relative flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
+            <div className="flex items-center gap-5 sm:gap-6 shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-primary/30 bg-card flex items-center justify-center shadow-[0_0_24px_rgba(0,217,255,0.15)]">
+                {avatarSrc ? (
+                  <img src={avatarSrc} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-10 h-10 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0 lg:hidden">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">{user.name}</h1>
+                <p className="text-sm text-muted-foreground font-mono truncate">{user.email}</p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold text-foreground">Hồ sơ người dùng</h1>
-              <p className="text-muted-foreground text-sm truncate">
-                Ảnh đại diện lưu trực tiếp vào tài khoản — hiển thị ngay trên hồ sơ và header
-              </p>
+
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="hidden lg:block">
+                <p className="text-sm text-primary font-medium mb-1">Hồ sơ người dùng</p>
+                <h1 className="text-2xl xl:text-3xl font-bold text-foreground">{user.name}</h1>
+                <p className="text-muted-foreground font-mono text-sm mt-1 truncate">{user.email}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-primary/15 text-primary border border-primary/25">
+                  {subscriptionLabel}
+                </span>
+                {subStatus && (
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${subStatus.className}`}>
+                    {subStatus.label}
+                  </span>
+                )}
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-secondary/15 text-secondary border border-secondary/25 flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  {user.role.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:flex-col lg:items-stretch lg:w-48 xl:w-56 shrink-0">
+              <Link
+                to="/orders"
+                className="flex-1 lg:flex-none bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] text-primary-foreground px-4 py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                Lịch sử mua
+              </Link>
+              <Link
+                to="/pricing"
+                className="flex-1 lg:flex-none bg-card border border-border hover:border-primary/50 text-foreground px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-primary" />
+                Nâng cấp gói
+              </Link>
             </div>
           </div>
+        </BeamPanel>
+
+        {/* Stat strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              label: "Xu trong ví",
+              icon: <Coins className="w-5 h-5 text-warning" />,
+              value: user.isUnlimited ? (
+                <UnlimitedXuIcon size="md" />
+              ) : (
+                <span className="text-2xl font-bold font-mono tabular-nums">
+                  {formatWalletBalance(user.credits, false)}
+                </span>
+              ),
+            },
+            {
+              label: "Gói hiện tại",
+              icon: <CreditCard className="w-5 h-5 text-primary" />,
+              value: (
+                <span className="text-xl font-bold text-primary font-mono">{subscriptionLabel}</span>
+              ),
+              sub: subscriptionExpiry
+                ? `Hết hạn ${new Date(subscriptionExpiry).toLocaleDateString("vi-VN")}`
+                : undefined,
+            },
+            {
+              label: "Vai trò",
+              icon: <Shield className="w-5 h-5 text-secondary" />,
+              value: (
+                <span className="text-xl font-bold font-mono">{user.role.toUpperCase()}</span>
+              ),
+            },
+            {
+              label: "AssetBox AI",
+              icon: <Sparkles className="w-5 h-5 text-primary" />,
+              value: (
+                <Link to="/dashboard" className="text-sm font-semibold text-primary hover:underline flex items-center gap-1">
+                  Mở chat <ChevronRight className="w-4 h-4" />
+                </Link>
+              ),
+            },
+          ].map((stat) => (
+            <BeamPanel
+              key={stat.label}
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 sm:p-5"
+              beam={3.5}
+            >
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
+                {stat.icon}
+                {stat.label}
+              </div>
+              <div className="text-foreground">{stat.value}</div>
+              {"sub" in stat && stat.sub && (
+                <p className="text-xs text-muted-foreground mt-1 font-mono">{stat.sub}</p>
+              )}
+            </BeamPanel>
+          ))}
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        {/* Edit + quick actions */}
+        <div className="grid lg:grid-cols-12 gap-6">
+          <BeamPanel
+            className="lg:col-span-8 bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 sm:p-8"
+            beam={4.2}
+          >
             <h2 className="text-xl font-bold text-foreground mb-6">Thông tin cơ bản</h2>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-muted-foreground mb-3">
                   Avatar
                 </label>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border border-border bg-card flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl border border-border bg-card/50">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden border border-border bg-card flex items-center justify-center shrink-0">
                     {avatarSrc ? (
                       <img src={avatarSrc} alt={user.name} className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-7 h-7 text-muted-foreground" />
+                      <User className="w-8 h-8 text-muted-foreground" />
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -307,17 +440,18 @@ export default function Profile() {
                       Xoá
                     </button>
                   </div>
+                  <p className="text-xs text-muted-foreground sm:ml-auto sm:max-w-[200px]">
+                    Hiển thị trên header và hồ sơ. Tối đa 1.5MB.
+                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-muted-foreground mb-2">
-                  Email
-                </label>
+                <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
                 <input
                   value={user.email}
                   disabled
-                  className="w-full bg-background/50 border border-border rounded-lg px-4 py-2 text-muted-foreground font-mono opacity-80"
+                  className="w-full bg-background/50 border border-border rounded-lg px-4 py-2.5 text-muted-foreground font-mono text-sm opacity-90"
                 />
               </div>
 
@@ -328,83 +462,51 @@ export default function Profile() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-background border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                  className="w-full bg-background border border-border rounded-lg px-4 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
                 />
               </div>
 
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:from-primary/50 disabled:to-secondary/50 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:cursor-not-allowed"
-              >
-                <Save className="w-5 h-5" />
-                {saving ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
+              <div className="sm:col-span-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-full sm:w-auto sm:min-w-[200px] bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 disabled:opacity-50 text-primary-foreground px-8 py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
+                >
+                  <Save className="w-5 h-5" />
+                  {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
             </div>
-          </div>
+          </BeamPanel>
 
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 space-y-4">
-            <h2 className="text-xl font-bold text-foreground">Tài khoản</h2>
-
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-sm text-muted-foreground mb-2">Hoạt động</p>
+          <BeamPanel
+            className="lg:col-span-4 bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 space-y-3"
+            beam={3.8}
+          >
+            <h2 className="text-xl font-bold text-foreground mb-2">Truy cập nhanh</h2>
+            {[
+              { to: "/my-assets", label: "Thư viện assets", desc: "Assets đã mua & tải" },
+              { to: "/marketplace", label: "Chợ Assets", desc: "Khám phá thêm" },
+              { to: "/dashboard", label: "AssetBox AI", desc: "Chat tìm asset" },
+              { to: "/orders", label: "Đơn hàng", desc: "Lịch sử thanh toán" },
+            ].map((item) => (
               <Link
-                to="/orders"
-                className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.25)]"
+                key={item.to}
+                to={item.to}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card/50 hover:border-primary/40 hover:bg-card transition-colors group"
               >
-                <ShoppingCart className="w-4 h-4" />
-                Lịch sử mua
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground text-sm">{item.label}</p>
+                  <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
               </Link>
-              <p className="text-xs text-muted-foreground mt-2">
-                Xem các đơn hàng (gói dịch vụ & asset) bạn đã thanh toán.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-sm text-muted-foreground mb-1">Credits (xu)</p>
-              <div className="flex items-center gap-2">
-                <Coins className="w-5 h-5 text-warning shrink-0" />
-                {user.isUnlimited ? (
-                  <UnlimitedXuIcon size="lg" />
-                ) : (
-                  <p className="text-2xl font-bold text-foreground font-mono tabular-nums">
-                    {formatWalletBalance(user.credits, false)}
-                  </p>
-                )}
-              </div>
-              {user.isUnlimited && (
-                <p className="text-xs text-success mt-2 font-medium">Không giới hạn đến hết kỳ gói</p>
-              )}
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-sm text-muted-foreground mb-1">Gói hiện tại</p>
-              <p className="text-2xl font-bold text-primary font-mono">{subscriptionLabel}</p>
-              {subscriptionExpiry && (
-                <p className="text-xs text-muted-foreground mt-1 font-mono">
-                  Hết hạn: {new Date(subscriptionExpiry).toLocaleDateString("vi-VN")}
-                </p>
-              )}
-              {subStatus && (
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold ${subStatus.className}`}>
-                  {subStatus.label}
-                </span>
-              )}
-            </div>
-
-            <div className="bg-card border border-border rounded-xl p-4">
-              <p className="text-sm text-muted-foreground mb-1">Vai trò</p>
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-secondary" />
-                <p className="text-lg font-bold text-foreground font-mono">
-                  {user.role.toUpperCase()}
-                </p>
-              </div>
-            </div>
-          </div>
+            ))}
+          </BeamPanel>
         </div>
 
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <div className="grid xl:grid-cols-2 gap-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.5}>
           <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
             <div>
               <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -472,7 +574,7 @@ export default function Profile() {
                     Lịch sử gói
                   </p>
                   <div className="space-y-2">
-                    {subHistory.map((item) => {
+                    {pagedSubHistory.map((item) => {
                       const st = subscriptionStatusLabel(item.status);
                       return (
                         <div
@@ -495,6 +597,13 @@ export default function Profile() {
                       );
                     })}
                   </div>
+                  {subHistoryTotalPages > 1 && (
+                    <ClientPagination
+                      page={subHistoryPage}
+                      totalPages={subHistoryTotalPages}
+                      onPageChange={setSubHistoryPage}
+                    />
+                  )}
                 </div>
               )}
 
@@ -508,9 +617,9 @@ export default function Profile() {
               )}
             </div>
           )}
-        </div>
+        </BeamPanel>
 
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.8}>
           <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mb-2">
             <Coins className="w-5 h-5 text-warning" />
             Lịch sử xu
@@ -567,6 +676,7 @@ export default function Profile() {
               )}
             </div>
           )}
+        </BeamPanel>
         </div>
       </div>
 

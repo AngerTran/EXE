@@ -41,6 +41,7 @@ public class AdminService(
         Guid adminUserId,
         string? search,
         UserRole? role,
+        bool includeBanned,
         PagedQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -49,6 +50,7 @@ public class AdminService(
         var (users, total) = await adminRepository.ListUsersAsync(
             search,
             role,
+            includeBanned,
             query.Skip,
             query.NormalizedPageSize,
             cancellationToken);
@@ -257,10 +259,16 @@ public class AdminService(
     {
         await EnsureAdminAsync(adminUserId, cancellationToken);
         var byStatus = await adminRepository.GetOrderCountsByStatusAsync(cancellationToken);
+        var byType = await adminRepository.GetCompletedOrderCountsByTypeAsync(cancellationToken);
+        var purchases = await adminRepository.GetCompletedPurchaseStatsAsync(cancellationToken);
         return new AdminAnalyticsOrdersResponse(
             byStatus.Sum(x => x.Count),
             byStatus.Select(s => new AdminOrderStatusStatResponse(
-                s.Status.ToString().ToLowerInvariant(), s.Count)).ToList());
+                s.Status.ToString().ToLowerInvariant(), s.Count)).ToList(),
+            byType.Select(t => new AdminOrderTypeStatResponse(
+                t.Type.ToString().ToLowerInvariant(), t.Count)).ToList(),
+            purchases.Select(p => new AdminPurchaseStatResponse(
+                p.Category, p.ItemName, p.PlanSlug, p.Count, p.RevenueVnd)).ToList());
     }
 
     public async Task<SubscriptionPlanListResponse> ListSubscriptionPlansAsync(

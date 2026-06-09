@@ -3,12 +3,12 @@
 :root {
   --font-size: 16px;
 
-  /* Core Colors - Light Theme */
-  --background: #f4f7fb;
+  /* Core Colors - Light Theme (soft surfaces — not pure white) */
+  --background: #d8e0ea;
   --foreground: #0f172a;
-  --card: #f8fafc;
+  --card: #e0e7f0;
   --card-foreground: #0f172a;
-  --popover: #ffffff;
+  --popover: #e4eaf2;
   --popover-foreground: #0f172a;
 
   /* Primary / Secondary keep brand identity */
@@ -18,7 +18,7 @@
   --secondary-foreground: #ffffff;
 
   /* Muted */
-  --muted: #e2e8f0;
+  --muted: #cdd6e2;
   --muted-foreground: #334155;
 
   /* Accent */
@@ -35,7 +35,7 @@
   /* Borders & Inputs */
   --border: rgba(15, 23, 42, 0.14);
   --input: transparent;
-  --input-background: rgba(218, 226, 234, 0.95);
+  --input-background: rgba(205, 214, 226, 0.95);
   --switch-background: #b8c4d4;
 
   /* Focus Ring */
@@ -56,14 +56,31 @@
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: #eaedf2;
+  --sidebar: #dce3ed;
   --sidebar-foreground: #1e293b;
   --sidebar-primary: #00a7c4;
   --sidebar-primary-foreground: #071018;
-  --sidebar-accent: #dae2ea;
+  --sidebar-accent: #d0d9e4;
   --sidebar-accent-foreground: #1e293b;
   --sidebar-border: rgba(15, 23, 42, 0.14);
   --sidebar-ring: #00a7c4;
+
+  /* Border beam — higher contrast on light surfaces */
+  --beam-z: 12;
+  --beam-trail-stroke: rgba(0, 143, 168, 0.72);
+  --beam-trail-opacity: 0.9;
+  --beam-trail-width: 4;
+  --beam-core-width: 2.25;
+  --beam-glow-blur: 3;
+  --beam-grad-a: rgba(0, 143, 168, 0);
+  --beam-grad-b: #0891b2;
+  --beam-grad-c: #6d28d9;
+  --beam-grad-d: #9333ea;
+  --beam-grad-e: rgba(109, 40, 217, 0);
+
+  /* CTA gradient — fixed; not overridden inside surface panels */
+  --cta-from: #22d3ee;
+  --cta-to: #c4b5fd;
 }
 
 .dark {
@@ -103,6 +120,22 @@
   --sidebar-accent-foreground: #f8f9fa;
   --sidebar-border: rgba(148, 163, 184, 0.2);
   --sidebar-ring: #00d9ff;
+
+  /* Border beam — neon glow on dark surfaces */
+  --beam-z: 2;
+  --beam-trail-stroke: rgba(76, 215, 246, 0.45);
+  --beam-trail-opacity: 0.75;
+  --beam-trail-width: 3;
+  --beam-core-width: 1.5;
+  --beam-glow-blur: 2;
+  --beam-grad-a: rgba(76, 215, 246, 0);
+  --beam-grad-b: #4cd7f6;
+  --beam-grad-c: #e9d5ff;
+  --beam-grad-d: #a855f7;
+  --beam-grad-e: rgba(76, 215, 246, 0);
+
+  --cta-from: #00d9ff;
+  --cta-to: #a855f7;
 }
 
 @theme inline {

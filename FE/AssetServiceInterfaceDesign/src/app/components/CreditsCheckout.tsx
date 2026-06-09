@@ -31,6 +31,7 @@ import { hasPaidSubscription } from "../../constants/subscriptionPlanTemplates";
 import { componentClasses } from "../../constants/theme";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
+import { BeamPanel } from "./BeamPanel";
 import { usePollOrderCompletion } from "../../hooks/usePollOrderCompletion";
 
 export default function CreditsCheckout() {
@@ -163,7 +164,7 @@ export default function CreditsCheckout() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
+          <BeamPanel className={cn(componentClasses.card, "p-8 hover:scale-100")} beam={4}>
             <div
               className={cn(
                 "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border",
@@ -215,7 +216,7 @@ export default function CreditsCheckout() {
                 <Link to="/pricing">Về bảng giá</Link>
               </Button>
             </div>
-          </div>
+          </BeamPanel>
         </div>
       </div>
     );
@@ -234,7 +235,7 @@ export default function CreditsCheckout() {
 
         <div className="grid lg:grid-cols-5 gap-8 items-start">
           <div className="lg:col-span-3">
-            <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
+            <BeamPanel className={cn(componentClasses.card, "p-8 hover:scale-100")} beam={4}>
               <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
                 <QrCode className="w-7 h-7 text-primary" />
                 Quét mã QR chuyển khoản
@@ -349,11 +350,11 @@ export default function CreditsCheckout() {
               >
                 Tôi đã chuyển khoản
               </Button>
-            </div>
+            </BeamPanel>
           </div>
 
           <div className="lg:col-span-2">
-            <div className={cn(componentClasses.card, "p-6 sticky top-24 hover:scale-100")}>
+            <BeamPanel className={cn(componentClasses.card, "p-6 sticky top-24 hover:scale-100")} beam={3.8}>
               <h3 className="text-lg font-bold text-foreground mb-4">Gói xu đã chọn</h3>
               <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-4 mb-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -390,7 +391,7 @@ export default function CreditsCheckout() {
                   Không ảnh hưởng chu kỳ gói đăng ký hiện tại
                 </li>
               </ul>
-            </div>
+            </BeamPanel>
           </div>
         </div>
       </div>

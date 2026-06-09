@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router";
-import { Menu, X, LogOut, User, Coins, Moon, Sun, Phone } from "lucide-react";
+import { Menu, LogOut, User, Coins, Moon, Sun, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { formatWalletBalance } from "../../utils/helpers";
@@ -11,6 +11,17 @@ import { NotificationBell } from "./NotificationBell";
 import { useTheme } from "../contexts/ThemeContext";
 import { useSubscriptionAlerts } from "../../hooks/useSubscriptionAlerts";
 import { useAdminPendingOrderAlerts } from "../../hooks/useAdminPendingOrderAlerts";
+import {
+  MobileBottomNav,
+  shouldShowMobileBottomNav,
+} from "./layout/MobileBottomNav";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "./ui/sheet";
+import { componentClasses } from "../../constants/theme";
 
 export default function Root() {
   const location = useLocation();
@@ -51,9 +62,10 @@ export default function Root() {
   const avatarSrc = getUserAvatarSrc(user);
   useSubscriptionAlerts(user);
   const { pendingCount: adminPendingOrders } = useAdminPendingOrderAlerts(user);
+  const showMobileTabBar = shouldShowMobileBottomNav(location.pathname);
 
   return (
-    <div className="min-h-screen relative">
+    <div className={`min-h-screen relative ${showMobileTabBar ? "has-mobile-tab-bar" : ""}`}>
       <Toaster />
       {/* Navigation */}
       {!isAuthPage && (
@@ -222,178 +234,143 @@ export default function Root() {
               )}
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              className="md:hidden text-foreground hover:text-primary transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
-
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden py-4 space-y-3 border-t border-border">
-              <Link
-                to="/"
-                className={`block text-sm font-medium ${
-                  isActive("/") ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Trang chủ
-              </Link>
-              <Link
-                to="/dashboard"
-                className={`block text-sm font-medium ${
-                  isActive("/dashboard") ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                AssetBox AI
-              </Link>
-              <Link
-                to="/marketplace"
-                className={`block text-sm font-medium ${
-                  isActive("/marketplace") ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Chợ Assets
-              </Link>
-              {user && (
-                <>
-                  <Link
-                    to="/my-assets"
-                    className={`block text-sm font-medium ${
-                      isActive("/my-assets") ? "text-primary" : "text-muted-foreground"
-                    }`}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Thư viện
-                  </Link>
-                </>
-              )}
-              <Link
-                to="/pricing"
-                className={`block text-sm font-medium ${
-                  isActive("/pricing") ? "text-primary" : "text-muted-foreground"
-                }`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Gói dịch vụ
-              </Link>
-              
+            {/* Mobile quick actions + menu */}
+            <div className="md:hidden flex items-center gap-1">
               {user ? (
                 <>
-                  {user.role === "admin" && (
-                    <Link
-                      to="/admin?tab=orders"
-                      className={`flex items-center gap-2 text-sm font-medium ${
-                        isActive("/admin") ? "text-primary" : "text-muted-foreground"
-                      }`}
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Admin Dashboard
-                      {adminPendingOrders > 0 && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold flex items-center justify-center">
-                          {adminPendingOrders > 9 ? "9+" : adminPendingOrders}
-                        </span>
-                      )}
-                    </Link>
-                  )}
-                  <div className="pt-3 border-t border-border space-y-3">
-                    <div className="flex items-center gap-2">
-                      <NotificationBell adminPendingOrders={adminPendingOrders} />
-                      <span className="text-sm text-foreground">Thông báo</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleTheme();
-                        setMobileMenuOpen(false);
-                      }}
-                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
-                    >
-                      {theme === "dark" ? (
-                        <Sun className="w-4 h-4 text-warning" />
+                  <NotificationBell adminPendingOrders={adminPendingOrders} />
+                  <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className={componentClasses.iconButton}
+                    title={theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
+                  >
+                    {theme === "dark" ? (
+                      <Sun className="w-5 h-5 text-warning" />
+                    ) : (
+                      <Moon className="w-5 h-5 text-primary" />
+                    )}
+                  </button>
+                  <Link
+                    to="/pricing"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border bg-white/95 dark:bg-card/70 font-mono text-xs shrink-0 ${componentClasses.chromeSurface}`}
+                    title={user.isUnlimited ? "Xu không giới hạn" : undefined}
+                  >
+                    <Coins className="w-3.5 h-3.5 text-warning" />
+                    {user.isUnlimited ? (
+                      <UnlimitedXuIcon size="sm" />
+                    ) : (
+                      <span className="tabular-nums">{formatWalletBalance(user.credits, false)}</span>
+                    )}
+                  </Link>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className={`${componentClasses.iconButton} ml-0.5`}
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Mở menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+      )}
+
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent side="right" className="w-[min(100vw-2rem,20rem)] p-0">
+          <SheetHeader className="border-b border-border p-4 text-left">
+            <SheetTitle>Menu</SheetTitle>
+          </SheetHeader>
+          <nav className="flex flex-col p-4 gap-1 overflow-y-auto">
+            {[
+              { to: "/", label: "Trang chủ" },
+              { to: "/dashboard", label: "AssetBox AI" },
+              { to: "/marketplace", label: "Chợ Assets" },
+              ...(user ? [{ to: "/my-assets", label: "Thư viện" }] : []),
+              { to: "/pricing", label: "Gói dịch vụ" },
+            ].map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`touch-target justify-start px-3 rounded-lg text-sm font-medium ${
+                  isActive(link.to) ? "text-primary bg-primary/10" : "text-muted-foreground"
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {user?.role === "admin" && (
+              <Link
+                to="/admin?tab=orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`touch-target justify-start px-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                  isActive("/admin") ? "text-primary bg-primary/10" : "text-muted-foreground"
+                }`}
+              >
+                Admin Dashboard
+                {adminPendingOrders > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold flex items-center justify-center">
+                    {adminPendingOrders > 9 ? "9+" : adminPendingOrders}
+                  </span>
+                )}
+              </Link>
+            )}
+            <div className="border-t border-border my-3 pt-3 space-y-1">
+              {user ? (
+                <>
+                  <Link
+                    to="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="touch-target justify-start px-3 gap-2 rounded-lg text-sm text-foreground"
+                  >
+                    <div className="w-7 h-7 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center shrink-0">
+                      {avatarSrc ? (
+                        <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <Moon className="w-4 h-4 text-primary" />
-                      )}
-                      <span>
-                        {theme === "dark" ? "Chế độ sáng" : "Chế độ tối"}
-                      </span>
-                    </button>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Coins className="w-4 h-4 text-warning shrink-0" />
-                      {user.isUnlimited ? (
-                        <span className="flex items-center gap-1.5">
-                          <UnlimitedXuIcon size="sm" />
-                          <span className="text-foreground font-medium text-sm">xu</span>
-                        </span>
-                      ) : (
-                        <span className="text-foreground font-mono font-medium">
-                          {user.credits || 0} xu
-                        </span>
+                        <User className="w-4 h-4 text-primary" />
                       )}
                     </div>
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-2 text-sm text-foreground hover:text-primary transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      <div className="w-6 h-6 rounded-full overflow-hidden border border-border bg-background flex items-center justify-center">
-                        {avatarSrc ? (
-                          <img
-                            src={avatarSrc}
-                            alt={user.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User className="w-4 h-4 text-primary" />
-                        )}
-                      </div>
-                      <span className="text-foreground">{user.name}</span>
-                      <SubscriptionPlanBadge plan={user.subscription} />
-                      {user.role === "admin" && (
-                        <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full ml-1">
-                          ADMIN
-                        </span>
-                      )}
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-2 text-sm text-destructive"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Đăng xuất
-                    </button>
-                  </div>
+                    <span className="truncate">{user.name}</span>
+                    <SubscriptionPlanBadge plan={user.subscription} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="touch-target justify-start px-3 gap-2 w-full rounded-lg text-sm text-destructive"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Đăng xuất
+                  </button>
                 </>
               ) : (
                 <Link
                   to="/auth"
-                  className="block text-sm font-medium text-primary"
                   onClick={() => setMobileMenuOpen(false)}
+                  className="touch-target justify-start px-3 rounded-lg text-sm font-medium text-primary"
                 >
                   Đăng nhập
                 </Link>
               )}
             </div>
-          )}
-        </div>
-      </nav>
-      )}
+          </nav>
+        </SheetContent>
+      </Sheet>
 
       {/* Main Content */}
       <main className={isAuthPage ? "min-h-screen h-screen overflow-hidden" : undefined}>
         <Outlet />
       </main>
 
+      {showMobileTabBar && <MobileBottomNav isLoggedIn={!!user} />}
+
       {/* Footer */}
       {!isAuthPage && (
-      <footer className="site-footer border-t border-border bg-white/95 dark:bg-card/60 backdrop-blur-lg mt-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <footer className={`site-footer border-t border-border bg-white/95 dark:bg-card/60 backdrop-blur-lg mt-20 shadow-sm ${showMobileTabBar ? "mb-16 md:mb-0" : ""}`}>
+        <div className={`${componentClasses.container} py-12`}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* Company Info */}
             <div>

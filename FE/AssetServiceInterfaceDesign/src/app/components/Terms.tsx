@@ -1,4 +1,5 @@
 import { FileText, Shield, AlertCircle, Scale } from "lucide-react";
+import { BeamPanel } from "./BeamPanel";
 
 export default function Terms() {
   return (
@@ -16,7 +17,7 @@ export default function Terms() {
         </div>
 
         {/* Content */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-8 space-y-8">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg rounded-2xl border border-border p-8 space-y-8" beam={5}>
 
           {/* Section 1 */}
           <section>
@@ -64,19 +65,19 @@ export default function Terms() {
 
               <h3 className="text-xl font-semibold text-white mt-6">3.2. Các gói dịch vụ</h3>
               <div className="space-y-4">
-                <div className="bg-white/5 p-4 rounded-lg">
+                <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border p-4 rounded-lg">
                   <h4 className="font-bold text-white">FREE (100 xu)</h4>
                   <p>20 lượt hỏi AI miễn phí, truy cập Assets miễn phí</p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
+                <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border p-4 rounded-lg">
                   <h4 className="font-bold text-white">STUDENT (1.000 xu/tháng)</h4>
                   <p>100 lượt hỏi AI/tháng, Full Assets Library access</p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
+                <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border p-4 rounded-lg">
                   <h4 className="font-bold text-white">INDIE (∞ xu/tháng)</h4>
                   <p>Unlimited AI queries, 1 giờ tư vấn trực tiếp/tháng, Priority support</p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
+                <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border p-4 rounded-lg">
                   <h4 className="font-bold text-white">PRO (∞ xu/tháng)</h4>
                   <p>Unlimited AI queries, Team collaboration tools, Unlimited consulting hours</p>
                 </div>
@@ -186,7 +187,7 @@ export default function Terms() {
             </div>
           </section>
 
-        </div>
+        </BeamPanel>
 
         {/* Bottom Notice */}
         <div className="mt-8 p-6 bg-purple-600/10 border border-purple-500/20 rounded-xl">

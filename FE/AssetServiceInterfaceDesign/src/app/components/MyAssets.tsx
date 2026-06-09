@@ -21,6 +21,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { BeamPanel } from "./BeamPanel";
 import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
 import {
   AlertDialog,
@@ -168,7 +169,7 @@ export default function MyAssets() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-8">
+          <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-8" beam={3.6}>
             <Package className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-2">
               Vui lòng đăng nhập
@@ -182,7 +183,7 @@ export default function MyAssets() {
             >
               Đăng nhập ngay
             </Link>
-          </div>
+          </BeamPanel>
         </div>
       </div>
     );
@@ -213,7 +214,7 @@ export default function MyAssets() {
 
           {/* Stats */}
           <div className="grid sm:grid-cols-3 gap-4 mb-6">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4" beam={3.2}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tổng assets</p>
@@ -221,12 +222,12 @@ export default function MyAssets() {
                     {purchasedAssets.length}
                   </p>
                 </div>
-                <div className="bg-primary/20 border border-primary/30 p-3 rounded-lg">
-                  <Package className="w-6 h-6 text-primary" />
+                <div className="bg-cyan-500/30 dark:bg-primary/35 border border-cyan-500/55 dark:border-primary/50 p-3 rounded-lg shadow-[0_0_14px_rgba(34,211,238,0.22)] dark:shadow-[0_0_14px_rgba(0,217,255,0.28)]">
+                  <Package className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
                 </div>
               </div>
-            </div>
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+            </BeamPanel>
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4" beam={3.4}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tổng chi tiêu</p>
@@ -234,12 +235,12 @@ export default function MyAssets() {
                     {totalSpent.toLocaleString("vi-VN")} xu
                   </p>
                 </div>
-                <div className="bg-success/20 border border-success/30 p-3 rounded-lg">
-                  <Download className="w-6 h-6 text-success" />
+                <div className="bg-emerald-500/30 dark:bg-success/35 border border-emerald-500/55 dark:border-success/50 p-3 rounded-lg shadow-[0_0_14px_rgba(16,185,129,0.22)] dark:shadow-[0_0_14px_rgba(16,185,129,0.28)]">
+                  <Download className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
                 </div>
               </div>
-            </div>
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+            </BeamPanel>
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4" beam={3.6}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Lượt tải</p>
@@ -250,15 +251,15 @@ export default function MyAssets() {
                     )}
                   </p>
                 </div>
-                <div className="bg-warning/20 border border-warning/30 p-3 rounded-lg">
-                  <Star className="w-6 h-6 text-warning" />
+                <div className="bg-amber-400/30 dark:bg-amber-400/25 border border-amber-500/55 dark:border-amber-400/50 p-3 rounded-lg shadow-[0_0_14px_rgba(245,158,11,0.24)] dark:shadow-[0_0_14px_rgba(251,191,36,0.28)]">
+                  <Star className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                 </div>
               </div>
-            </div>
+            </BeamPanel>
           </div>
 
           {/* Search & Filter */}
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+          <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4" beam={3.8}>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -285,13 +286,13 @@ export default function MyAssets() {
                 </select>
               </div>
             </div>
-          </div>
+          </BeamPanel>
         </div>
 
         {/* Assets Grid */}
         {filteredAssets.length === 0 ? (
           <div className="text-center py-16">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-12 max-w-md mx-auto">
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-12 max-w-md mx-auto" beam={4}>
               <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-bold text-foreground mb-2">
                 {purchasedAssets.length === 0
@@ -309,7 +310,7 @@ export default function MyAssets() {
               >
                 Đi tới Chợ Assets
               </Link>
-            </div>
+            </BeamPanel>
           </div>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -319,9 +320,11 @@ export default function MyAssets() {
                 const isDownloading = typeof progress === "number";
 
                 return (
-              <div
+              <BeamPanel
                 key={asset.id}
-                className="bg-card/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+                beam={3.8}
+                contentClassName="overflow-hidden rounded-xl"
+                className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
               >
                 {/* Preview Image (match Marketplace card) */}
                 <div
@@ -417,7 +420,7 @@ export default function MyAssets() {
                   </div>
 
                   {isDownloading && (
-                    <div className="bg-card/50 border border-border rounded-lg p-3">
+                    <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-lg p-3">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-muted-foreground">
                           Tiến trình tải
@@ -435,7 +438,7 @@ export default function MyAssets() {
                     </div>
                   )}
                 </div>
-              </div>
+              </BeamPanel>
                 );
               })()
             ))}
@@ -489,7 +492,7 @@ export default function MyAssets() {
 
                 {/* Stats (keep only necessary for purchased asset) */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                     <div className="flex items-center justify-center gap-1 mb-2">
                       <Download className="w-5 h-5 text-primary" />
                       <span className="text-2xl font-bold text-foreground font-mono">
@@ -498,7 +501,7 @@ export default function MyAssets() {
                     </div>
                     <p className="text-sm text-muted-foreground">Lượt tải</p>
                   </div>
-                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                     <div className="mb-2">
                       <span className="text-2xl font-bold text-foreground font-mono">
                         {viewingAsset.fileSize}
@@ -506,7 +509,7 @@ export default function MyAssets() {
                     </div>
                     <p className="text-sm text-muted-foreground">Dung lượng</p>
                   </div>
-                  <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                     <div className="mb-2">
                       <span className="text-2xl font-bold text-primary font-mono">
                         {viewingAsset.price === 0

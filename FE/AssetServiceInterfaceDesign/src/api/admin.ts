@@ -7,6 +7,7 @@ import type {
   AdminAuditLog,
   AdminOverview,
   AdminUser,
+  AdminUserDetail,
   ContactInquiry,
 } from "./types/admin";
 import type { SubscriptionPlan } from "./types/billing";
@@ -25,12 +26,18 @@ export async function fetchAdminUsers(
   page = 1,
   pageSize = 50,
   search?: string,
-  role?: string
+  role?: string,
+  includeBanned = false
 ): Promise<PagedResponse<AdminUser>> {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (search) params.set("search", search);
   if (role) params.set("role", role);
+  if (includeBanned) params.set("includeBanned", "true");
   return apiRequest<PagedResponse<AdminUser>>(`/admin/users?${params}`);
+}
+
+export async function fetchAdminUserDetail(id: string): Promise<AdminUserDetail> {
+  return apiRequest<AdminUserDetail>(`/admin/users/${id}`);
 }
 
 export async function updateAdminUser(

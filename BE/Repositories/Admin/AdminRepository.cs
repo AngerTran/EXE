@@ -43,13 +43,14 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
     public async Task<(IReadOnlyList<ProfileEntity> Items, int Total)> ListUsersAsync(
         string? search,
         UserRole? role,
+        bool includeBanned,
         int skip,
         int take,
         CancellationToken cancellationToken = default)
     {
         var q = db.Profiles
             .AsNoTracking()
-            .Where(p => p.DeletedAt == null)
+            .Where(p => p.DeletedAt == null && (includeBanned || p.Status == UserStatus.Active))
             .Include(p => p.Wallet)
             .Include(p => p.Subscriptions.Where(s => s.Status == SubscriptionStatus.Active))
                 .ThenInclude(s => s.Plan)
@@ -214,5 +215,63 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
             .Select(g => new { g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
         return rows.Select(x => (x.Key, x.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<(OrderType Type, int Count)>> GetCompletedOrderCountsByTypeAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await db.Orders
+            .AsNoTracking()
+            .Where(o => o.Status == OrderStatus.Completed)
+            .GroupBy(o => o.OrderType)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+        return rows.Select(x => (x.Key, x.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<(string Category, string ItemName, string? PlanSlug, int Count, long RevenueVnd)>> GetCompletedPurchaseStatsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var subscriptionStats = await (
+            from item in db.OrderItems.AsNoTracking()
+            join order in db.Orders on item.OrderId equals order.Id
+            join plan in db.SubscriptionPlans on item.PlanId equals plan.Id into planJoin
+            from plan in planJoin.DefaultIfEmpty()
+            where order.Status == OrderStatus.Completed && order.OrderType == OrderType.Subscription
+            group item by new
+            {
+                ItemName = plan != null ? plan.Name : item.ItemName,
+                PlanSlug = plan == null ? null : plan.Slug.ToString().ToLowerInvariant()
+            }
+            into g
+            select new
+            {
+                Category = "subscription",
+                g.Key.ItemName,
+                g.Key.PlanSlug,
+                Count = g.Count(),
+                RevenueVnd = g.Sum(x => x.LineTotal)
+            }).ToListAsync(cancellationToken);
+
+        var creditStats = await (
+            from item in db.OrderItems.AsNoTracking()
+            join order in db.Orders on item.OrderId equals order.Id
+            where order.Status == OrderStatus.Completed && order.OrderType == OrderType.CreditPack
+            group item by item.ItemName
+            into g
+            select new
+            {
+                Category = "credit_pack",
+                ItemName = g.Key,
+                PlanSlug = (string?)null,
+                Count = g.Count(),
+                RevenueVnd = g.Sum(x => x.LineTotal)
+            }).ToListAsync(cancellationToken);
+
+        return subscriptionStats
+            .Select(x => (x.Category, x.ItemName, x.PlanSlug, x.Count, x.RevenueVnd))
+            .Concat(creditStats.Select(x => (x.Category, x.ItemName, x.PlanSlug, x.Count, x.RevenueVnd)))
+            .OrderByDescending(x => x.Count)
+            .ToList();
     }
 }

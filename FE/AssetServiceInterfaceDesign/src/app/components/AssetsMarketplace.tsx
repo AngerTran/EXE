@@ -21,6 +21,7 @@ import {
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { BeamPanel } from "./BeamPanel";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
@@ -360,7 +361,7 @@ export default function AssetsMarketplace() {
         </div>
 
         {/* Search & Filters */}
-        <div className="bg-white/95 dark:bg-card/50 backdrop-blur-sm border border-border rounded-xl p-6 mb-8 shadow-md shadow-black/5">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-6 mb-8 shadow-md shadow-black/5" beam={4}>
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
             <div className="flex-1 relative">
@@ -375,7 +376,7 @@ export default function AssetsMarketplace() {
             </div>
 
             {/* Price Filter */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setPriceFilter("all")}
                 className={`px-4 py-2 rounded-lg transition-all font-medium ${
@@ -444,7 +445,7 @@ export default function AssetsMarketplace() {
               )}
             </button>
           </div>
-        </div>
+        </BeamPanel>
 
         {/* Categories */}
         <div className="mb-8 overflow-x-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
@@ -852,21 +853,21 @@ function AssetDetailDrawerContent({
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
-            <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+            <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
               <div className="flex items-center justify-center gap-1 mb-2">
                 <Star className="w-5 h-5 fill-warning text-warning" />
                 <span className="text-2xl font-bold text-foreground">{asset.rating}</span>
               </div>
               <p className="text-sm text-muted-foreground">Rating</p>
             </div>
-            <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+            <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
               <div className="flex items-center justify-center gap-1 mb-2">
                 <Download className="w-5 h-5 text-primary" />
                 <span className="text-2xl font-bold text-foreground font-mono">{asset.downloads}</span>
               </div>
               <p className="text-sm text-muted-foreground">Downloads</p>
             </div>
-            <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+            <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
               <div className="mb-2">
                 <span className="text-2xl font-bold text-primary font-mono">
                   {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
@@ -948,7 +949,7 @@ function AssetDetailDrawerContent({
                 {relatedAssets.map((related) => (
                   <div
                     key={related.id}
-                    className="bg-card/50 border border-border rounded-xl p-3 hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-3 hover:border-primary/50 transition-all cursor-pointer"
                     onClick={() => onSelectAsset(related)}
                   >
                     <div className="aspect-video rounded-lg overflow-hidden mb-2 bg-gradient-to-br from-primary/10 to-secondary/10">
@@ -978,7 +979,7 @@ function AssetDetailDrawerContent({
           )}
         </div>
 
-      <div className="border-t border-border bg-card/30 backdrop-blur-sm p-5">
+      <div className="border-t border-border bg-white/95 dark:bg-card/70 backdrop-blur-lg p-5">
         <div className="flex items-stretch gap-3">
           {isPurchased ? (
             <Button variant="outline" size="lg" className={cn(componentClasses.buttonGhost, "flex-1 h-11")} disabled>
@@ -1054,10 +1055,12 @@ function AssetCard({
     `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.preview)}`;
 
   return (
-    <div
+    <BeamPanel
       id={`asset-${asset.id}`}
+      beam={3.8}
+      contentClassName="overflow-hidden rounded-xl"
       className={cn(
-        "bg-card/50 backdrop-blur-sm border border-border rounded-xl overflow-hidden hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]",
+        "bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]",
         isHighlighted && "border-primary ring-2 ring-primary/25 shadow-lg shadow-primary/15",
         isPurchased && "border-success/30"
       )}
@@ -1199,6 +1202,6 @@ function AssetCard({
           )}
         </div>
       </div>
-    </div>
+    </BeamPanel>
   );
 }

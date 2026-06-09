@@ -29,6 +29,7 @@ import {
 } from "../../constants/creditPacks";
 import { hasPaidSubscription } from "../../constants/subscriptionPlanTemplates";
 import { cn } from "./ui/utils";
+import { BeamPanel } from "./BeamPanel";
 import { toast } from "../../utils/notify";
 
 type SlugMeta = {
@@ -247,18 +248,19 @@ function CreditPackSection({ packs }: { packs: CreditPack[] }) {
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3 mb-6">
-        {activePacks.map((pack) => (
-          <CreditPackCard
-            key={pack.id}
-            pack={pack}
-            selected={selectedPackId === pack.id}
-            onSelect={() => setSelectedPackId(pack.id)}
-          />
-        ))}
-      </div>
+      <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 sm:p-6" beam={4.4}>
+        <div className="flex flex-col lg:flex-row gap-3 mb-6">
+          {activePacks.map((pack) => (
+            <CreditPackCard
+              key={pack.id}
+              pack={pack}
+              selected={selectedPackId === pack.id}
+              onSelect={() => setSelectedPackId(pack.id)}
+            />
+          ))}
+        </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <button
           type="button"
           onClick={handleBuy}
@@ -286,7 +288,8 @@ function CreditPackSection({ packs }: { packs: CreditPack[] }) {
             để mở khóa mua thêm xu.
           </p>
         )}
-      </div>
+        </div>
+      </BeamPanel>
     </section>
   );
 }
@@ -354,10 +357,12 @@ export default function Pricing() {
               const isCurrent = !!user && currentPlan === pkg.slug;
 
               return (
-                <div
+                <BeamPanel
                   key={pkg.id}
+                  beam={3.6 + (plans.indexOf(pkg) % 3) * 0.3}
+                  contentClassName="flex flex-col overflow-hidden rounded-2xl"
                   className={cn(
-                    "relative flex flex-col rounded-2xl border bg-card/40 overflow-hidden transition-all",
+                    "relative flex flex-col rounded-2xl border bg-white/95 dark:bg-card/70 backdrop-blur-lg transition-all",
                     meta.popular
                       ? "border-primary/60 shadow-xl shadow-primary/10 ring-1 ring-primary/25 lg:scale-[1.02]"
                       : "border-border hover:border-border/80",
@@ -464,7 +469,7 @@ export default function Pricing() {
                       </ul>
                     </div>
                   </div>
-                </div>
+                </BeamPanel>
               );
             })}
           </div>
@@ -472,7 +477,7 @@ export default function Pricing() {
 
         {!loading && <CreditPackSection packs={creditPacks} />}
 
-        <div className={cn(componentClasses.card, "hover:scale-100 p-8 lg:p-10 mt-16 max-w-6xl mx-auto")}>
+        <BeamPanel className={cn(componentClasses.card, "hover:scale-100 p-8 lg:p-10 mt-16 max-w-6xl mx-auto")} beam={5.2}>
           <h3 className="text-xl font-bold text-foreground mb-5 text-center">Lưu ý quan trọng</h3>
           <div className="grid sm:grid-cols-2 gap-5 text-muted-foreground text-sm leading-relaxed">
             <div>
@@ -503,7 +508,7 @@ export default function Pricing() {
               </p>
             </div>
           </div>
-        </div>
+        </BeamPanel>
       </div>
     </div>
   );

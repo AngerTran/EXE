@@ -14,6 +14,7 @@ public interface IAdminService
         Guid adminUserId,
         string? search,
         UserRole? role,
+        bool includeBanned,
         PagedQuery query,
         CancellationToken cancellationToken = default);
     Task<AdminUserResponse?> UpdateUserAsync(

@@ -28,6 +28,7 @@ import {
 } from "../../api/assets";
 import type { CategoryItem, TagGroupItem } from "../../api/types/marketplace";
 import { ApiError } from "../../api/client";
+import { BeamPanel } from "./BeamPanel";
 
 const LICENSE_MAP: Record<LicenseType, string> = {
   "Standard License": "standard",
@@ -60,7 +61,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 lg:p-8 hover:border-primary/20 transition-colors">
+    <BeamPanel
+      beam={3.8 + step * 0.15}
+      className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 lg:p-8 hover:border-primary/20 transition-colors"
+    >
       <div className="flex items-start gap-4 mb-6">
         <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center font-mono font-bold text-primary">
           {step}
@@ -71,7 +75,7 @@ function Section({
         </div>
       </div>
       {children}
-    </section>
+    </BeamPanel>
   );
 }
 
@@ -369,7 +373,7 @@ export default function AddAsset() {
   if (submitted) {
     return (
       <div className="min-h-[calc(100vh-120px)] flex items-center justify-center py-16 px-4">
-        <div className="max-w-lg w-full text-center bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-10">
+        <BeamPanel className="max-w-lg w-full text-center bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-10" beam={4}>
           <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Đã gửi asset thành công!</h1>
           <p className="text-muted-foreground mb-2">
@@ -396,7 +400,7 @@ export default function AddAsset() {
               Xem Chợ Assets
             </Link>
           </div>
-        </div>
+        </BeamPanel>
       </div>
     );
   }

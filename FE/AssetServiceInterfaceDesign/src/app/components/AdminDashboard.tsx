@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
+import { BeamPanel } from "./BeamPanel";
 import {
   Users,
   Package,
@@ -32,6 +33,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
+import { ScrollableTabBar } from "./ui/ScrollableTabBar";
 import type { AssetRecord } from "../../types/asset";
 import { LICENSE_OPTIONS, type AssetCategory } from "../../types/asset";
 import { ART_STYLE_OPTIONS, type ArtStyleValue } from "../../constants/artStyles";
@@ -43,8 +45,8 @@ import {
   deleteAdminSubscriptionPlan,
   hardDeleteAdminSubscriptionPlan,
   fetchAdminUsers,
+  fetchAdminUserDetail,
   fetchAdminAssets,
-  patchWalletBalance,
   updateAdminUser,
   deleteAdminUser,
   updateAdminAsset,
@@ -60,6 +62,8 @@ import type {
   AdminAnalyticsRevenue,
   AdminAnalyticsUsers,
   AdminOverview,
+  AdminUser,
+  AdminUserDetail,
 } from "../../api/types/admin";
 import {
   buildAdminUpdateBody,
@@ -139,6 +143,29 @@ const PLAN_CHART_COLORS: Record<string, string> = {
   pro: "#f59e0b",
 };
 
+function normalizeUserPlanKey(subscription?: string): string {
+  const raw = (subscription ?? "free").toLowerCase().trim();
+  if (!raw || raw === "free" || raw.includes("miễn phí") || raw.includes("mien phi")) return "free";
+  if (raw.includes("student")) return "student";
+  if (raw.includes("indie")) return "indie";
+  if (raw.includes("pro")) return "pro";
+  return raw;
+}
+
+const USER_PLAN_LABELS: Record<string, string> = {
+  free: "Miễn phí",
+  student: "STUDENT",
+  indie: "INDIE",
+  pro: "PRO",
+};
+
+function orderTypeStatLabel(orderType: string): string {
+  if (orderType === "subscription") return "Gói đăng ký";
+  if (orderType === "credit_pack") return "Nạp xu";
+  if (orderType === "asset") return "Mua asset";
+  return orderType;
+}
+
 function analyticsRangeDays(days: number): { from: string; to: string } {
   const to = new Date();
   const from = new Date();
@@ -165,12 +192,39 @@ interface UserData {
   name: string;
   credits: number;
   role: string;
+  status: string;
   registeredAt: string;
   totalSpent: number;
   subscription?: "student" | "indie" | "pro";
+  subscriptionLabel?: string;
   subscriptionExpiry?: string; // ISO date string
   avatarDataUrl?: string | null;
 }
+
+function mapAdminUserToUserData(u: AdminUser | AdminUserDetail): UserData {
+  const planLabel = u.subscriptionPlan ?? undefined;
+  const slug = planLabel?.toLowerCase();
+  const knownSubs = ["student", "indie", "pro"] as const;
+  const subscription = knownSubs.find((s) => slug === s || slug?.includes(s));
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    credits: u.walletBalance,
+    role: u.role,
+    status: u.status,
+    registeredAt: u.createdAt.split("T")[0],
+    totalSpent: u.totalSpentVnd,
+    subscription,
+    subscriptionLabel: planLabel,
+  };
+}
+
+const USER_STATUS_LABELS: Record<string, string> = {
+  active: "Hoạt động",
+  banned: "Đã khóa",
+  pending: "Chờ duyệt",
+};
 
 interface Order {
   id: string;
@@ -317,18 +371,7 @@ export default function AdminDashboard() {
         setAssetsAnalytics(assetsAnalyticsRes);
         setOrdersAnalytics(ordersAnalyticsRes);
 
-        setUsers(
-          usersRes.data.map((u) => ({
-            id: u.id,
-            email: u.email,
-            name: u.name,
-            credits: u.walletBalance,
-            role: u.role,
-            registeredAt: u.createdAt.split("T")[0],
-            totalSpent: u.totalSpentVnd,
-            subscription: u.subscriptionPlan as UserData["subscription"],
-          }))
-        );
+        setUsers(usersRes.data.map(mapAdminUserToUserData));
 
         setOrders(ordersRes.data.map(mapApiOrderToAdmin));
 
@@ -429,8 +472,8 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-6 sm:py-8">
+      <div className={componentClasses.container}>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -444,29 +487,22 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {[
+          <ScrollableTabBar
+            activeId={activeTab}
+            onSelect={(id) => selectTab(id as Tab)}
+            items={[
               { id: "overview", label: "Tổng quan", icon: <BarChart3 className="w-4 h-4" /> },
               { id: "users", label: "Người dùng", icon: <Users className="w-4 h-4" /> },
               { id: "assets", label: "Assets", icon: <Package className="w-4 h-4" /> },
-              { id: "orders", label: "Đơn hàng", icon: <ShoppingCart className="w-4 h-4" /> },
+              {
+                id: "orders",
+                label: "Đơn hàng",
+                icon: <ShoppingCart className="w-4 h-4" />,
+                badge: orders.filter((o) => o.status === "pending").length,
+              },
               { id: "packages", label: "Gói dịch vụ", icon: <CreditCard className="w-4 h-4" /> },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => selectTab(tab.id as Tab)}
-                className={`px-6 py-3 rounded-xl whitespace-nowrap transition-all flex items-center gap-2 ${
-                  activeTab === tab.id
-                    ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-[0_0_30px_rgba(0,217,255,0.3)]"
-                    : "bg-card/50 text-muted-foreground hover:bg-card border border-border hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-                }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            ]}
+          />
         </div>
 
         {/* Content */}
@@ -490,7 +526,6 @@ export default function AdminDashboard() {
             setSearchQuery={setSearchQuery}
             users={users}
             setUsers={setUsers}
-            orders={orders}
           />
         )}
 
@@ -566,16 +601,30 @@ function OverviewTab({
     })) ?? [];
 
   const packageCounts = users.reduce<Record<string, number>>((acc, u) => {
-    const key = (u.subscription || "free").toLowerCase();
+    const key = normalizeUserPlanKey(u.subscription);
     acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
-  const packageData = Object.entries(packageCounts).map(([name, value]) => ({
-    id: `pkg-${name}`,
-    name: name.toUpperCase(),
+  const packageData = Object.entries(packageCounts).map(([slug, value]) => ({
+    id: `pkg-${slug}`,
+    name: USER_PLAN_LABELS[slug] ?? slug.toUpperCase(),
     value,
-    color: PLAN_CHART_COLORS[name] ?? "#64748b",
+    color: PLAN_CHART_COLORS[slug] ?? "#64748b",
   }));
+
+  const subscriptionPurchases = (ordersAnalytics?.purchasesByPlan ?? []).filter(
+    (p) => p.category === "subscription"
+  );
+  const creditPackPurchases = (ordersAnalytics?.purchasesByPlan ?? []).filter(
+    (p) => p.category === "credit_pack"
+  );
+  const purchaseChartData = subscriptionPurchases.map((p) => ({
+    name: p.itemName,
+    count: p.count,
+    revenueVnd: p.revenueVnd,
+    color: PLAN_CHART_COLORS[p.planSlug ?? ""] ?? "#64748b",
+  }));
+  const completedByType = ordersAnalytics?.byType ?? [];
 
   const userGrowthData =
     usersAnalytics?.registrationsByDay.map((d) => ({
@@ -614,10 +663,11 @@ function OverviewTab({
     <div className="space-y-6">
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div
+        {stats.map((stat, index) => (
+          <BeamPanel
             key={stat.label}
-            className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:scale-105 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+            beam={3.5 + index * 0.2}
+            className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:scale-105 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
           >
             <div className="flex items-center justify-between mb-4">
               <div
@@ -634,14 +684,14 @@ function OverviewTab({
             {stat.detail && (
               <p className="text-sm text-muted-foreground mt-1">{stat.detail}</p>
             )}
-          </div>
+          </BeamPanel>
         ))}
       </div>
 
       {/* Charts Row 1 */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:border-primary/50 transition-all">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={4.8}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
@@ -688,15 +738,16 @@ function OverviewTab({
             </AreaChart>
           </ResponsiveContainer>
           )}
-        </div>
+        </BeamPanel>
 
         {/* Package Distribution Pie Chart */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:border-primary/50 transition-all">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={5}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
               <PieChart className="w-5 h-5 text-secondary" />
-              Phân bổ gói dịch vụ
+              Gói đang dùng (user)
             </h3>
+            <span className="text-xs text-muted-foreground">Theo subscription hiện tại</span>
           </div>
           {packageData.length === 0 ? (
             <p className="text-muted-foreground text-sm py-16 text-center">Chưa có dữ liệu user.</p>
@@ -732,13 +783,139 @@ function OverviewTab({
             </RePieChart>
           </ResponsiveContainer>
           )}
-        </div>
+        </BeamPanel>
+      </div>
+
+      {/* Purchased packages */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.9}>
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-primary" />
+              Gói đăng ký đã mua
+            </h3>
+            <span className="text-xs text-muted-foreground">Đơn hoàn thành</span>
+          </div>
+          {completedByType.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {completedByType.map((t) => (
+                <span
+                  key={t.orderType}
+                  className="text-xs font-mono px-2.5 py-1 rounded-full bg-muted/40 border border-border text-muted-foreground"
+                >
+                  {orderTypeStatLabel(t.orderType)}: <strong className="text-foreground">{t.count}</strong>
+                </span>
+              ))}
+            </div>
+          )}
+          {purchaseChartData.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-12 text-center">
+              Chưa có đơn gói đăng ký hoàn thành.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={purchaseChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#64748b" allowDecimals={false} />
+                <Tooltip
+                  formatter={(value: number, name) => {
+                    if (name === "count") return [value, "Số đơn"];
+                    return [value, name];
+                  }}
+                  labelFormatter={(label) => `Gói: ${label}`}
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "8px",
+                    color: "#f8f9fa",
+                  }}
+                />
+                <Bar dataKey="count" name="count" radius={[8, 8, 0, 0]}>
+                  {purchaseChartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </BeamPanel>
+
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={5}>
+          <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+            <Coins className="w-5 h-5 text-warning" />
+            Chi tiết gói đã mua
+          </h3>
+          {(ordersAnalytics?.purchasesByPlan ?? []).length === 0 ? (
+            <p className="text-muted-foreground text-sm py-12 text-center">Chưa có dữ liệu mua gói.</p>
+          ) : (
+            <>
+              <div className="md:hidden space-y-2">
+                {[...subscriptionPurchases, ...creditPackPurchases].map((row) => (
+                  <div
+                    key={`${row.category}-${row.itemName}`}
+                    className={componentClasses.listCard}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted-foreground">
+                          {row.category === "subscription" ? "Đăng ký" : "Nạp xu"}
+                        </p>
+                        <p className="font-medium text-foreground truncate">{row.itemName}</p>
+                      </div>
+                      <p className="font-mono text-sm text-primary shrink-0">
+                        {row.revenueVnd.toLocaleString("vi-VN")}đ
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 font-mono">
+                      {row.count} đơn hoàn thành
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground text-left">
+                      <th className="pb-2 pr-3 font-medium">Loại</th>
+                      <th className="pb-2 pr-3 font-medium">Tên gói</th>
+                      <th className="pb-2 pr-3 font-medium text-right">Số lượng</th>
+                      <th className="pb-2 font-medium text-right">Doanh thu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptionPurchases.map((row) => (
+                      <tr key={`sub-${row.itemName}`} className="border-b border-border/50">
+                        <td className="py-2.5 pr-3 text-muted-foreground">Đăng ký</td>
+                        <td className="py-2.5 pr-3 font-medium text-foreground">{row.itemName}</td>
+                        <td className="py-2.5 pr-3 text-right font-mono">{row.count}</td>
+                        <td className="py-2.5 text-right font-mono">
+                          {row.revenueVnd.toLocaleString("vi-VN")}đ
+                        </td>
+                      </tr>
+                    ))}
+                    {creditPackPurchases.map((row) => (
+                      <tr key={`credit-${row.itemName}`} className="border-b border-border/50">
+                        <td className="py-2.5 pr-3 text-muted-foreground">Nạp xu</td>
+                        <td className="py-2.5 pr-3 font-medium text-foreground">{row.itemName}</td>
+                        <td className="py-2.5 pr-3 text-right font-mono">{row.count}</td>
+                        <td className="py-2.5 text-right font-mono">
+                          {row.revenueVnd.toLocaleString("vi-VN")}đ
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </BeamPanel>
       </div>
 
       {/* Charts Row 2 */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* User Growth Chart */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:border-primary/50 transition-all">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={5.2}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-success" />
@@ -774,10 +951,10 @@ function OverviewTab({
             </LineChart>
           </ResponsiveContainer>
           )}
-        </div>
+        </BeamPanel>
 
         {/* Assets by Category Bar Chart */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:border-primary/50 transition-all">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={5.4}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-warning" />
@@ -809,13 +986,13 @@ function OverviewTab({
             </BarChart>
           </ResponsiveContainer>
           )}
-        </div>
+        </BeamPanel>
       </div>
 
       {/* Recent Orders & Top Assets */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.6}>
           <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
             <ShoppingCart className="w-5 h-5 text-primary" />
             Đơn hàng gần đây
@@ -857,10 +1034,10 @@ function OverviewTab({
               </div>
             ))}
           </div>
-        </div>
+        </BeamPanel>
 
         {/* Top Assets */}
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.8}>
           <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
             <Package className="w-5 h-5 text-secondary" />
             Assets bán chạy
@@ -897,7 +1074,7 @@ function OverviewTab({
                 </div>
               ))}
           </div>
-        </div>
+        </BeamPanel>
       </div>
     </div>
   );
@@ -909,33 +1086,76 @@ function UsersManagement({
   setSearchQuery,
   users,
   setUsers,
-  orders,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   users: UserData[];
   setUsers: (users: UserData[]) => void;
-  orders: Order[];
 }) {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [viewingUser, setViewingUser] = useState<UserData | null>(null);
+  const [viewDetail, setViewDetail] = useState<AdminUserDetail | null>(null);
+  const [viewOrders, setViewOrders] = useState<Order[]>([]);
+  const [viewLoading, setViewLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserData | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [listLoading, setListLoading] = useState(false);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [includeBanned, setIncludeBanned] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const { paged: pagedUsers, totalPages } = getPageSlice(filteredUsers, page, pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+
+  const loadUsers = useCallback(async () => {
+    setListLoading(true);
+    try {
+      const res = await fetchAdminUsers(
+        page,
+        pageSize,
+        searchQuery.trim() || undefined,
+        undefined,
+        includeBanned
+      );
+      const mapped = res.data.map(mapAdminUserToUserData);
+      setUsers(mapped);
+      setTotalUsers(res.total);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tải được danh sách user");
+    } finally {
+      setListLoading(false);
+    }
+  }, [page, pageSize, searchQuery, includeBanned, setUsers]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadUsers();
+    }, searchQuery.trim() ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [loadUsers, searchQuery]);
 
   const handleEdit = (user: UserData) => {
     setEditingUser({ ...user });
     setShowEditModal(true);
+  };
+
+  const openView = async (user: UserData) => {
+    setViewDetail(null);
+    setViewOrders([]);
+    setViewLoading(true);
+    try {
+      const [detail, ordersRes] = await Promise.all([
+        fetchAdminUserDetail(user.id),
+        fetchAllOrders(1, 50, user.id),
+      ]);
+      setViewDetail(detail);
+      setViewOrders(ordersRes.data.map(mapApiOrderToAdmin));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tải được chi tiết user");
+    } finally {
+      setViewLoading(false);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -943,18 +1163,25 @@ function UsersManagement({
     const original = users.find((u) => u.id === editingUser.id);
     if (!original) return;
 
+    const body: { role?: string; status?: string; walletBalance?: number } = {};
+    if (original.role !== editingUser.role) body.role = editingUser.role;
+    if (original.status !== editingUser.status) body.status = editingUser.status;
+    if (original.credits !== editingUser.credits) body.walletBalance = editingUser.credits;
+
+    if (Object.keys(body).length === 0) {
+      toast.info("Không có thay đổi nào");
+      return;
+    }
+
     setSaving(true);
     try {
-      if (original.role !== editingUser.role) {
-        await updateAdminUser(editingUser.id, { role: editingUser.role });
-      }
-      if (original.credits !== editingUser.credits) {
-        await patchWalletBalance(editingUser.id, editingUser.credits, "Admin dashboard adjustment");
-      }
-      setUsers(users.map((u) => (u.id === editingUser.id ? editingUser : u)));
+      const updated = await updateAdminUser(editingUser.id, body);
+      const mapped = mapAdminUserToUserData(updated);
+      setUsers(users.map((u) => (u.id === mapped.id ? mapped : u)));
       toast.success("Đã cập nhật user trên BE");
       setShowEditModal(false);
       setEditingUser(null);
+      await loadUsers();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Cập nhật user thất bại");
     } finally {
@@ -967,35 +1194,156 @@ function UsersManagement({
     setDeleting(true);
     try {
       await deleteAdminUser(deleteTarget.id);
-      setUsers(users.filter((u) => u.id !== deleteTarget.id));
-      toast.success("Đã xóa user");
+      toast.success("Đã khóa tài khoản user");
       setDeleteTarget(null);
+      await loadUsers();
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Xóa user thất bại");
+      toast.error(error instanceof ApiError ? error.message : "Khóa tài khoản thất bại");
     } finally {
       setDeleting(false);
     }
   };
 
+  const renderUserActions = (user: UserData) => (
+    <div className="flex items-center gap-1 shrink-0">
+      <button
+        type="button"
+        onClick={() => void openView(user)}
+        className={`${componentClasses.iconButton} text-primary`}
+        title="Xem chi tiết"
+      >
+        <Eye className="w-5 h-5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => handleEdit(user)}
+        className={`${componentClasses.iconButton} text-warning`}
+        title="Chỉnh sửa"
+      >
+        <Edit className="w-5 h-5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setDeleteTarget(user)}
+        className={`${componentClasses.iconButton} text-destructive`}
+        title="Khóa tài khoản"
+      >
+        <Trash2 className="w-5 h-5" />
+      </button>
+    </div>
+  );
+
+  const renderPlanBadge = (user: UserData) => {
+    const label =
+      user.subscriptionLabel ??
+      (user.subscription ? user.subscription.toUpperCase() : "FREE");
+    const slug = user.subscription;
+    return (
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-bold ${
+          slug === "pro"
+            ? "bg-warning/20 text-warning"
+            : slug === "indie"
+            ? "bg-secondary/20 text-secondary"
+            : slug === "student"
+            ? "bg-primary/20 text-primary"
+            : "bg-muted/20 text-muted-foreground"
+        }`}
+      >
+        {label}
+      </span>
+    );
+  };
+
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+    <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.2}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-foreground">Quản lý người dùng</h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeBanned}
+              onChange={(e) => {
+                setIncludeBanned(e.target.checked);
+                setPage(1);
+              }}
+              className="rounded border-border"
+            />
+            Hiện tài khoản đã khóa
+          </label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Tìm kiếm..."
+              placeholder="Tìm kiếm tên, email..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               className="bg-card border border-border rounded-lg pl-10 pr-4 py-2 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-3 relative">
+        {listLoading && (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        )}
+        {!listLoading && users.length === 0 && (
+          <p className="py-12 text-center text-muted-foreground">Không tìm thấy user nào.</p>
+        )}
+        {!listLoading &&
+          users.map((user) => (
+            <div key={user.id} className={componentClasses.listCard}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-foreground truncate flex items-center gap-2">
+                    {user.name}
+                    {user.status === "banned" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/20 text-destructive shrink-0">
+                        KHÓA
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                </div>
+                {renderUserActions(user)}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                {renderPlanBadge(user)}
+                <span
+                  className={`px-2.5 py-1 rounded-full font-bold ${
+                    user.role === "admin"
+                      ? "bg-destructive/20 text-destructive"
+                      : "bg-success/20 text-success"
+                  }`}
+                >
+                  {user.role}
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-muted/20 text-foreground font-mono">
+                  {user.credits} xu
+                </span>
+                <span className="px-2.5 py-1 rounded-full bg-muted/20 text-foreground font-mono">
+                  {user.totalSpent.toLocaleString("vi-VN")}đ
+                </span>
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto relative">
+        {listLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-[1px] rounded-xl">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+        )}
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
@@ -1012,71 +1360,49 @@ function UsersManagement({
             </tr>
           </thead>
           <tbody>
-            {pagedUsers.map((user) => (
-              <tr key={user.id} className="border-b border-border/50 hover:bg-card/50">
-                <td className="py-4 px-4 text-muted-foreground font-mono">{user.id}</td>
-                <td className="py-4 px-4 text-foreground font-medium">{user.name}</td>
-                <td className="py-4 px-4 text-muted-foreground">{user.email}</td>
-                <td className="py-4 px-4 text-foreground font-bold font-mono">{user.credits}</td>
-                <td className="py-4 px-4">
-                  {user.subscription ? (
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        user.subscription === "pro"
-                          ? "bg-warning/20 text-warning"
-                          : user.subscription === "indie"
-                          ? "bg-secondary/20 text-secondary"
-                          : user.subscription === "student"
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted/20 text-muted-foreground"
-                      }`}
-                    >
-                      {user.subscription.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-muted/20 text-muted-foreground">
-                      FREE
-                    </span>
-                  )}
-                </td>
-                <td className="py-4 px-4">
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      user.role === "admin"
-                        ? "bg-destructive/20 text-destructive"
-                        : "bg-success/20 text-success"
-                    }`}
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className="py-4 px-4 text-foreground font-mono">
-                  {user.totalSpent.toLocaleString("vi-VN")} xu
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setViewingUser(user)}
-                      className="text-primary hover:text-primary/80 transition-colors"
-                    >
-                      <Eye className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(user)}
-                      className="text-warning hover:text-warning/80 transition-colors"
-                    >
-                      <Edit className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(user)}
-                      className="text-destructive hover:text-destructive/80 transition-colors"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </div>
+            {!listLoading && users.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  Không tìm thấy user nào.
                 </td>
               </tr>
-            ))}
+            ) : (
+              users.map((user) => (
+                <tr key={user.id} className="border-b border-border/50 hover:bg-card/50">
+                  <td className="py-4 px-4 text-muted-foreground font-mono text-xs">{user.id}</td>
+                  <td className="py-4 px-4 text-foreground font-medium">
+                    <span className="inline-flex items-center gap-2">
+                      {user.name}
+                      {user.status === "banned" && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/20 text-destructive">
+                          KHÓA
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-muted-foreground">{user.email}</td>
+                  <td className="py-4 px-4 text-foreground font-bold font-mono">{user.credits}</td>
+                  <td className="py-4 px-4">{renderPlanBadge(user)}</td>
+                  <td className="py-4 px-4">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        user.role === "admin"
+                          ? "bg-destructive/20 text-destructive"
+                          : "bg-success/20 text-success"
+                      }`}
+                    >
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="py-4 px-4 text-foreground font-mono">
+                    {user.totalSpent.toLocaleString("vi-VN")}đ
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="flex items-center justify-end">{renderUserActions(user)}</div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -1088,16 +1414,16 @@ function UsersManagement({
         onOpenChange={(open) => {
           if (!open && !deleting) setDeleteTarget(null);
         }}
-        title="Xóa người dùng?"
+        title="Khóa tài khoản?"
         description={
           <>
-            Bạn sắp xóa{" "}
+            Bạn sắp khóa tài khoản{" "}
             <span className="font-semibold text-foreground">{deleteTarget?.name}</span>{" "}
-            <span className="font-mono text-xs">({deleteTarget?.email})</span>. Hành động này không
-            thể hoàn tác.
+            <span className="font-mono text-xs">({deleteTarget?.email})</span>. User sẽ không đăng
+            nhập được; có thể mở khóa lại trong phần chỉnh sửa.
           </>
         }
-        confirmLabel="Xóa user"
+        confirmLabel="Khóa tài khoản"
         loading={deleting}
         onConfirm={confirmDeleteUser}
       />
@@ -1162,7 +1488,7 @@ function UsersManagement({
                     <p className="text-xs text-muted-foreground mt-1">Tên chỉ user tự đổi ở Profile.</p>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-muted-foreground mb-2">
                         Credits
@@ -1194,9 +1520,25 @@ function UsersManagement({
                         <option value="admin">Admin</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">
+                        Trạng thái
+                      </label>
+                      <select
+                        value={editingUser.status}
+                        onChange={(e) =>
+                          setEditingUser({ ...editingUser, status: e.target.value })
+                        }
+                        className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                      >
+                        <option value="active">Hoạt động</option>
+                        <option value="banned">Đã khóa</option>
+                        <option value="pending">Chờ duyệt</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="bg-card/50 border border-border rounded-xl p-4">
+                  <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
                     <p className="text-sm font-semibold text-muted-foreground mb-3">
                       Gói dịch vụ
                     </p>
@@ -1205,16 +1547,16 @@ function UsersManagement({
                         <label className="block text-sm font-medium text-muted-foreground mb-2">
                           Subscription
                         </label>
-                        <select
-                          value={editingUser.subscription || ""}
+                        <input
+                          type="text"
+                          value={
+                            editingUser.subscriptionLabel ??
+                            editingUser.subscription?.toUpperCase() ??
+                            "FREE"
+                          }
                           disabled
                           className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground/70 focus:outline-none disabled:opacity-70"
-                        >
-                          <option value="">FREE</option>
-                          <option value="student">STUDENT (29k)</option>
-                          <option value="indie">INDIE (legacy)</option>
-                          <option value="pro">PRO (99k)</option>
-                        </select>
+                        />
                         <p className="text-xs text-muted-foreground mt-1">Đổi gói qua flow checkout subscription.</p>
                       </div>
                       <div>
@@ -1238,7 +1580,7 @@ function UsersManagement({
                   <button
                     onClick={handleSaveEdit}
                     disabled={saving}
-                    className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-60"
+                    className="w-full bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-60"
                   >
                     {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     {saving ? "Đang lưu..." : "Lưu thay đổi"}
@@ -1252,137 +1594,146 @@ function UsersManagement({
 
       {/* View Drawer */}
       <Sheet
-        open={!!viewingUser}
+        open={viewLoading || !!viewDetail}
         onOpenChange={(open) => {
-          if (!open) setViewingUser(null);
+          if (!open) {
+            setViewDetail(null);
+            setViewOrders([]);
+          }
         }}
       >
-        {viewingUser && (
-          <SheetContent className="p-0 sm:max-w-2xl">
-            <div className="flex h-full flex-col">
-              <SheetHeader className="border-b border-border p-6">
-                <SheetTitle>Chi tiết User</SheetTitle>
-                <SheetDescription className="hidden sm:block">
-                  Thông tin tổng quan
-                </SheetDescription>
-              </SheetHeader>
+        <SheetContent className="p-0 sm:max-w-2xl">
+          <div className="flex h-full flex-col">
+            <SheetHeader className="border-b border-border p-6">
+              <SheetTitle>Chi tiết User</SheetTitle>
+              <SheetDescription className="hidden sm:block">
+                Dữ liệu từ API admin
+              </SheetDescription>
+            </SheetHeader>
 
-              <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6">
+              {viewLoading || !viewDetail ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <p className="text-muted-foreground text-sm">Đang tải chi tiết...</p>
+                </div>
+              ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">ID</p>
-                      <p className="text-foreground font-medium font-mono">
-                        {viewingUser.id}
+                      <p className="text-foreground font-medium font-mono text-xs break-all">
+                        {viewDetail.id}
                       </p>
                     </div>
-
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Username</p>
+                      <p className="text-foreground font-medium font-mono">{viewDetail.username}</p>
+                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Role</p>
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
-                          viewingUser.role === "admin"
+                          viewDetail.role === "admin"
                             ? "bg-destructive/20 text-destructive"
                             : "bg-primary/20 text-primary"
                         }`}
                       >
-                        {viewingUser.role}
+                        {viewDetail.role}
                       </span>
                     </div>
-
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Trạng thái</p>
+                      <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-muted/30 text-foreground">
+                        {USER_STATUS_LABELS[viewDetail.status] ?? viewDetail.status}
+                      </span>
+                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Tên</p>
-                      <p className="text-foreground font-medium">
-                        {viewingUser.name}
-                      </p>
+                      <p className="text-foreground font-medium">{viewDetail.name}</p>
                     </div>
-
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Email</p>
-                      <p className="text-foreground font-medium">
-                        {viewingUser.email}
-                      </p>
+                      <p className="text-foreground font-medium">{viewDetail.email}</p>
                     </div>
-
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Credits</p>
                       <p className="text-foreground font-bold text-lg font-mono">
-                        {viewingUser.credits}
+                        {viewDetail.walletBalance}
                       </p>
                     </div>
-
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Tổng chi tiêu
-                      </p>
-                      <p className="text-foreground font-bold text-lg font-mono">
-                        {viewingUser.totalSpent.toLocaleString("vi-VN")}đ
+                      <p className="text-sm text-muted-foreground mb-1">Gói hiện tại</p>
+                      <p className="text-foreground font-medium">
+                        {viewDetail.subscriptionPlan ?? "FREE"}
                       </p>
                     </div>
-
-                    <div className="col-span-2">
-                      <p className="text-sm text-muted-foreground mb-1">
-                        Ngày đăng ký
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Tổng chi tiêu</p>
+                      <p className="text-foreground font-bold text-lg font-mono">
+                        {viewDetail.totalSpentVnd.toLocaleString("vi-VN")}đ
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Ngày đăng ký</p>
                       <p className="text-foreground font-medium">
-                        {viewingUser.registeredAt}
+                        {viewDetail.createdAt.split("T")[0]}
                       </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Số đơn hàng</p>
+                      <p className="text-foreground font-bold font-mono">{viewDetail.orderCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Assets trong thư viện</p>
+                      <p className="text-foreground font-bold font-mono">{viewDetail.assetCount}</p>
                     </div>
                   </div>
 
                   {(() => {
-                    const userOrders = orders
-                      .filter((o) => o.userId === viewingUser.id)
-                      .sort((a, b) => (a.date < b.date ? 1 : -1));
-
-                    const assetOrders = userOrders.filter((o) => o.orderType === "asset");
-
+                    const assetOrders = viewOrders.filter((o) => o.orderType === "asset");
                     return (
                       <div className="space-y-4 pt-2">
-                        <div className="bg-card/50 border border-border rounded-xl p-4">
+                        <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-bold text-foreground">Đơn hàng</h4>
+                            <h4 className="font-bold text-foreground">Đơn hàng gần đây</h4>
                             <span className="text-sm text-muted-foreground font-mono">
-                              {userOrders.length} đơn
+                              {viewDetail.orderCount} đơn (hiển thị {viewOrders.length})
                             </span>
                           </div>
-                          {userOrders.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              Chưa có đơn hàng nào.
-                            </p>
+                          {viewOrders.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">Chưa có đơn hàng nào.</p>
                           ) : (
                             <div className="space-y-3">
-                              {userOrders.slice(0, 5).map((o) => (
+                              {viewOrders.slice(0, 8).map((o) => (
                                 <div
                                   key={o.id}
                                   className="bg-card border border-border rounded-lg p-3"
                                 >
                                   <div className="flex items-center justify-between gap-3">
-                                    <p className="text-foreground font-mono font-bold">
-                                      {o.orderCode}
-                                    </p>
+                                    <p className="text-foreground font-mono font-bold">{o.orderCode}</p>
                                     <span className="text-sm font-bold text-primary font-mono">
                                       {formatAdminOrderAmount(o)}
                                     </span>
                                   </div>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {o.date} • {o.items.length} sản phẩm
+                                    {o.date} • {o.items.length} sản phẩm • {o.status}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                     {o.items.join(", ")}
                                   </p>
                                 </div>
                               ))}
-                              {userOrders.length > 5 && (
+                              {viewDetail.orderCount > viewOrders.length && (
                                 <p className="text-xs text-muted-foreground">
-                                  +{userOrders.length - 5} đơn khác (xem trong tab Đơn hàng).
+                                  Còn {viewDetail.orderCount - viewOrders.length} đơn khác.
                                 </p>
                               )}
                             </div>
                           )}
                         </div>
 
-                        <div className="bg-card/50 border border-border rounded-xl p-4">
+                        <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="font-bold text-foreground">Đơn mua asset</h4>
                             <span className="text-sm text-muted-foreground font-mono">
@@ -1390,9 +1741,7 @@ function UsersManagement({
                             </span>
                           </div>
                           {assetOrders.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              Chưa có đơn mua asset từ BE.
-                            </p>
+                            <p className="text-sm text-muted-foreground">Chưa có đơn mua asset.</p>
                           ) : (
                             <div className="space-y-3">
                               {assetOrders.slice(0, 6).map((o) => (
@@ -1425,12 +1774,12 @@ function UsersManagement({
                     );
                   })()}
                 </div>
-              </div>
+              )}
             </div>
-          </SheetContent>
-        )}
+          </div>
+        </SheetContent>
       </Sheet>
-    </div>
+    </BeamPanel>
   );
 }
 
@@ -1634,7 +1983,7 @@ function AssetsManagement({
     <div className="space-y-8">
       {/* Pending Assets */}
       {pendingAssets.length > 0 && (
-        <div className="bg-card/50 backdrop-blur-sm border border-warning/30 rounded-2xl p-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-warning/30 rounded-2xl p-6" beam={4.4}>
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-foreground">Pending Assets</h2>
@@ -1702,7 +2051,7 @@ function AssetsManagement({
             totalPages={pendingTotalPages}
             onPageChange={setPendingPage}
           />
-        </div>
+        </BeamPanel>
       )}
 
       {/* Reject drawer (with reason) */}
@@ -1726,7 +2075,7 @@ function AssetsManagement({
               </SheetHeader>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                <div className="bg-card/50 border border-border rounded-xl p-4">
+                <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
                   <p className="text-sm text-muted-foreground mb-1">Asset</p>
                   <p className="text-foreground font-bold">{rejectingAsset.title}</p>
                   <p className="text-xs text-muted-foreground">{rejectingAsset.category}</p>
@@ -1782,7 +2131,7 @@ function AssetsManagement({
       </Sheet>
 
       {/* Approved Assets */}
-      <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+      <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.6}>
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <h2 className="text-2xl font-bold text-foreground">Quản lý Assets</h2>
           <div className="flex gap-3 flex-wrap">
@@ -1798,7 +2147,7 @@ function AssetsManagement({
             </div>
             <Link
               to="/add-asset"
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
+              className="bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)]"
             >
               <Plus className="w-5 h-5" />
               Add Asset
@@ -1810,7 +2159,7 @@ function AssetsManagement({
           {pagedApprovedAssets.map((asset) => (
             <div
               key={asset.id}
-              className="bg-card/50 backdrop-blur-sm border rounded-xl overflow-hidden hover:scale-105 transition-all group border-border hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border rounded-xl overflow-hidden hover:scale-105 transition-all group border-border hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
             >
               {/* Preview Image (sync with Marketplace card) */}
               <div
@@ -1957,7 +2306,7 @@ function AssetsManagement({
                   </div>
 
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                       <div className="flex items-center justify-center gap-1 mb-2">
                         <TrendingUp className="w-5 h-5 text-warning" />
                         <span className="text-2xl font-bold text-foreground">
@@ -1966,7 +2315,7 @@ function AssetsManagement({
                       </div>
                       <p className="text-sm text-muted-foreground">Rating</p>
                     </div>
-                    <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                       <div className="flex items-center justify-center gap-1 mb-2">
                         <Download className="w-5 h-5 text-primary" />
                         <span className="text-2xl font-bold text-foreground font-mono">
@@ -1975,7 +2324,7 @@ function AssetsManagement({
                       </div>
                       <p className="text-sm text-muted-foreground">Downloads</p>
                     </div>
-                    <div className="bg-card/50 border border-border rounded-xl p-4 text-center">
+                    <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
                       <div className="mb-2">
                         <span className="text-2xl font-bold text-primary font-mono">
                           {viewingApprovedAsset.isFree
@@ -2016,7 +2365,7 @@ function AssetsManagement({
                   <button
                     type="button"
                     onClick={() => handleEditFromRecord(viewingApprovedAsset)}
-                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
+                    className="flex-1 bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2"
                   >
                     <Edit className="w-5 h-5" />
                     Chỉnh sửa
@@ -2081,7 +2430,7 @@ function AssetsManagement({
                     type="button"
                     onClick={handleSaveEdit}
                     disabled={savingEdit}
-                    className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                    className="flex-1 bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-60"
                   >
                     {savingEdit ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                     Lưu
@@ -2109,7 +2458,7 @@ function AssetsManagement({
           loading={deleting}
           onConfirm={confirmDeleteAsset}
         />
-      </div>
+      </BeamPanel>
     </div>
   );
 }
@@ -2216,7 +2565,7 @@ function AssetForm({
       </div>
 
       {/* Basic */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Thông tin cơ bản</h3>
 
         <div>
@@ -2272,7 +2621,7 @@ function AssetForm({
       </div>
 
       {/* Description */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Mô tả</h3>
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -2299,7 +2648,7 @@ function AssetForm({
       </div>
 
       {/* Tags */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <div className="flex items-end justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-foreground">Tags</h3>
@@ -2348,7 +2697,7 @@ function AssetForm({
       </div>
 
       {/* Engine & license */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Engine & giấy phép</h3>
         <div>
           <label className="block text-sm font-medium text-muted-foreground mb-2">
@@ -2434,7 +2783,7 @@ function AssetForm({
       </div>
 
       {/* Features */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Tính năng asset</h3>
         <div className="grid sm:grid-cols-2 gap-3">
           {(
@@ -2467,7 +2816,7 @@ function AssetForm({
       </div>
 
       {/* Pricing */}
-      <div className="bg-card/50 border border-border rounded-2xl p-5 space-y-4">
+      <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Giá</h3>
 
         <label className="flex items-center gap-2">
@@ -2715,7 +3064,7 @@ function OrdersManagement({
   );
 
   return (
-    <div className={cn(componentClasses.card, "hover:scale-100 p-6")}>
+    <BeamPanel className={cn(componentClasses.card, "hover:scale-100 p-6")} beam={4.4}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Quản lý đơn hàng</h2>
@@ -2927,7 +3276,7 @@ function OrdersManagement({
         loading={!!cancelTarget && actionOrderId === cancelTarget.id}
         onConfirm={confirmCancelOrder}
       />
-    </div>
+    </BeamPanel>
   );
 }
 
@@ -3063,7 +3412,7 @@ function PackagesManagement({
   const { paged: pagedPackages, totalPages } = getPageSlice(packages, page, pageSize);
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+    <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.5}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Quản lý gói dịch vụ</h2>
@@ -3077,7 +3426,7 @@ function PackagesManagement({
             setShowAddModal(true);
           }}
           disabled={saving}
-          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
+          className="bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
         >
           <Plus className="w-5 h-5" />
           Thêm gói mới
@@ -3324,7 +3673,7 @@ function PackagesManagement({
           </SheetContent>
         )}
       </Sheet>
-    </div>
+    </BeamPanel>
   );
 }
 
@@ -3475,7 +3824,7 @@ function CreditPacksManagement() {
   };
 
   return (
-    <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6">
+    <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6" beam={4.7}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -3493,7 +3842,7 @@ function CreditPacksManagement() {
             setShowAddModal(true);
           }}
           disabled={saving}
-          className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
+          className="bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
         >
           <Plus className="w-5 h-5" />
           Thêm gói xu
@@ -3683,7 +4032,7 @@ function CreditPacksManagement() {
           </SheetContent>
         )}
       </Sheet>
-    </div>
+    </BeamPanel>
   );
 }
 
@@ -3943,7 +4292,7 @@ function PackageForm({
       <button
         onClick={onSave}
         disabled={saving}
-        className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
+        className="w-full bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50"
       >
         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
         {saving ? "Đang lưu..." : "Lưu"}

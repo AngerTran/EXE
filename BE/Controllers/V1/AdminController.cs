@@ -39,6 +39,7 @@ public class AdminController(IAdminService adminService, ICreditPackService cred
     public async Task<IActionResult> ListUsers(
         [FromQuery] string? search,
         [FromQuery] UserRole? role,
+        [FromQuery] bool includeBanned = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -51,6 +52,7 @@ public class AdminController(IAdminService adminService, ICreditPackService cred
                 userId.Value,
                 search,
                 role,
+                includeBanned,
                 new PagedQuery(page, pageSize),
                 cancellationToken));
         }

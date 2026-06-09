@@ -16,6 +16,7 @@ public interface IAdminRepository
     Task<(IReadOnlyList<ProfileEntity> Items, int Total)> ListUsersAsync(
         string? search,
         UserRole? role,
+        bool includeBanned,
         int skip,
         int take,
         CancellationToken cancellationToken = default);
@@ -57,5 +58,11 @@ public interface IAdminRepository
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<(OrderStatus Status, int Count)>> GetOrderCountsByStatusAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(OrderType Type, int Count)>> GetCompletedOrderCountsByTypeAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(string Category, string ItemName, string? PlanSlug, int Count, long RevenueVnd)>> GetCompletedPurchaseStatsAsync(
         CancellationToken cancellationToken = default);
 }

@@ -23,6 +23,7 @@ import { componentClasses } from "../../constants/theme";
 import { resolvePlanFeatures } from "../../constants/planDisplay";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
+import { BeamPanel } from "./BeamPanel";
 import { usePollOrderCompletion } from "../../hooks/usePollOrderCompletion";
 
 export default function Checkout() {
@@ -156,7 +157,7 @@ export default function Checkout() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className={cn(componentClasses.card, "p-8 hover:scale-100 shadow-[0_0_50px_rgba(0,217,255,0.08)]")}>
+          <BeamPanel className={cn(componentClasses.card, "p-8 hover:scale-100 shadow-[0_0_50px_rgba(0,217,255,0.08)]")} beam={4}>
             <div
               className={cn(
                 "w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 border",
@@ -204,7 +205,7 @@ export default function Checkout() {
                 <Link to="/pricing">Về bảng giá</Link>
               </Button>
             </div>
-          </div>
+          </BeamPanel>
         </div>
       </div>
     );
@@ -223,7 +224,7 @@ export default function Checkout() {
 
         <div className="grid lg:grid-cols-5 gap-8 items-start">
           <div className="lg:col-span-3">
-            <div className={cn(componentClasses.card, "p-8 hover:scale-100")}>
+            <BeamPanel className={cn(componentClasses.card, "p-8 hover:scale-100")} beam={4.2}>
               <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
                 <QrCode className="w-7 h-7 text-primary" />
                 Quét mã QR chuyển khoản
@@ -343,11 +344,11 @@ export default function Checkout() {
               <p className="text-xs text-muted-foreground text-center mt-4">
                 Nhấn sau khi đã chuyển khoản thành công. Gói sẽ được kích hoạt khi admin xác nhận.
               </p>
-            </div>
+            </BeamPanel>
           </div>
 
           <div className="lg:col-span-2">
-            <div className={cn(componentClasses.card, "p-6 sticky top-24 hover:scale-100")}>
+            <BeamPanel className={cn(componentClasses.card, "p-6 sticky top-24 hover:scale-100")} beam={3.8}>
               <h3 className="text-lg font-bold text-foreground mb-4">Thông tin đơn hàng</h3>
 
               <div className="bg-gradient-to-br from-primary to-secondary rounded-xl p-4 mb-4">
@@ -394,7 +395,7 @@ export default function Checkout() {
                   Vui lòng ghi đúng nội dung chuyển khoản để hệ thống đối soát nhanh hơn.
                 </p>
               </div>
-            </div>
+            </BeamPanel>
           </div>
         </div>
       </div>

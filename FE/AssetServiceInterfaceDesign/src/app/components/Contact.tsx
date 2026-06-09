@@ -3,6 +3,7 @@ import { Mail, MessageSquare, Calendar, Send, CheckCircle, Loader2 } from "lucid
 import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { submitContact } from "../../api/contact";
+import { BeamPanel } from "./BeamPanel";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -95,7 +96,7 @@ export default function Contact() {
           {contactMethods.map((method, index) => (
             <div
               key={index}
-              className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 text-center hover:bg-white/10 transition-colors"
+              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-6 text-center hover:bg-card/80 transition-colors"
             >
               <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400 mx-auto mb-4">
                 {method.icon}
@@ -110,7 +111,7 @@ export default function Contact() {
         {/* Contact Form */}
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Form */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+          <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-8" beam={4.2}>
             <h2 className="text-2xl font-bold text-white mb-6">
               Đặt Lịch Tư Vấn
             </h2>
@@ -139,7 +140,7 @@ export default function Contact() {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="Nguyễn Văn A"
                   />
                 </div>
@@ -154,7 +155,7 @@ export default function Contact() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="email@example.com"
                   />
                 </div>
@@ -168,7 +169,7 @@ export default function Contact() {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="0123456789"
                   />
                 </div>
@@ -182,7 +183,7 @@ export default function Contact() {
                     value={formData.consultType}
                     onChange={handleChange}
                     required
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="basic" className="bg-slate-800">Tư vấn cơ bản (1h)</option>
                     <option value="advanced" className="bg-slate-800">Tư vấn chuyên sâu (3h)</option>
@@ -199,7 +200,7 @@ export default function Contact() {
                     value={formData.gameIdea}
                     onChange={handleChange}
                     rows={3}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                     placeholder="Mô tả ngắn gọn về game của bạn..."
                   />
                 </div>
@@ -214,7 +215,7 @@ export default function Contact() {
                     onChange={handleChange}
                     required
                     rows={4}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                    className="w-full bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                     placeholder="Bạn cần hỗ trợ về vấn đề gì?"
                   />
                 </div>
@@ -237,12 +238,12 @@ export default function Contact() {
                 </p>
               </form>
             )}
-          </div>
+          </BeamPanel>
 
           {/* Info Panel */}
           <div className="space-y-6">
             {/* Working Hours */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-8" beam={3.6}>
               <h3 className="text-xl font-bold text-white mb-4">
                 ⏰ Giờ Làm Việc
               </h3>
@@ -260,10 +261,10 @@ export default function Contact() {
                   <span className="text-white font-medium">Nghỉ</span>
                 </div>
               </div>
-            </div>
+            </BeamPanel>
 
             {/* FAQ */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-8">
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-8" beam={4}>
               <h3 className="text-xl font-bold text-white mb-4">
                 ❓ Câu Hỏi Thường Gặp
               </h3>
@@ -293,10 +294,10 @@ export default function Contact() {
                   </p>
                 </div>
               </div>
-            </div>
+            </BeamPanel>
 
             {/* Response Time */}
-            <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8">
+            <BeamPanel className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-2xl p-8" beam={4.5}>
               <h3 className="text-xl font-bold text-white mb-4">
                 ⚡ Thời Gian Phản Hồi
               </h3>
@@ -323,7 +324,7 @@ export default function Contact() {
                   </div>
                 </div>
               </div>
-            </div>
+            </BeamPanel>
           </div>
         </div>
       </div>

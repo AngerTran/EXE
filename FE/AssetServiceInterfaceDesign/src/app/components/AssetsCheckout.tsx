@@ -22,6 +22,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { componentClasses } from "../../constants/theme";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
+import { BeamPanel } from "./BeamPanel";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { formatWalletBalance } from "../../utils/helpers";
 
@@ -161,7 +162,11 @@ export default function AssetsCheckout() {
         <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-secondary/15 blur-3xl" />
 
         <div className="relative max-w-lg w-full">
-          <div className={cn(componentClasses.card, "overflow-hidden hover:scale-100 p-0")}>
+          <BeamPanel
+            className={cn(componentClasses.card, "overflow-hidden hover:scale-100 p-0")}
+            contentClassName="overflow-hidden rounded-2xl"
+            beam={4}
+          >
             <div className="p-8 pb-6 text-center">
               <div className="w-16 h-16 bg-success/20 border border-success/30 rounded-full flex items-center justify-center mx-auto mb-5">
                 <CheckCircle className="w-9 h-9 text-success" />
@@ -250,7 +255,7 @@ export default function AssetsCheckout() {
                 Tự chuyển sang Thư viện sau 10 giây...
               </p>
             </div>
-          </div>
+          </BeamPanel>
         </div>
       </div>
     );
@@ -269,7 +274,7 @@ export default function AssetsCheckout() {
 
         <div className="grid lg:grid-cols-3 gap-6 items-start">
           <div className="lg:col-span-2">
-            <div className={cn(componentClasses.card, "p-6 sm:p-8 hover:scale-100")}>
+            <BeamPanel className={cn(componentClasses.card, "p-6 sm:p-8 hover:scale-100")} beam={4.2}>
               <h2 className="text-xl font-bold text-foreground mb-1 flex items-center gap-2">
                 {isFreeOnly ? (
                   <Library className="w-5 h-5 text-primary" />
@@ -389,15 +394,17 @@ export default function AssetsCheckout() {
                   )}
                 </Button>
               </div>
-            </div>
+            </BeamPanel>
           </div>
 
           <div className="lg:col-span-1">
-            <div
+            <BeamPanel
               className={cn(
                 componentClasses.card,
                 "p-5 lg:sticky lg:top-24 hover:scale-100 flex flex-col"
               )}
+              contentClassName="flex flex-col"
+              beam={3.8}
             >
               <h3 className="text-base font-bold text-foreground mb-4">Đơn hàng</h3>
 
@@ -467,7 +474,7 @@ export default function AssetsCheckout() {
                   Tải file ZIP về máy tại trang Thư viện sau khi hoàn tất.
                 </p>
               </div>
-            </div>
+            </BeamPanel>
           </div>
         </div>
       </div>

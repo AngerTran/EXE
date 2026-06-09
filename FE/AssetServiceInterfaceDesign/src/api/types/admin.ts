@@ -21,6 +21,21 @@ export interface AdminUser {
   createdAt: string;
 }
 
+export interface AdminUserDetail {
+  id: string;
+  email: string;
+  name: string;
+  username: string;
+  role: string;
+  status: string;
+  walletBalance: number;
+  subscriptionPlan?: string | null;
+  totalSpentVnd: number;
+  createdAt: string;
+  orderCount: number;
+  assetCount: number;
+}
+
 export interface AdminDailyCount {
   date: string;
   count: number;
@@ -79,7 +94,22 @@ export interface AdminAuditLog {
   createdAt: string;
 }
 
+export interface AdminOrderTypeStat {
+  orderType: string;
+  count: number;
+}
+
+export interface AdminPurchaseStat {
+  category: string;
+  itemName: string;
+  planSlug?: string | null;
+  count: number;
+  revenueVnd: number;
+}
+
 export interface AdminAnalyticsOrders {
   totalOrders: number;
   byStatus: AdminOrderStatusStat[];
+  byType: AdminOrderTypeStat[];
+  purchasesByPlan: AdminPurchaseStat[];
 }

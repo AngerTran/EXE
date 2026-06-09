@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
 import { Clock, ShoppingCart, CreditCard, Package, ListChecks, Loader2 } from "lucide-react";
 import { ClientPagination } from "./ui/ClientPagination";
+import { BeamPanel } from "./BeamPanel";
 import { fetchMyOrders, fetchOrdersSummary } from "../../api/orders";
 import { mapOrderToUi, type OrderStatusUi } from "../../api/mappers";
 
@@ -132,7 +133,7 @@ export default function MyOrders() {
     return (
       <div className="min-h-screen flex items-center justify-center py-12 px-4">
         <div className="max-w-md w-full text-center">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-8">
+          <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-8">
             <Package className="w-16 h-16 text-primary mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-foreground mb-2">Vui lòng đăng nhập</h2>
             <p className="text-muted-foreground mb-6">Đăng nhập để xem lịch sử mua.</p>
@@ -180,7 +181,7 @@ export default function MyOrders() {
         </div>
 
         <div className="grid sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+          <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Đơn hàng</p>
@@ -191,7 +192,7 @@ export default function MyOrders() {
               </div>
             </div>
           </div>
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+          <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Tổng chi tiêu</p>
@@ -204,7 +205,7 @@ export default function MyOrders() {
               </div>
             </div>
           </div>
-          <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-4">
+          <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Đơn hoàn thành</p>
@@ -217,7 +218,7 @@ export default function MyOrders() {
           </div>
         </div>
 
-        <div className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-4 mb-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-4 mb-6" beam={3.8}>
           <input
             type="text"
             placeholder="Tìm theo mã đơn, ngày hoặc tên sản phẩm..."
@@ -225,7 +226,7 @@ export default function MyOrders() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full bg-background border border-border rounded-lg px-4 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
           />
-        </div>
+        </BeamPanel>
 
         {loading ? (
           <div className="flex justify-center py-16">
@@ -233,7 +234,7 @@ export default function MyOrders() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
-            <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl p-12 max-w-md mx-auto">
+            <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-12 max-w-md mx-auto" beam={4}>
               <ShoppingCart className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-bold text-foreground mb-2">Chưa có lịch sử mua</h3>
               <p className="text-muted-foreground mb-6">
@@ -245,16 +246,17 @@ export default function MyOrders() {
               >
                 Xem gói dịch vụ
               </Link>
-            </div>
+            </BeamPanel>
           </div>
         ) : (
           <div className="space-y-4">
-            {filtered.map((order) => {
+            {filtered.map((order, index) => {
               const st = statusLabel(order.status);
               return (
-                <div
+                <BeamPanel
                   key={order.id}
-                  className="bg-card/50 backdrop-blur-sm border border-border rounded-2xl p-6 hover:border-primary/50 transition-all"
+                  beam={3.6 + (index % 4) * 0.2}
+                  className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all"
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
                     <div>
@@ -286,7 +288,7 @@ export default function MyOrders() {
                       {order.total.toLocaleString("vi-VN")} xu
                     </p>
                   </div>
-                </div>
+                </BeamPanel>
               );
             })}
 

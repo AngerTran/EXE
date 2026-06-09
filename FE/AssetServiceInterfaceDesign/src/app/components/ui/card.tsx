@@ -1,15 +1,22 @@
 import * as React from "react";
 
+import { BeamPanel } from "../BeamPanel";
 import { cn } from "./utils";
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+function Card({
+  className,
+  beam = true,
+  ...props
+}: React.ComponentProps<"div"> & { beam?: boolean | number }) {
   return (
-    <div
+    <BeamPanel
       data-slot="card"
+      beam={beam}
       className={cn(
-        "bg-card text-card-foreground flex flex-col gap-6 rounded-xl border",
+        "bg-white/95 dark:bg-card/70 backdrop-blur-lg text-card-foreground flex flex-col gap-6 rounded-xl border",
         className,
       )}
+      contentClassName="flex flex-col gap-6"
       {...props}
     />
   );
