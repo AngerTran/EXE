@@ -19,11 +19,4 @@ public interface IPaymentService
         Guid userId,
         Guid paymentId,
         CancellationToken cancellationToken = default);
-    Task HandleWebhookAsync(string provider, PaymentWebhookRequest request, CancellationToken cancellationToken = default);
-
-    /// <summary>MoMo IPN (JSON + chữ ký).</summary>
-    Task HandleMomoIpnAsync(MomoIpnRequest request, CancellationToken cancellationToken = default);
-
-    /// <summary>VNPay IPN (query string).</summary>
-    Task HandleVnpayIpnAsync(IQueryCollection query, CancellationToken cancellationToken = default);
 }

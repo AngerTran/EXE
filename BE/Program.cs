@@ -5,8 +5,6 @@ using Exe.Extensions;
 using Exe.Repositories;
 using Exe.Services;
 using Exe.Services.IServices;
-using Exe.Services.Payments;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<SupabaseOptions>(
@@ -15,10 +13,6 @@ builder.Services.Configure<StorageOptions>(
     builder.Configuration.GetSection(StorageOptions.SectionName));
 builder.Services.Configure<PaymentOptions>(
     builder.Configuration.GetSection(PaymentOptions.SectionName));
-builder.Services.Configure<MomoOptions>(
-    builder.Configuration.GetSection(MomoOptions.SectionName));
-builder.Services.Configure<VnpayOptions>(
-    builder.Configuration.GetSection(VnpayOptions.SectionName));
 builder.Services.Configure<BankTransferOptions>(
     builder.Configuration.GetSection(BankTransferOptions.SectionName));
 
@@ -46,10 +40,6 @@ builder.Services.AddScoped<OrderFulfillmentService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddSingleton<BankTransferInfoService>();
-builder.Services.AddScoped<PaymentGatewayResolver>();
-builder.Services.AddHttpClient<MomoPaymentGateway>();
-builder.Services.AddScoped<IPaymentGateway, MomoPaymentGateway>(sp => sp.GetRequiredService<MomoPaymentGateway>());
-builder.Services.AddScoped<IPaymentGateway, VnpayPaymentGateway>();
 builder.Services.AddScoped<IUserAssetService, UserAssetService>();
 builder.Services.AddScoped<IBookmarkService, BookmarkService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();

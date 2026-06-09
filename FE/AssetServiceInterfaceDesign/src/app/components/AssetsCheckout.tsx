@@ -352,7 +352,7 @@ export default function AssetsCheckout() {
                   <div className="bg-secondary/10 border border-secondary/25 rounded-xl p-4">
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       Asset trả phí mua bằng <strong className="text-foreground">xu</strong>.
-                      VND/MoMo chỉ dùng cho gói subscription.
+                      Asset trả bằng xu trong ví; gói subscription thanh toán chuyển khoản.
                     </p>
                   </div>
                 )}

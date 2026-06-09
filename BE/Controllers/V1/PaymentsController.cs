@@ -1,4 +1,3 @@
-using Exe.Configuration;
 using Exe.DTOs.Auth;
 using Exe.DTOs.Billing;
 using Exe.DTOs.Common;
@@ -7,7 +6,6 @@ using Exe.Services;
 using Exe.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace Exe.Controllers.V1;
 
@@ -17,11 +15,8 @@ namespace Exe.Controllers.V1;
 [Produces("application/json")]
 public class PaymentsController(
     IPaymentService paymentService,
-    BankTransferInfoService bankTransferInfoService,
-    IOptions<PaymentOptions> paymentOptions) : ControllerBase
+    BankTransferInfoService bankTransferInfoService) : ControllerBase
 {
-    private readonly PaymentOptions _paymentOptions = paymentOptions.Value;
-
     [HttpGet("bank-transfer-info")]
     [Authorize]
     [ProducesResponseType(typeof(BankTransferInfoResponse), StatusCodes.Status200OK)]
@@ -111,83 +106,5 @@ public class PaymentsController(
         {
             return BadRequest(new ErrorResponse(ex.Message, "invalid_status"));
         }
-    }
-
-    /// <summary>MoMo IPN — JSON body từ MoMo server.</summary>
-    [HttpPost("webhook/momo")]
-    [AllowAnonymous]
-    public async Task<IActionResult> MomoWebhook(
-        [FromBody] MomoIpnRequest request,
-        CancellationToken cancellationToken)
-    {
-        var secretCheck = ValidateWebhookSecret();
-        if (secretCheck is not null)
-            return secretCheck;
-
-        try
-        {
-            await paymentService.HandleMomoIpnAsync(request, cancellationToken);
-            return Ok(new { received = true });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
-        }
-    }
-
-    /// <summary>VNPay IPN — query string (VNPay gọi GET).</summary>
-    [HttpGet("webhook/vnpay")]
-    [AllowAnonymous]
-    public async Task<IActionResult> VnPayWebhook(CancellationToken cancellationToken)
-    {
-        var secretCheck = ValidateWebhookSecret();
-        if (secretCheck is not null)
-            return secretCheck;
-
-        try
-        {
-            await paymentService.HandleVnpayIpnAsync(Request.Query, cancellationToken);
-            return Content("OK", "text/plain");
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
-        }
-    }
-
-    /// <summary>Webhook mock/dev — body { transactionId, status }.</summary>
-    [HttpPost("webhook/vnpay")]
-    [AllowAnonymous]
-    public async Task<IActionResult> VnPayWebhookMock(
-        [FromBody] PaymentWebhookRequest request,
-        CancellationToken cancellationToken)
-    {
-        var secretCheck = ValidateWebhookSecret();
-        if (secretCheck is not null)
-            return secretCheck;
-
-        try
-        {
-            await paymentService.HandleWebhookAsync("vnpay", request, cancellationToken);
-            return Ok(new { received = true });
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
-        }
-    }
-
-    private IActionResult? ValidateWebhookSecret()
-    {
-        if (string.IsNullOrWhiteSpace(_paymentOptions.WebhookSecret))
-            return null;
-
-        if (!Request.Headers.TryGetValue("X-Webhook-Secret", out var provided)
-            || provided != _paymentOptions.WebhookSecret)
-        {
-            return Unauthorized(new ErrorResponse("Invalid webhook secret.", "unauthorized"));
-        }
-
-        return null;
     }
 }

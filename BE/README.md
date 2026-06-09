@@ -107,7 +107,7 @@ Bản đồ đầy đủ + map FE: [docs/BE_APIS_COMPLETE.md](../docs/BE_APIS_CO
 | Admin | `/api/v1/admin` |
 | Subscriptions (user) | `/api/v1/subscriptions` |
 
-**Payment MVP:** `Payment:AutoCompleteOnCreate: true` trong appsettings — đơn hoàn tất ngay sau khi tạo (giống mock FE).
+**Thanh toán:** Chỉ **chuyển khoản ngân hàng** — đơn `pending` cho đến khi admin xác nhận. Đặt `Payment:AutoCompleteOnCreate: false` (mặc định).
 
 **List response (paged):**
 ```json

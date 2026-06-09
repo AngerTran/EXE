@@ -12,14 +12,12 @@ internal static class PaymentMethodParser
         if (Enum.TryParse<PaymentMethod>(paymentMethod, true, out var parsed))
             return parsed;
 
-        var normalized = paymentMethod.Trim().ToLowerInvariant().Replace("-", "_");
-        return normalized switch
+        return paymentMethod.Trim().ToLowerInvariant() switch
         {
-            "momo" or "mock" => PaymentMethod.Momo,
-            "vnpay" => PaymentMethod.Vnpay,
             "bank" or "bank_transfer" or "banktransfer" => PaymentMethod.BankTransfer,
             "card" or "credit_card" or "creditcard" => PaymentMethod.CreditCard,
-            _ => throw new ArgumentException($"Unsupported payment method '{paymentMethod}'.")
+            _ => throw new ArgumentException(
+                $"Unsupported payment method: {paymentMethod}. Use bank_transfer or credit_card."),
         };
     }
 }
