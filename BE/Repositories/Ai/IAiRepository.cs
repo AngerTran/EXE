@@ -17,4 +17,13 @@ public interface IAiRepository
     void AddMessage(AiMessage message);
 
     void AddMessageAssets(IEnumerable<AiMessageAsset> items);
+
+    Task<Dictionary<Guid, int>> GetSessionMessageCountsAsync(
+        IReadOnlyList<Guid> sessionIds,
+        CancellationToken cancellationToken = default);
+
+    Task<int> DeleteEmptySessionsAsync(
+        Guid userId,
+        Guid? keepSessionId,
+        CancellationToken cancellationToken = default);
 }

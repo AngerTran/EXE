@@ -113,3 +113,28 @@ export interface AdminAnalyticsOrders {
   byType: AdminOrderTypeStat[];
   purchasesByPlan: AdminPurchaseStat[];
 }
+
+export interface AdminAiDailyUsage {
+  date: string;
+  messages: number;
+  tokens: number;
+  xuCharged: number;
+}
+
+export interface AdminAiUserUsageStat {
+  userId: string;
+  userName: string;
+  email: string;
+  messageCount: number;
+  totalTokens: number;
+  totalXuCharged: number;
+}
+
+export interface AdminAnalyticsAiUsage {
+  totalMessages: number;
+  totalTokens: number;
+  totalXuCharged: number;
+  activeSessions: number;
+  byDay: AdminAiDailyUsage[];
+  byUser: AdminAiUserUsageStat[];
+}

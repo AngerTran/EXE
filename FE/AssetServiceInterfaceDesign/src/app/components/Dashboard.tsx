@@ -1,18 +1,33 @@
-import { useState, useEffect, useRef } from "react";
-import { Send, Coins, AlertCircle, Loader2, Lock, ShoppingBag, ExternalLink, Trash2 } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Send,
+  Loader2,
+  ShoppingBag,
+  ExternalLink,
+  PanelLeft,
+  PanelLeftClose,
+} from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "../../utils/notify";
 import { useAuth } from "../contexts/AuthContext";
 import { ApiError } from "../../api/client";
 import {
   createAiSession,
+  cleanupEmptyAiSessions,
   deleteAiSession,
+  fetchAiSession,
+  fetchAiSessions,
+  getStoredAiSessionId,
   sendAiMessage,
+  setStoredAiSessionId,
 } from "../../api/ai";
-import type { AiSuggestedAsset } from "../../api/types/ai";
-import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
-import { AppLogo, LOGO_ICON_SRC } from "./AppLogo";
+import type { AiMessage, AiSessionListItem, AiSuggestedAsset } from "../../api/types/ai";
+import { LOGO_ICON_SRC } from "./AppLogo";
 import { BeamPanel } from "./BeamPanel";
+import { AiChatSidebar } from "./ai/AiChatSidebar";
+import { AiMessageBody } from "./ai/AiMessageBody";
+import { AiNoAssetsNotice } from "./ai/AiNoAssetsNotice";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 interface Message {
   id: string;
@@ -20,87 +35,211 @@ interface Message {
   content: string;
   timestamp: Date;
   suggestedAssets?: AiSuggestedAsset[];
+  assetSuggestionStatus?: AiMessage["assetSuggestionStatus"];
 }
+
+function mapApiMessage(m: AiMessage): Message {
+  return {
+    id: m.id,
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: m.content,
+    timestamp: new Date(m.createdAt),
+    suggestedAssets: m.suggestedAssets ?? undefined,
+    assetSuggestionStatus: m.assetSuggestionStatus ?? undefined,
+  };
+}
+
+function sortMessagesChronologically(messages: Message[]): Message[] {
+  return [...messages].sort((a, b) => {
+    const byTime = a.timestamp.getTime() - b.timestamp.getTime();
+    if (byTime !== 0) return byTime;
+    if (a.role === b.role) return 0;
+    return a.role === "user" ? -1 : 1;
+  });
+}
+
+const QUICK_PROMPTS = [
+  { label: "🏙️ Game Thành Phố", text: "Tôi muốn làm game thành phố" },
+  { label: "🎮 RPG 2D", text: "Assets nào cần cho game RPG 2D?" },
+  { label: "🏃 Platformer", text: "Gợi ý character sprites cho platformer" },
+  { label: "📱 Mobile UI", text: "UI elements cho mobile game" },
+] as const;
 
 export default function Dashboard() {
   const { user, isLoading: authLoading, refreshUserData } = useAuth();
   const navigate = useNavigate();
-  
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
-
-  // Refresh user data when component mounts to get latest subscription info
-  useEffect(() => {
-    refreshUserData();
-  }, []);
-
-  // Also refresh when window regains focus (user comes back from another tab)
-  useEffect(() => {
-    const handleFocus = () => {
-      refreshUserData();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
-
-  // Listen for storage changes (when data is updated in another component)
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'currentUser' || e.key === 'users') {
-        refreshUserData();
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
+  const [sessions, setSessions] = useState<AiSessionListItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [input, setInput] = useState("");
   const [credits, setCredits] = useState(user?.credits || 0);
   const isUnlimited = user?.isUnlimited ?? false;
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const welcomeMessage = (): Message => ({
-    id: "welcome",
-    role: "assistant",
-    content: `Xin chào ${user?.name || "bạn"}! Tôi là AssetBox AI. Hãy cho tôi biết ý tưởng game của bạn, tôi sẽ gợi ý những assets phù hợp nhất! 🎮`,
-    timestamp: new Date(),
-  });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const session = await createAiSession("AssetBox AI Chat");
-        if (!cancelled) {
-          setSessionId(session.id);
-          setMessages([welcomeMessage()]);
-        }
-      } catch {
-        if (!cancelled) setMessages([welcomeMessage()]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
+    if (!authLoading && !user) navigate("/auth");
+  }, [user, authLoading, navigate]);
 
-  // Update credits when user changes
   useEffect(() => {
-    if (user) {
-      setCredits(user.credits);
-    }
+    refreshUserData();
+  }, []);
+
+  useEffect(() => {
+    const handleFocus = () => void refreshUserData();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [refreshUserData]);
+
+  useEffect(() => {
+    if (user) setCredits(user.credits);
   }, [user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isLoading]);
+
+  const reloadSessions = useCallback(async () => {
+    setSessionsLoading(true);
+    try {
+      const list = await fetchAiSessions();
+      setSessions(list);
+      return list;
+    } catch {
+      setSessions([]);
+      return [];
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, []);
+
+  const cleanupEmptySessions = useCallback(
+    async (keepId: string | null) => {
+      const { deleted } = await cleanupEmptyAiSessions(keepId);
+      if (deleted > 0) {
+        toast.success(`Đã xóa ${deleted} hội thoại trống`);
+      }
+      return reloadSessions();
+    },
+    [reloadSessions]
+  );
+
+  const loadSession = useCallback(
+    async (id: string) => {
+      setSessionLoading(true);
+      try {
+        const detail = await fetchAiSession(id);
+        setSessionId(detail.id);
+        setStoredAiSessionId(detail.id);
+        if (detail.messages.length === 0) {
+          setMessages([]);
+        } else {
+          setMessages(sortMessagesChronologically(detail.messages.map(mapApiMessage)));
+        }
+      } catch (error) {
+        toast.error(error instanceof ApiError ? error.message : "Không tải được hội thoại");
+      } finally {
+        setSessionLoading(false);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      let list = await reloadSessions();
+      if (cancelled) return;
+
+      const stored = getStoredAiSessionId();
+      const keepId =
+        (stored && list.some((s) => s.id === stored) && stored) || list[0]?.id || null;
+
+      await cleanupEmptySessions(keepId);
+      list = await reloadSessions();
+      if (cancelled) return;
+
+      const pick =
+        (stored && list.some((s) => s.id === stored) && stored) || list[0]?.id || null;
+
+      if (pick) {
+        await loadSession(pick);
+      } else {
+        setSessionId(null);
+        setStoredAiSessionId(null);
+        setMessages([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, loadSession, reloadSessions, cleanupEmptySessions]);
+
+  const handleNewChat = async () => {
+    const hasUserMessages = messages.some((m) => m.id !== "welcome");
+    if (!hasUserMessages && sessionId) {
+      setMessages([]);
+      setSidebarOpen(false);
+      return;
+    }
+    try {
+      const created = await createAiSession("Phiên chat mới");
+      setSessionId(created.id);
+      setStoredAiSessionId(created.id);
+      setMessages([]);
+      setSidebarOpen(false);
+      await reloadSessions();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tạo được chat mới");
+    }
+  };
+
+  const handleSelectSession = async (id: string) => {
+    if (id === sessionId) {
+      setSidebarOpen(false);
+      return;
+    }
+    await loadSession(id);
+    setSidebarOpen(false);
+  };
+
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await deleteAiSession(id);
+      const list = await reloadSessions();
+      if (id === sessionId) {
+        if (list[0]) await loadSession(list[0].id);
+        else {
+          setSessionId(null);
+          setStoredAiSessionId(null);
+          setMessages([]);
+        }
+      }
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Xóa thất bại");
+    }
+  };
+
+  const handleCleanupEmptySessions = async () => {
+    await cleanupEmptySessions(sessionId);
+    const refreshed = await reloadSessions();
+    if (sessionId && !refreshed.some((s) => s.id === sessionId)) {
+      if (refreshed[0]) await loadSession(refreshed[0].id);
+      else {
+        setSessionId(null);
+        setStoredAiSessionId(null);
+        setMessages([]);
+      }
+    }
+  };
 
   const handleSend = async () => {
     const text = input.trim();
@@ -114,9 +253,10 @@ export default function Dashboard() {
     let activeSessionId = sessionId;
     if (!activeSessionId) {
       try {
-        const session = await createAiSession("AssetBox AI Chat");
-        activeSessionId = session.id;
-        setSessionId(session.id);
+        const created = await createAiSession("Phiên chat mới");
+        activeSessionId = created.id;
+        setSessionId(created.id);
+        setStoredAiSessionId(created.id);
       } catch (error) {
         toast.error(error instanceof ApiError ? error.message : "Không tạo được phiên chat");
         return;
@@ -124,7 +264,7 @@ export default function Dashboard() {
     }
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `local-${Date.now()}`,
       role: "user",
       content: text,
       timestamp: new Date(),
@@ -136,16 +276,11 @@ export default function Dashboard() {
 
     try {
       const result = await sendAiMessage(activeSessionId, text);
-      const assistantMessage: Message = {
-        id: result.assistantMessage.id,
-        role: "assistant",
-        content: result.assistantMessage.content,
-        timestamp: new Date(result.assistantMessage.createdAt),
-        suggestedAssets: result.assistantMessage.suggestedAssets ?? undefined,
-      };
+      const assistantMessage = mapApiMessage(result.assistantMessage);
       setMessages((prev) => [...prev, assistantMessage]);
       setCredits(result.walletBalance);
       await refreshUserData();
+      await reloadSessions();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Gửi tin nhắn thất bại");
     } finally {
@@ -153,299 +288,253 @@ export default function Dashboard() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
-  const clearChatHistory = async () => {
-    if (!confirm("Bạn có chắc muốn xóa toàn bộ lịch sử chat?")) return;
-    try {
-      if (sessionId) await deleteAiSession(sessionId);
-      const session = await createAiSession("AssetBox AI Chat");
-      setSessionId(session.id);
-      setMessages([welcomeMessage()]);
-    } catch {
-      setMessages([welcomeMessage()]);
-    }
-  };
-
-  // Show loading if user is not loaded yet
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Đang tải...</p>
-        </div>
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-[calc(100dvh-8rem)] py-6 sm:py-8 flex flex-col">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex flex-col flex-1 min-h-0">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-                <AppLogo size="md" showText={false} />
-                AssetBox AI
-              </h1>
-              <p className="text-muted-foreground">Hỏi tôi về assets cho game của bạn</p>
+  const hasConversation = messages.some((m) => m.role === "user");
+  const activeSessionTitle =
+    sessions.find((s) => s.id === sessionId)?.title ?? "AssetBox AI";
+
+  const sidebarProps = {
+    sessions,
+    activeSessionId: sessionId,
+    loading: sessionsLoading,
+    onSelect: (id: string) => void handleSelectSession(id),
+    onNewChat: () => void handleNewChat(),
+    onDelete: (id: string) => void handleDeleteSession(id),
+    onCleanupEmpty: () => void handleCleanupEmptySessions(),
+  };
+
+  const renderInput = (variant: "empty" | "chat") => (
+    <div className="w-full max-w-2xl mx-auto">
+      <BeamPanel
+        beam={variant === "empty" ? 4.8 : 5.2}
+        className="ai-glass-input overflow-hidden"
+      >
+        <div className="flex items-end gap-2 px-4 py-3 focus-within:ring-1 focus-within:ring-primary/25 rounded-[28px] transition-shadow">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            placeholder={
+              isUnlimited || credits > 0
+                ? "Hỏi bất kỳ điều gì..."
+                : "Hết xu — vào Gói dịch vụ để nạp thêm"
+            }
+            disabled={(!isUnlimited && credits <= 0) || isLoading}
+            className="flex-1 min-h-[24px] max-h-32 resize-none bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 py-1"
+          />
+          <button
+            type="button"
+            onClick={() => void handleSend()}
+            disabled={!input.trim() || (!isUnlimited && credits <= 0) || isLoading}
+            className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-30 shrink-0 hover:shadow-[0_0_16px_rgba(0,217,255,0.45)] hover:scale-105 active:scale-95 transition-all"
+            aria-label="Gửi"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </div>
+      </BeamPanel>
+      {variant === "empty" && (
+        <>
+          <div className="flex flex-wrap gap-2 justify-center mt-5">
+            {QUICK_PROMPTS.map((q) => (
+              <button
+                key={q.text}
+                type="button"
+                onClick={() => setInput(q.text)}
+                className="ai-glass-chip rounded-full px-3.5 py-1.5 text-sm transition-all"
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-center text-xs text-muted-foreground/60 mt-4">
+            1 xu / câu hỏi
+          </p>
+        </>
+      )}
+    </div>
+  );
+
+  const messageList = (
+    <div className="w-full max-w-2xl mx-auto px-4 py-8 space-y-6">
+      {messages.map((message, index) => (
+        <div
+          key={message.id}
+          className="w-full ai-msg-enter"
+          style={{ animationDelay: `${Math.min(index * 0.05, 0.3)}s` }}
+        >
+          {message.role === "user" ? (
+            <div className="flex justify-end">
+              <div className="ai-glass-user max-w-[85%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">
+                {message.content}
+              </div>
             </div>
+          ) : (
+            <BeamPanel beam={5} className="ai-glass-panel overflow-hidden">
+              <div className="px-4 py-3.5 space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-primary/10">
+                  <img src={LOGO_ICON_SRC} alt="" className="w-5 h-5 object-contain" />
+                  <span className="text-xs font-medium text-primary tracking-wide">AssetBox AI</span>
+                </div>
+                <AiMessageBody content={message.content} />
+                {message.suggestedAssets && message.suggestedAssets.length > 0 && (
+                  <div className="pt-3 border-t border-primary/10 space-y-2.5">
+                    <p className="text-xs text-primary/80 flex items-center gap-1.5 font-medium">
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      Gợi ý từ Chợ AssetBox
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {message.suggestedAssets.map((asset) => (
+                        <Link
+                          key={asset.assetId}
+                          to={`/marketplace?details=${asset.assetId}`}
+                          className="ai-glass-asset group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all"
+                        >
+                          {asset.thumbnailUrl ? (
+                            <img
+                              src={asset.thumbnailUrl}
+                              alt=""
+                              className="w-9 h-9 rounded-lg object-cover shrink-0 ring-1 ring-primary/20"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-lg bg-primary/10 shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                              {asset.title}
+                            </p>
+                          </div>
+                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary shrink-0 transition-colors" />
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {message.assetSuggestionStatus === "not_found" && <AiNoAssetsNotice />}
+              </div>
+            </BeamPanel>
+          )}
+        </div>
+      ))}
+      {isLoading && (
+        <div className="ai-glass-typing ai-msg-enter flex items-center gap-3 rounded-2xl px-4 py-3 w-fit">
+          <img src={LOGO_ICON_SRC} alt="" className="w-5 h-5 object-contain opacity-90" />
+          <div className="flex items-center gap-1.5">
+            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
+          </div>
+          <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
+        </div>
+      )}
+      <div ref={messagesEndRef} />
+    </div>
+  );
 
-            {/* Credits Display */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {messages.length > 1 && (
-                <button
-                  onClick={clearChatHistory}
-                  className="bg-card hover:bg-card/80 border border-border text-foreground px-4 py-3 rounded-lg transition-all flex items-center gap-2 hover:scale-105"
-                  title="Xóa lịch sử chat"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  <span className="hidden sm:inline text-sm">Xóa lịch sử</span>
-                </button>
-              )}
+  return (
+    <div className="flex h-full w-full min-h-0 overflow-hidden bg-transparent">
+      <div
+        className={`hidden md:flex shrink-0 self-stretch min-h-0 transition-[width] duration-200 ease-out overflow-hidden ${
+          desktopSidebarOpen ? "w-[260px]" : "w-0"
+        }`}
+      >
+        <AiChatSidebar {...sidebarProps} className="w-[260px] h-full min-h-0 border-0 shrink-0" />
+      </div>
 
-              <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl px-6 py-3 flex items-center gap-3 shadow-lg" beam={3.5}>
-                <Coins className="w-6 h-6 text-warning" />
-                <div>
-                  <p className="text-xs text-muted-foreground font-mono">Xu còn lại</p>
-                  <p className="text-2xl font-bold text-foreground font-mono flex items-center min-h-8">
-                    {isUnlimited ? <UnlimitedXuIcon size="md" /> : credits}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 h-full bg-transparent">
+        <header className="ai-chat-header-glass h-11 shrink-0 flex items-center gap-2 px-3 sm:px-4">
+          <button
+            type="button"
+            className="hidden md:inline-flex p-2 rounded-lg text-primary bg-primary/10 border border-primary/25 hover:bg-primary/20 transition-colors"
+            onClick={() => setDesktopSidebarOpen((open) => !open)}
+            aria-label={desktopSidebarOpen ? "Thu gọn lịch sử chat" : "Mở lịch sử chat"}
+            title={desktopSidebarOpen ? "Thu gọn sidebar" : "Mở sidebar"}
+          >
+            {desktopSidebarOpen ? (
+              <PanelLeftClose className="w-5 h-5" />
+            ) : (
+              <PanelLeft className="w-5 h-5" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="md:hidden p-2 -ml-1 rounded-lg text-primary bg-primary/10 border border-primary/25 hover:bg-primary/20 transition-colors"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Mở lịch sử chat"
+          >
+            <PanelLeft className="w-5 h-5" />
+          </button>
+          {hasConversation && (
+            <span className="text-sm text-muted-foreground truncate min-w-0">
+              {activeSessionTitle}
+            </span>
+          )}
+        </header>
+
+        <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-y-auto ai-chat-scroll">
+            {sessionLoading ? (
+              <div className="flex justify-center items-center min-h-full">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            ) : !hasConversation ? (
+              <div className="min-h-full flex flex-col items-center justify-center px-4 pb-12">
+                <div className="flex flex-col items-center mb-10 ai-msg-enter">
+                  <div className="ai-empty-logo w-14 h-14 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center mb-5 shadow-[0_0_32px_rgba(0,217,255,0.15)]">
+                    <img src={LOGO_ICON_SRC} alt="" className="w-9 h-9 object-contain" />
+                  </div>
+                  <h2 className="text-2xl sm:text-[30px] font-semibold text-center tracking-tight ai-empty-title">
+                    Chúng ta nên bắt đầu từ đâu?
+                  </h2>
+                  <p className="text-sm text-muted-foreground/80 mt-3 text-center max-w-sm">
+                    Mô tả ý tưởng game — AI sẽ tư vấn và gợi ý asset từ Chợ AssetBox
                   </p>
                 </div>
-              </BeamPanel>
-
-              {!isUnlimited && credits < 5 && (
-                <Link
-                  to="/pricing"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg transition-all whitespace-nowrap hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
-                >
-                  Nạp thêm
-                </Link>
-              )}
-            </div>
+                <div className="w-full px-2 ai-msg-enter" style={{ animationDelay: "0.12s" }}>
+                  {renderInput("empty")}
+                </div>
+              </div>
+            ) : (
+              messageList
+            )}
           </div>
 
-          {/* Warning */}
-          {!isUnlimited && credits < 5 && (
-            <div className="mt-4 bg-warning/10 border border-warning/30 rounded-lg p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-foreground font-medium">Xu sắp hết!</p>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Bạn chỉ còn {credits} xu. Nạp thêm để tiếp tục sử dụng AssetBox AI.
-                </p>
-              </div>
+          {hasConversation && (
+            <div className="shrink-0 px-4 pb-5 pt-2">
+              {renderInput("chat")}
             </div>
           )}
         </div>
-
-        {/* Chat Container */}
-        <BeamPanel
-          className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl shadow-sm flex-1 flex flex-col min-h-0"
-          contentClassName="overflow-hidden rounded-xl flex flex-col flex-1 min-h-0"
-          beam={4.2}
-        >
-          {/* Messages */}
-          <div className="flex-1 min-h-[min(32rem,calc(100dvh-18rem))] overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex gap-4 ${
-                  message.role === "user" ? "flex-row-reverse" : "flex-row"
-                }`}
-              >
-                {/* Avatar */}
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    message.role === "user"
-                      ? "bg-primary/20 border-2 border-primary"
-                      : "bg-secondary/20 border-2 border-secondary"
-                  }`}
-                >
-                  {message.role === "user" ? (
-                    <span className="text-primary font-bold">U</span>
-                  ) : (
-                    <img
-                      src={LOGO_ICON_SRC}
-                      alt=""
-                      aria-hidden
-                      className="w-6 h-6 object-contain"
-                    />
-                  )}
-                </div>
-
-                {/* Message Content */}
-                <div
-                  className={`flex-1 ${
-                    message.role === "user" ? "text-right" : "text-left"
-                  }`}
-                >
-                  <div
-                    className={`inline-block rounded-xl px-6 py-4 max-w-[80%] ${
-                      message.role === "user"
-                        ? "bg-primary/10 border border-primary/30 text-foreground shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-                        : "bg-white/95 dark:bg-card/70 border border-border text-foreground backdrop-blur-lg"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  </div>
-                  
-                  {/* Suggested Assets */}
-                  {message.role === "assistant" && message.suggestedAssets && message.suggestedAssets.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      <div className="flex items-center gap-2 text-primary text-sm font-medium">
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>Assets được gợi ý từ Chợ Assets:</span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {message.suggestedAssets.map((asset) => (
-                            <Link
-                              key={asset.assetId}
-                              to={`/marketplace?details=${asset.assetId}`}
-                              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-lg p-3 transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-                            >
-                              <div className="flex items-start gap-3">
-                                {asset.thumbnailUrl ? (
-                                  <img
-                                    src={asset.thumbnailUrl}
-                                    alt={asset.title}
-                                    className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                                  />
-                                ) : (
-                                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-lg flex-shrink-0" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-bold text-foreground text-sm group-hover:text-primary transition-colors truncate">
-                                    {asset.title}
-                                  </p>
-                                  {asset.relevanceScore != null && (
-                                    <p className="text-xs text-muted-foreground">
-                                      Phù hợp: {Math.round(asset.relevanceScore * 100)}%
-                                    </p>
-                                  )}
-                                </div>
-                                <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                              </div>
-                            </Link>
-                        ))}
-                      </div>
-                      <Link
-                        to="/marketplace"
-                        className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors mt-2"
-                      >
-                        <span>Xem tất cả trong Chợ Assets</span>
-                        <ExternalLink className="w-4 h-4" />
-                      </Link>
-                    </div>
-                  )}
-
-                  <p className="text-xs text-muted-foreground mt-2 font-mono">
-                    {message.timestamp.toLocaleTimeString("vi-VN", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex gap-4">
-                <div className="w-10 h-10 rounded-full bg-secondary/20 border-2 border-secondary flex items-center justify-center p-1">
-                  <img
-                    src={LOGO_ICON_SRC}
-                    alt=""
-                    aria-hidden
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="bg-white/95 dark:bg-card/70 border border-border rounded-xl px-6 py-4 flex items-center gap-3 backdrop-blur-lg">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                  <span className="text-muted-foreground text-sm">AI đang suy nghĩ...</span>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input Area */}
-          <div className="border-t border-border p-4 bg-white/95 dark:bg-card/70 backdrop-blur-lg">
-            <div className="flex gap-3">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={
-                  isUnlimited || credits > 0
-                    ? "Nhập câu hỏi của bạn..."
-                    : "Hết xu. Vui lòng nạp thêm!"
-                }
-                disabled={(!isUnlimited && credits <= 0) || isLoading}
-                className="flex-1 bg-background border border-border rounded-lg px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || (!isUnlimited && credits <= 0) || isLoading}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
-              >
-                <Send className="w-5 h-5" />
-                <span className="hidden sm:inline">Gửi</span>
-              </button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2 font-mono">
-              Mỗi câu hỏi tiêu tốn 1 xu •{" "}
-              {isUnlimited ? "Không giới hạn xu" : `Còn ${credits} xu`}
-            </p>
-          </div>
-        </BeamPanel>
-
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <p className="text-sm text-muted-foreground mb-4 font-medium">Gợi ý câu hỏi nhanh:</p>
-          <div className="grid md:grid-cols-4 gap-4">
-            <button
-              onClick={() => setInput("Tôi muốn làm game thành phố")}
-              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-            >
-              <p className="text-foreground font-medium group-hover:text-primary transition-colors">🏙️ Game Thành Phố</p>
-              <p className="text-muted-foreground text-sm mt-1">Assets cần thiết</p>
-            </button>
-
-            <button
-              onClick={() => setInput("Assets nào cần cho game RPG 2D?")}
-              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-            >
-              <p className="text-foreground font-medium group-hover:text-primary transition-colors">🎮 Game RPG 2D</p>
-              <p className="text-muted-foreground text-sm mt-1">Assets cần thiết</p>
-            </button>
-
-            <button
-              onClick={() => setInput("Gợi ý character sprites cho platformer")}
-              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-            >
-              <p className="text-foreground font-medium group-hover:text-primary transition-colors">🏃 Platformer Game</p>
-              <p className="text-muted-foreground text-sm mt-1">Character sprites</p>
-            </button>
-
-            <button
-              onClick={() => setInput("UI elements cho mobile game")}
-              className="bg-white/95 dark:bg-card/70 backdrop-blur-lg hover:bg-card border border-border hover:border-primary/50 rounded-xl p-4 text-left transition-all group hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]"
-            >
-              <p className="text-foreground font-medium group-hover:text-primary transition-colors">📱 Mobile UI</p>
-              <p className="text-muted-foreground text-sm mt-1">UI elements</p>
-            </button>
-          </div>
-        </div>
       </div>
+
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent
+          side="left"
+          className="w-[min(100vw-2rem,260px)] p-0 border-r ai-glass-sidebar"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Lịch sử chat</SheetTitle>
+            <SheetDescription>Danh sách phiên chat AssetBox AI</SheetDescription>
+          </SheetHeader>
+          <AiChatSidebar {...sidebarProps} className="h-full border-0" />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

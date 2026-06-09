@@ -88,6 +88,24 @@ public record AdminCategoryStatResponse(Guid CategoryId, string CategoryName, in
 
 public record AdminOrderStatusStatResponse(string Status, int Count);
 
+public record AdminAnalyticsAiUsageResponse(
+    int TotalMessages,
+    int TotalTokens,
+    int TotalXuCharged,
+    int ActiveSessions,
+    IReadOnlyList<AdminAiDailyUsageResponse> ByDay,
+    IReadOnlyList<AdminAiUserUsageStatResponse> ByUser);
+
+public record AdminAiDailyUsageResponse(string Date, int Messages, int Tokens, int XuCharged);
+
+public record AdminAiUserUsageStatResponse(
+    Guid UserId,
+    string UserName,
+    string Email,
+    int MessageCount,
+    int TotalTokens,
+    int TotalXuCharged);
+
 public record AdminCreateSubscriptionPlanRequest(
     [Required] SubscriptionTier Slug,
     [Required, MaxLength(100)] string Name,

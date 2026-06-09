@@ -65,4 +65,20 @@ public interface IAdminRepository
 
     Task<IReadOnlyList<(string Category, string ItemName, string? PlanSlug, int Count, long RevenueVnd)>> GetCompletedPurchaseStatsAsync(
         CancellationToken cancellationToken = default);
+
+    Task<(int TotalMessages, int TotalTokens, int TotalXuCharged, int ActiveSessions)> GetAiUsageTotalsAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(DateTime Day, int Messages, int Tokens, int XuCharged)>> GetAiUsageByDayAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<(Guid UserId, string UserName, string Email, int MessageCount, int TotalTokens, int TotalXuCharged)>> GetAiUsageByUserAsync(
+        DateTime? from,
+        DateTime? to,
+        int take,
+        CancellationToken cancellationToken = default);
 }

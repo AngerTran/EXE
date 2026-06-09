@@ -59,6 +59,11 @@ public interface IAdminService
     Task<AdminAnalyticsOrdersResponse> GetAnalyticsOrdersAsync(
         Guid adminUserId,
         CancellationToken cancellationToken = default);
+    Task<AdminAnalyticsAiUsageResponse> GetAnalyticsAiUsageAsync(
+        Guid adminUserId,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default);
     Task<SubscriptionPlanListResponse> ListSubscriptionPlansAsync(
         Guid adminUserId,
         CancellationToken cancellationToken = default);

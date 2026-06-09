@@ -5,6 +5,8 @@ export interface AiSuggestedAsset {
   relevanceScore?: number | null;
 }
 
+export type AiAssetSuggestionStatus = "found" | "not_found";
+
 export interface AiMessage {
   id: string;
   role: string;
@@ -12,12 +14,14 @@ export interface AiMessage {
   xuCharged: number;
   createdAt: string;
   suggestedAssets?: AiSuggestedAsset[] | null;
+  assetSuggestionStatus?: AiAssetSuggestionStatus | null;
 }
 
 export interface AiSessionListItem {
   id: string;
   title: string;
   totalXuUsed: number;
+  messageCount: number;
   isArchived: boolean;
   updatedAt: string;
 }

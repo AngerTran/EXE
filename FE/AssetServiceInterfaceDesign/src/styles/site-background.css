@@ -72,11 +72,18 @@ html.no-site-bg::after {
 }
 
 html.no-site-bg {
-  background-color: var(--auth-surface-lowest, #060e20);
+  background-color: hsl(var(--background));
+  height: 100%;
 }
 
 html.no-site-bg body {
-  background-color: var(--auth-surface-lowest, #060e20);
+  background-color: hsl(var(--background));
+  height: 100%;
+}
+
+html.no-site-bg #root {
+  height: 100%;
+  min-height: 100%;
 }
 
 @media (prefers-reduced-motion: no-preference) {

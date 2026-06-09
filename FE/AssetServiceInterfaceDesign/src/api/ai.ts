@@ -33,3 +33,35 @@ export async function sendAiMessage(
 export async function deleteAiSession(id: string): Promise<void> {
   return apiRequest<void>(`/ai/sessions/${id}`, { method: "DELETE" });
 }
+
+export async function cleanupEmptyAiSessions(
+  keepId?: string | null
+): Promise<{ deleted: number }> {
+  const q = keepId ? `?keep=${encodeURIComponent(keepId)}` : "";
+  return apiRequest<{ deleted: number }>(`/ai/sessions/empty${q}`, { method: "DELETE" });
+}
+
+export async function exportAiSession(
+  id: string
+): Promise<{ format: string; content: string }> {
+  return apiRequest<{ format: string; content: string }>(`/ai/sessions/${id}/export`);
+}
+
+const ACTIVE_SESSION_KEY = "assetbox_ai_active_session";
+
+export function getStoredAiSessionId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredAiSessionId(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(ACTIVE_SESSION_KEY, id);
+    else localStorage.removeItem(ACTIVE_SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}

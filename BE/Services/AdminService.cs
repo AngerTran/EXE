@@ -271,6 +271,27 @@ public class AdminService(
                 p.Category, p.ItemName, p.PlanSlug, p.Count, p.RevenueVnd)).ToList());
     }
 
+    public async Task<AdminAnalyticsAiUsageResponse> GetAnalyticsAiUsageAsync(
+        Guid adminUserId,
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureAdminAsync(adminUserId, cancellationToken);
+        var totals = await adminRepository.GetAiUsageTotalsAsync(from, to, cancellationToken);
+        var byDay = await adminRepository.GetAiUsageByDayAsync(from, to, cancellationToken);
+        var byUser = await adminRepository.GetAiUsageByUserAsync(from, to, take: 10, cancellationToken);
+        return new AdminAnalyticsAiUsageResponse(
+            totals.TotalMessages,
+            totals.TotalTokens,
+            totals.TotalXuCharged,
+            totals.ActiveSessions,
+            byDay.Select(d => new AdminAiDailyUsageResponse(
+                d.Day.ToString("yyyy-MM-dd"), d.Messages, d.Tokens, d.XuCharged)).ToList(),
+            byUser.Select(u => new AdminAiUserUsageStatResponse(
+                u.UserId, u.UserName, u.Email, u.MessageCount, u.TotalTokens, u.TotalXuCharged)).ToList());
+    }
+
     public async Task<SubscriptionPlanListResponse> ListSubscriptionPlansAsync(
         Guid adminUserId,
         CancellationToken cancellationToken = default)

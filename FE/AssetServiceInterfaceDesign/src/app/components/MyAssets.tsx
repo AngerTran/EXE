@@ -35,6 +35,11 @@ import {
 import { fetchUserAssets, downloadUserAssetFile, removeUserAssetFromLibrary } from "../../api/userAssets";
 import { mapUserAssetToUi, type PurchasedAssetUi } from "../../api/mappers";
 import { ApiError } from "../../api/client";
+import { componentClasses } from "../../constants/theme";
+
+const CTA = componentClasses.ctaGradient;
+const CTA_BTN = `${componentClasses.ctaGradientInteractive} font-bold hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]`;
+const CTA_BTN_LG = `${CTA_BTN} hover:shadow-[0_0_30px_rgba(0,217,255,0.5)]`;
 
 function assetThumbnailSrc(asset: PurchasedAssetUi): string {
   if (asset.thumbnailUrl) return asset.thumbnailUrl;
@@ -179,7 +184,7 @@ export default function MyAssets() {
             </p>
             <Link
               to="/auth"
-              className="inline-block bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)]"
+              className={`inline-block ${CTA_BTN_LG} px-6 py-3 rounded-lg`}
             >
               Đăng nhập ngay
             </Link>
@@ -206,7 +211,7 @@ export default function MyAssets() {
             </div>
             <Link
               to="/marketplace"
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
+              className={`${CTA_BTN} px-6 py-3 rounded-lg`}
             >
               Khám phá thêm
             </Link>
@@ -306,7 +311,7 @@ export default function MyAssets() {
               </p>
               <Link
                 to="/marketplace"
-                className="inline-block bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)]"
+                className={`inline-block ${CTA_BTN_LG} px-6 py-3 rounded-lg`}
               >
                 Đi tới Chợ Assets
               </Link>
@@ -337,13 +342,13 @@ export default function MyAssets() {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg">
+                    <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${CTA} px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg`}>
                       <ExternalLink className="w-4 h-4" />
                       Xem chi tiết
                     </div>
                   </div>
                   <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                    <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                    <div className={`${CTA} px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg`}>
                       <CheckCircle className="w-3 h-3" />
                       ĐÃ SỞ HỮU
                     </div>
@@ -396,7 +401,7 @@ export default function MyAssets() {
                       <button
                         onClick={() => handleDownload(asset)}
                         disabled={isDownloading}
-                        className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:from-primary/50 disabled:to-secondary/50 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)] disabled:cursor-not-allowed disabled:hover:scale-100"
+                        className={`flex-1 ${componentClasses.ctaGradientInteractive} disabled:opacity-50 py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)] disabled:cursor-not-allowed disabled:hover:scale-100`}
                       >
                         <Download className="w-4 h-4" />
                         {isDownloading ? "Đang tải..." : "Tải xuống"}
@@ -431,7 +436,7 @@ export default function MyAssets() {
                       </div>
                       <div className="w-full bg-border rounded-full h-2 overflow-hidden">
                         <div
-                          className="bg-gradient-to-r from-primary to-secondary h-full transition-all duration-300 shadow-[0_0_10px_rgba(0,217,255,0.35)]"
+                          className={`${CTA} h-full transition-all duration-300 shadow-[0_0_10px_rgba(0,217,255,0.35)]`}
                           style={{ width: `${progress}%` }}
                         />
                       </div>
@@ -478,7 +483,7 @@ export default function MyAssets() {
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   <div className="absolute top-4 left-4 flex flex-col gap-2">
-                    <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                    <div className={`${CTA} px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg`}>
                       <CheckCircle className="w-4 h-4" />
                       ĐÃ SỞ HỮU
                     </div>
@@ -565,7 +570,7 @@ export default function MyAssets() {
                 <button
                   onClick={() => handleDownload(viewingAsset)}
                   disabled={typeof downloadProgressById[viewingAsset.id] === "number"}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 disabled:from-primary/50 disabled:to-secondary/50 text-primary-foreground py-3 rounded-lg font-bold transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                  className={`w-full ${componentClasses.ctaGradientInteractive} disabled:opacity-50 py-3 rounded-lg font-bold flex items-center justify-center gap-2 disabled:cursor-not-allowed`}
                 >
                   <Download className="w-5 h-5" />
                   {typeof downloadProgressById[viewingAsset.id] === "number"

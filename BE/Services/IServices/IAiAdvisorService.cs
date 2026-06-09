@@ -9,6 +9,10 @@ public interface IAiAdvisorService
     Task<AiSessionDetailResponse> CreateSessionAsync(Guid userId, CreateAiSessionRequest request, CancellationToken cancellationToken = default);
     Task<AiSessionDetailResponse?> UpdateSessionAsync(Guid userId, Guid sessionId, UpdateAiSessionRequest request, CancellationToken cancellationToken = default);
     Task<bool> DeleteSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+    Task<int> CleanupEmptySessionsAsync(
+        Guid userId,
+        Guid? keepSessionId,
+        CancellationToken cancellationToken = default);
     Task<SendAiMessageResponse?> SendMessageAsync(Guid userId, Guid sessionId, SendAiMessageRequest request, CancellationToken cancellationToken = default);
     Task<AiExportResponse?> ExportSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
 }

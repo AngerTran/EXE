@@ -97,7 +97,7 @@ html:not(.dark) main .text-muted-foreground:not([class*="bg-card"]):not([class*=
   text-shadow: 0 1px 12px rgba(11, 19, 38, 0.5);
 }
 
-html:not(.dark) main p:not(:is([class*="bg-card"] *, [class*="bg-background"] *, [class*="bg-white"] *)) {
+html:not(.dark) main p:not(:is([class*="bg-card"] *, [class*="bg-background"] *, [class*="bg-white"] *, [class*="ai-glass-"] *, .ai-message-body *)) {
   text-shadow: 0 1px 12px rgba(11, 19, 38, 0.45);
 }
 
@@ -107,6 +107,7 @@ html:not(.dark) main :is(
   [class*="bg-background"],
   [class*="bg-popover"],
   [class*="bg-white"],
+  [class*="ai-glass-"],
   [class*="from-card"],
   [class*="to-card"]
 ) {
@@ -125,38 +126,58 @@ html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ).text-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ) .text-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ).text-muted-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ) .text-muted-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ) input,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
-) input::placeholder {
+  [class*="bg-white"],
+  [class*="ai-glass-"]
+) input::placeholder,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"],
+  [class*="ai-glass-"]
+) textarea,
+html:not(.dark) main :is(
+  [class*="bg-card"],
+  [class*="bg-background"],
+  [class*="bg-popover"],
+  [class*="bg-white"],
+  [class*="ai-glass-"]
+) textarea::placeholder {
   text-shadow: none;
 }
 
@@ -164,13 +185,15 @@ html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ).text-muted-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ) .text-muted-foreground {
   color: #1e293b !important;
   font-weight: 600;
@@ -180,15 +203,27 @@ html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ).text-foreground,
 html:not(.dark) main :is(
   [class*="bg-card"],
   [class*="bg-background"],
   [class*="bg-popover"],
-  [class*="bg-white"]
+  [class*="bg-white"],
+  [class*="ai-glass-"]
 ) .text-foreground {
   color: #020617 !important;
+}
+
+html:not(.dark) main :is([class*="ai-glass-"]) {
+  color: #0f172a;
+}
+
+html:not(.dark) main :is([class*="ai-glass-"]) p,
+html:not(.dark) main :is([class*="ai-glass-"]) span,
+html:not(.dark) main :is([class*="ai-glass-"]) li {
+  text-shadow: none;
 }
 
 html:not(.dark) main [class*="from-card"][class*="to-card"] {

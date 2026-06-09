@@ -43,6 +43,9 @@ import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 
 export type Asset = MarketplaceAsset;
 
+const CTA_GRADIENT = componentClasses.ctaGradient;
+const CTA_GRADIENT_INTERACTIVE = componentClasses.ctaGradientInteractive;
+
 export default function AssetsMarketplace() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -381,7 +384,7 @@ export default function AssetsMarketplace() {
                 onClick={() => setPriceFilter("all")}
                 className={`px-4 py-2 rounded-lg transition-all font-medium ${
                   priceFilter === "all"
-                    ? "bg-primary text-primary-foreground shadow-[0_0_20px_rgba(0,217,255,0.3)]"
+                    ? `${CTA_GRADIENT} shadow-[0_0_20px_rgba(0,217,255,0.3)]`
                     : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground font-semibold"
                 }`}
               >
@@ -434,7 +437,7 @@ export default function AssetsMarketplace() {
             {/* Cart Button */}
             <button
               onClick={() => setShowCart(!showCart)}
-              className="relative bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-lg transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]"
+              className={`relative ${CTA_GRADIENT_INTERACTIVE} px-6 py-3 rounded-lg hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.5)]`}
             >
               <ShoppingCart className="w-5 h-5 inline mr-2" />
               Giỏ hàng
@@ -456,7 +459,7 @@ export default function AssetsMarketplace() {
                 onClick={() => setSelectedCategory(category)}
                 className={`px-6 py-3 rounded-lg whitespace-nowrap transition-all font-medium ${
                   selectedCategory === category
-                    ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground scale-105 shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+                    ? `${CTA_GRADIENT} scale-105 shadow-[0_0_20px_rgba(0,217,255,0.4)]`
                     : "bg-white dark:bg-card border border-border text-foreground/80 hover:bg-white dark:hover:bg-card/80 hover:text-foreground hover:border-primary/50 font-semibold"
                 }`}
               >
@@ -842,7 +845,7 @@ function AssetDetailDrawerContent({
                   </div>
                 )}
                 {isPurchased && (
-                  <div className="bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                  <div className={`${CTA_GRADIENT} px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg`}>
                     <CheckCircle className="w-4 h-4" />
                     ĐÃ SỞ HỮU
                   </div>
@@ -1075,7 +1078,7 @@ function AssetCard({
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
         />
         <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg">
+          <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${CTA_GRADIENT} px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg`}>
             <ExternalLink className="w-4 h-4" />
             Xem chi tiết
           </div>
@@ -1086,7 +1089,7 @@ function AssetCard({
           </div>
         )}
         {isPurchased && (
-          <div className="absolute top-3 left-3 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+          <div className={`absolute top-3 left-3 ${CTA_GRADIENT} px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg`}>
             <CheckCircle className="w-3 h-3" />
             ĐÃ SỞ HỮU
           </div>
@@ -1168,7 +1171,7 @@ function AssetCard({
             <button
               type="button"
               onClick={onBuyNow}
-              className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+              className={`w-full ${CTA_GRADIENT_INTERACTIVE} py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-1.5 hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]`}
             >
               {asset.isFree ? (
                 <>
@@ -1194,7 +1197,7 @@ function AssetCard({
               <button
                 type="button"
                 onClick={onBuyNow}
-                className="flex-1 bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]"
+                className={`flex-1 ${CTA_GRADIENT_INTERACTIVE} py-2.5 rounded-lg text-sm font-medium flex items-center justify-center hover:scale-105 hover:shadow-[0_0_20px_rgba(0,217,255,0.4)]`}
               >
                 {asset.isFree ? "Thêm thư viện" : "Mua"}
               </button>

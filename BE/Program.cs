@@ -5,6 +5,7 @@ using Exe.Extensions;
 using Exe.Repositories;
 using Exe.Services;
 using Exe.Services.IServices;
+using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<SupabaseOptions>(
@@ -15,6 +16,16 @@ builder.Services.Configure<PaymentOptions>(
     builder.Configuration.GetSection(PaymentOptions.SectionName));
 builder.Services.Configure<BankTransferOptions>(
     builder.Configuration.GetSection(BankTransferOptions.SectionName));
+builder.Services.Configure<AiOptions>(
+    builder.Configuration.GetSection(AiOptions.SectionName));
+builder.Services.PostConfigure<AiOptions>(options =>
+{
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
+        return;
+    var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+    if (!string.IsNullOrWhiteSpace(envKey))
+        options.ApiKey = envKey.Trim();
+});
 
 var supabase = builder.Configuration
     .GetSection(SupabaseOptions.SectionName)
@@ -43,7 +54,12 @@ builder.Services.AddSingleton<BankTransferInfoService>();
 builder.Services.AddScoped<IUserAssetService, UserAssetService>();
 builder.Services.AddScoped<IBookmarkService, BookmarkService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<ILlmChatService, LlmChatService>();
 builder.Services.AddScoped<IAiAdvisorService, AiAdvisorService>();
+builder.Services.AddHttpClient("LlmChat", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(90);
+});
 builder.Services.AddScoped<ISubscriptionUserService, SubscriptionUserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IContactService, ContactService>();
@@ -83,6 +99,15 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    var ai = app.Services.GetRequiredService<IOptions<AiOptions>>().Value;
+    var aiMode = string.IsNullOrWhiteSpace(ai.ApiKey)
+        ? "fallback (chưa có ApiKey)"
+        : $"OpenAI {ai.Model}";
+    app.Logger.LogInformation("AssetBox AI: {Mode}", aiMode);
+}
 
 app.UseSwaggerDocumentation();
 

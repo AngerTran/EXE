@@ -6,8 +6,11 @@ public record AiSessionListItemResponse(
     Guid Id,
     string Title,
     int TotalXuUsed,
+    int MessageCount,
     bool IsArchived,
     DateTime UpdatedAt);
+
+public record AiCleanupEmptySessionsResponse(int Deleted);
 
 public record CreateAiSessionRequest(string? Title);
 
@@ -27,7 +30,9 @@ public record AiMessageResponse(
     string Content,
     int XuCharged,
     DateTime CreatedAt,
-    IReadOnlyList<AiSuggestedAssetResponse>? SuggestedAssets);
+    IReadOnlyList<AiSuggestedAssetResponse>? SuggestedAssets,
+    /// <summary>found | not_found | null (null = không tìm asset cho tin nhắn này)</summary>
+    string? AssetSuggestionStatus = null);
 
 public record AiSessionDetailResponse(
     Guid Id,

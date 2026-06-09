@@ -9,6 +9,13 @@ export const componentClasses = {
   buttonGradient:
     'bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] hover:brightness-95 text-primary-foreground font-bold transition-all hover:shadow-[0_0_30px_rgba(0,217,255,0.3)] disabled:opacity-50',
 
+  /** Cyan → lavender — đồng bộ tab/nút/badge xanh toàn site */
+  ctaGradient:
+    'bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] text-primary-foreground',
+
+  ctaGradientInteractive:
+    'bg-gradient-to-r from-[var(--cta-from)] to-[var(--cta-to)] text-primary-foreground hover:brightness-95 transition-all',
+
   buttonSecondary:
     'bg-card border border-border hover:bg-card/80 hover:border-primary/50 text-foreground px-6 py-3 rounded-lg font-semibold transition-all',
 

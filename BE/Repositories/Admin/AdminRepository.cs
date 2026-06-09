@@ -232,7 +232,7 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
     public async Task<IReadOnlyList<(string Category, string ItemName, string? PlanSlug, int Count, long RevenueVnd)>> GetCompletedPurchaseStatsAsync(
         CancellationToken cancellationToken = default)
     {
-        var subscriptionStats = await (
+        var subscriptionRows = await (
             from item in db.OrderItems.AsNoTracking()
             join order in db.Orders on item.OrderId equals order.Id
             join plan in db.SubscriptionPlans on item.PlanId equals plan.Id into planJoin
@@ -241,7 +241,7 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
             group item by new
             {
                 ItemName = plan != null ? plan.Name : item.ItemName,
-                PlanSlug = plan == null ? null : plan.Slug.ToString().ToLowerInvariant()
+                PlanSlug = plan == null ? (SubscriptionTier?)null : plan.Slug
             }
             into g
             select new
@@ -252,6 +252,10 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
                 Count = g.Count(),
                 RevenueVnd = g.Sum(x => x.LineTotal)
             }).ToListAsync(cancellationToken);
+
+        var subscriptionStats = subscriptionRows
+            .Select(x => (x.Category, x.ItemName, x.PlanSlug?.ToString().ToLowerInvariant(), x.Count, x.RevenueVnd))
+            .ToList();
 
         var creditStats = await (
             from item in db.OrderItems.AsNoTracking()
@@ -269,9 +273,82 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
             }).ToListAsync(cancellationToken);
 
         return subscriptionStats
-            .Select(x => (x.Category, x.ItemName, x.PlanSlug, x.Count, x.RevenueVnd))
             .Concat(creditStats.Select(x => (x.Category, x.ItemName, x.PlanSlug, x.Count, x.RevenueVnd)))
             .OrderByDescending(x => x.Count)
             .ToList();
+    }
+
+    public async Task<(int TotalMessages, int TotalTokens, int TotalXuCharged, int ActiveSessions)> GetAiUsageTotalsAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default)
+    {
+        var q = FilterAiMessages(from, to);
+        var assistant = q.Where(m => m.Role == AiMessageRole.Assistant);
+        var totalMessages = await assistant.CountAsync(cancellationToken);
+        var totalTokens = await q.SumAsync(m => m.TokenUsed, cancellationToken);
+        var totalXu = await q.SumAsync(m => m.XuCharged, cancellationToken);
+        var activeSessions = await q.Select(m => m.SessionId).Distinct().CountAsync(cancellationToken);
+        return (totalMessages, totalTokens, totalXu, activeSessions);
+    }
+
+    public async Task<IReadOnlyList<(DateTime Day, int Messages, int Tokens, int XuCharged)>> GetAiUsageByDayAsync(
+        DateTime? from,
+        DateTime? to,
+        CancellationToken cancellationToken = default)
+    {
+        var q = FilterAiMessages(from, to);
+        var rows = await q
+            .GroupBy(m => m.CreatedAt.Date)
+            .Select(g => new
+            {
+                Day = g.Key,
+                Messages = g.Count(m => m.Role == AiMessageRole.Assistant),
+                Tokens = g.Sum(m => m.TokenUsed),
+                XuCharged = g.Sum(m => m.XuCharged)
+            })
+            .OrderBy(x => x.Day)
+            .ToListAsync(cancellationToken);
+        return rows.Select(x => (x.Day, x.Messages, x.Tokens, x.XuCharged)).ToList();
+    }
+
+    public async Task<IReadOnlyList<(Guid UserId, string UserName, string Email, int MessageCount, int TotalTokens, int TotalXuCharged)>> GetAiUsageByUserAsync(
+        DateTime? from,
+        DateTime? to,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        var q = FilterAiMessages(from, to);
+        var rows = await (
+            from msg in q
+            join session in db.AiSessions.AsNoTracking() on msg.SessionId equals session.Id
+            join profile in db.Profiles.AsNoTracking() on session.UserId equals profile.Id
+            where profile.DeletedAt == null
+            group msg by new { session.UserId, profile.Name, profile.Email }
+            into g
+            select new
+            {
+                g.Key.UserId,
+                g.Key.Name,
+                g.Key.Email,
+                MessageCount = g.Count(m => m.Role == AiMessageRole.Assistant),
+                TotalTokens = g.Sum(m => m.TokenUsed),
+                TotalXuCharged = g.Sum(m => m.XuCharged)
+            })
+            .OrderByDescending(x => x.TotalXuCharged)
+            .ThenByDescending(x => x.MessageCount)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+        return rows.Select(x => (x.UserId, x.Name, x.Email, x.MessageCount, x.TotalTokens, x.TotalXuCharged)).ToList();
+    }
+
+    private IQueryable<AiMessage> FilterAiMessages(DateTime? from, DateTime? to)
+    {
+        var q = db.AiMessages.AsNoTracking().AsQueryable();
+        if (from.HasValue)
+            q = q.Where(m => m.CreatedAt >= from.Value);
+        if (to.HasValue)
+            q = q.Where(m => m.CreatedAt <= to.Value);
+        return q;
     }
 }

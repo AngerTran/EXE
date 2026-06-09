@@ -18,6 +18,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "./ui/sheet";
@@ -63,13 +64,24 @@ export default function Root() {
   useSubscriptionAlerts(user);
   const { pendingCount: adminPendingOrders } = useAdminPendingOrderAlerts(user);
   const showMobileTabBar = shouldShowMobileBottomNav(location.pathname);
+  const isDashboardPage = location.pathname === "/dashboard";
+
+  const rootClassName = isDashboardPage
+    ? "relative flex flex-col h-dvh max-h-dvh overflow-hidden"
+    : `min-h-screen relative ${showMobileTabBar ? "has-mobile-tab-bar" : ""}`;
 
   return (
-    <div className={`min-h-screen relative ${showMobileTabBar ? "has-mobile-tab-bar" : ""}`}>
+    <div className={rootClassName}>
       <Toaster />
       {/* Navigation */}
       {!isAuthPage && (
-      <nav className="border-b border-border bg-white/95 dark:bg-card/70 backdrop-blur-lg sticky top-0 z-50 shadow-sm">
+      <nav
+        className={
+          isDashboardPage
+            ? "border-b border-border/30 bg-[#dce3ed]/95 dark:bg-background/35 backdrop-blur-md z-50 shrink-0 shadow-sm"
+            : "border-b border-border bg-white/95 dark:bg-card/70 backdrop-blur-lg sticky top-0 z-50 shadow-sm shrink-0"
+        }
+      >
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center group">
@@ -283,6 +295,7 @@ export default function Root() {
         <SheetContent side="right" className="w-[min(100vw-2rem,20rem)] p-0">
           <SheetHeader className="border-b border-border p-4 text-left">
             <SheetTitle>Menu</SheetTitle>
+            <SheetDescription className="sr-only">Điều hướng chính AssetBox</SheetDescription>
           </SheetHeader>
           <nav className="flex flex-col p-4 gap-1 overflow-y-auto">
             {[
@@ -361,14 +374,22 @@ export default function Root() {
       </Sheet>
 
       {/* Main Content */}
-      <main className={isAuthPage ? "min-h-screen h-screen overflow-hidden" : undefined}>
+      <main
+        className={
+          isAuthPage
+            ? "min-h-screen h-screen overflow-hidden"
+            : isDashboardPage
+              ? "flex-1 min-h-0 overflow-hidden"
+              : undefined
+        }
+      >
         <Outlet />
       </main>
 
       {showMobileTabBar && <MobileBottomNav isLoggedIn={!!user} />}
 
       {/* Footer */}
-      {!isAuthPage && (
+      {!isAuthPage && !isDashboardPage && (
       <footer className={`site-footer border-t border-border bg-white/95 dark:bg-card/60 backdrop-blur-lg mt-20 shadow-sm ${showMobileTabBar ? "mb-16 md:mb-0" : ""}`}>
         <div className={`${componentClasses.container} py-12`}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">

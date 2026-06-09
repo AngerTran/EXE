@@ -52,6 +52,15 @@ public class AiSessionsController(IAiAdvisorService aiService) : ControllerBase
         return session is null ? NotFound() : Ok(session);
     }
 
+    [HttpDelete("empty")]
+    public async Task<IActionResult> DeleteEmpty([FromQuery] Guid? keep, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        var deleted = await aiService.CleanupEmptySessionsAsync(userId.Value, keep, cancellationToken);
+        return Ok(new AiCleanupEmptySessionsResponse(deleted));
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

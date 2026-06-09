@@ -250,6 +250,24 @@ public class AdminController(IAdminService adminService, ICreditPackService cred
         }
     }
 
+    [HttpGet("analytics/ai-usage")]
+    public async Task<IActionResult> AnalyticsAiUsage(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            return Ok(await adminService.GetAnalyticsAiUsageAsync(userId.Value, from, to, cancellationToken));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
     [HttpGet("subscription-plans")]
     public async Task<IActionResult> ListSubscriptionPlans(CancellationToken cancellationToken)
     {

@@ -10,6 +10,7 @@ build/
 ### Env files (secrets)
 .env
 .env.*
+BE/appsettings.Development.json
 ### .NET / Backend
 .vs/
 **/.vs/

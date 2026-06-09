@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
 import type {
+  AdminAnalyticsAiUsage,
   AdminAnalyticsAssets,
   AdminAnalyticsOrders,
   AdminAnalyticsRevenue,
@@ -187,6 +188,17 @@ export async function fetchAdminAnalyticsAssets(): Promise<AdminAnalyticsAssets>
 
 export async function fetchAdminAnalyticsOrders(): Promise<AdminAnalyticsOrders> {
   return apiRequest<AdminAnalyticsOrders>("/admin/analytics/orders");
+}
+
+export async function fetchAdminAnalyticsAiUsage(
+  from?: string,
+  to?: string
+): Promise<AdminAnalyticsAiUsage> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const q = params.toString();
+  return apiRequest<AdminAnalyticsAiUsage>(`/admin/analytics/ai-usage${q ? `?${q}` : ""}`);
 }
 
 export async function fetchAdminContactInquiries(

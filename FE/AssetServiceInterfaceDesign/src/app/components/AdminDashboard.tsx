@@ -28,6 +28,7 @@ import {
   Star,
   Upload,
   ImageIcon,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
@@ -55,8 +56,10 @@ import {
   fetchAdminAnalyticsUsers,
   fetchAdminAnalyticsAssets,
   fetchAdminAnalyticsOrders,
+  fetchAdminAnalyticsAiUsage,
 } from "../../api/admin";
 import type {
+  AdminAnalyticsAiUsage,
   AdminAnalyticsAssets,
   AdminAnalyticsOrders,
   AdminAnalyticsRevenue,
@@ -108,6 +111,7 @@ import { mapAssetListItem } from "../../api/mappers";
 import {
   AreaChart,
   Area,
+  ComposedChart,
   BarChart,
   Bar,
   PieChart as RePieChart,
@@ -322,6 +326,7 @@ export default function AdminDashboard() {
   const [usersAnalytics, setUsersAnalytics] = useState<AdminAnalyticsUsers | null>(null);
   const [assetsAnalytics, setAssetsAnalytics] = useState<AdminAnalyticsAssets | null>(null);
   const [ordersAnalytics, setOrdersAnalytics] = useState<AdminAnalyticsOrders | null>(null);
+  const [aiUsageAnalytics, setAiUsageAnalytics] = useState<AdminAnalyticsAiUsage | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const reloadPackagesFromApi = async () => {
@@ -351,6 +356,7 @@ export default function AdminDashboard() {
           usersAnalyticsRes,
           assetsAnalyticsRes,
           ordersAnalyticsRes,
+          aiUsageRes,
         ] = await Promise.all([
           fetchAdminOverview(),
           fetchAdminUsers(1, 100),
@@ -362,6 +368,7 @@ export default function AdminDashboard() {
           fetchAdminAnalyticsUsers(userRange.from, userRange.to),
           fetchAdminAnalyticsAssets(),
           fetchAdminAnalyticsOrders(),
+          fetchAdminAnalyticsAiUsage(range.from, range.to),
         ]);
         if (cancelled) return;
 
@@ -370,6 +377,7 @@ export default function AdminDashboard() {
         setUsersAnalytics(usersAnalyticsRes);
         setAssetsAnalytics(assetsAnalyticsRes);
         setOrdersAnalytics(ordersAnalyticsRes);
+        setAiUsageAnalytics(aiUsageRes);
 
         setUsers(usersRes.data.map(mapAdminUserToUserData));
 
@@ -516,6 +524,7 @@ export default function AdminDashboard() {
             usersAnalytics={usersAnalytics}
             assetsAnalytics={assetsAnalytics}
             ordersAnalytics={ordersAnalytics}
+            aiUsageAnalytics={aiUsageAnalytics}
             loading={dashboardLoading}
           />
         )}
@@ -574,6 +583,7 @@ function OverviewTab({
   usersAnalytics,
   assetsAnalytics,
   ordersAnalytics,
+  aiUsageAnalytics,
   loading,
 }: {
   stats: Array<{
@@ -591,6 +601,7 @@ function OverviewTab({
   usersAnalytics: AdminAnalyticsUsers | null;
   assetsAnalytics: AdminAnalyticsAssets | null;
   ordersAnalytics: AdminAnalyticsOrders | null;
+  aiUsageAnalytics: AdminAnalyticsAiUsage | null;
   loading: boolean;
 }) {
   const revenueData =
@@ -649,6 +660,22 @@ function OverviewTab({
 
   const orderStatusSummary =
     ordersAnalytics?.byStatus.map((s) => `${s.status}: ${s.count}`).join(" · ") ?? "";
+
+  const aiUsageByDay =
+    aiUsageAnalytics?.byDay.map((d) => ({
+      date: formatChartDay(d.date),
+      messages: d.messages,
+      xu: d.xuCharged,
+      tokens: d.tokens,
+    })) ?? [];
+
+  const aiUsageByUser =
+    aiUsageAnalytics?.byUser.map((u) => ({
+      name: u.userName || u.email,
+      messages: u.messageCount,
+      xu: u.totalXuCharged,
+      tokens: u.totalTokens,
+    })) ?? [];
 
   if (loading) {
     return (
@@ -908,6 +935,96 @@ function OverviewTab({
                 </table>
               </div>
             </>
+          )}
+        </BeamPanel>
+      </div>
+
+      {/* AI Usage */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={5.1}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              AssetBox AI (7 ngày)
+            </h3>
+            <span className="text-muted-foreground text-sm font-mono">
+              {aiUsageAnalytics?.totalXuCharged ?? 0} xu · {aiUsageAnalytics?.totalMessages ?? 0} tin
+            </span>
+          </div>
+          {aiUsageByDay.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có dữ liệu AI trong khoảng này.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <ComposedChart data={aiUsageByDay}>
+                <defs>
+                  <linearGradient id="colorAiXu" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="date" stroke="#64748b" />
+                <YAxis stroke="#64748b" allowDecimals={false} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [
+                    value,
+                    name === "xu" ? "Xu tiêu" : name === "messages" ? "Tin AI" : "Token",
+                  ]}
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "8px",
+                    color: "#f8f9fa",
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="xu"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorAiXu)"
+                />
+                <Line type="monotone" dataKey="messages" stroke="#00d9ff" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+          <p className="text-xs text-muted-foreground mt-3">
+            {aiUsageAnalytics?.activeSessions ?? 0} phiên · ~{aiUsageAnalytics?.totalTokens ?? 0} token ước tính
+          </p>
+        </BeamPanel>
+
+        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 hover:border-primary/50 transition-all" beam={5.15}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Coins className="w-5 h-5 text-secondary" />
+              Top user dùng AI
+            </h3>
+            <span className="text-xs text-muted-foreground">Theo xu tiêu</span>
+          </div>
+          {aiUsageByUser.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-16 text-center">Chưa có user dùng AI.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={aiUsageByUser} layout="vertical" margin={{ left: 8, right: 16 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis type="number" stroke="#64748b" allowDecimals={false} />
+                <YAxis type="category" dataKey="name" stroke="#64748b" width={100} tick={{ fontSize: 11 }} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [
+                    value,
+                    name === "xu" ? "Xu" : name === "messages" ? "Tin" : "Token",
+                  ]}
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    border: "1px solid #1e293b",
+                    borderRadius: "8px",
+                    color: "#f8f9fa",
+                  }}
+                />
+                <Bar dataKey="xu" fill="#a855f7" radius={[0, 8, 8, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           )}
         </BeamPanel>
       </div>

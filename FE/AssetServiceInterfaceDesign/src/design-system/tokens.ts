@@ -99,6 +99,7 @@ export const mobileNav = {
   ],
   hiddenRoutePrefixes: [
     '/auth',
+    '/dashboard',
     '/admin',
     '/checkout',
     '/checkout-credits',

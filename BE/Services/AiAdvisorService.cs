@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using Exe.Configuration;
 using Exe.DTOs.Ai;
 using Exe.Models;
 using Exe.Models.Entities;
@@ -7,6 +9,7 @@ using Exe.Repositories.Ai;
 using Exe.Repositories.Marketplace;
 using Exe.Repositories.Wallet;
 using Exe.Services.IServices;
+using Microsoft.Extensions.Options;
 
 namespace Exe.Services;
 
@@ -14,14 +17,21 @@ public class AiAdvisorService(
     IAiRepository aiRepository,
     IAssetRepository assetRepository,
     IWalletRepository walletRepository,
-    IUnitOfWork unitOfWork) : IAiAdvisorService
+    IUnitOfWork unitOfWork,
+    ILlmChatService llmChatService,
+    IOptions<AiOptions> aiOptions) : IAiAdvisorService
 {
     private const int XuPerMessage = 1;
 
     public async Task<IReadOnlyList<AiSessionListItemResponse>> ListSessionsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var sessions = await aiRepository.ListSessionsAsync(userId, cancellationToken);
-        return sessions.Select(MapListItem).ToList();
+        var counts = await aiRepository.GetSessionMessageCountsAsync(
+            sessions.Select(s => s.Id).ToList(),
+            cancellationToken);
+        return sessions
+            .Select(s => MapListItem(s, counts.GetValueOrDefault(s.Id)))
+            .ToList();
     }
 
     public async Task<AiSessionDetailResponse?> GetSessionAsync(
@@ -44,7 +54,7 @@ public class AiAdvisorService(
             Id = Guid.NewGuid(),
             UserId = userId,
             Title = string.IsNullOrWhiteSpace(request.Title) ? "New AI Session" : request.Title.Trim(),
-            ModelUsed = "mock-gpt",
+            ModelUsed = string.IsNullOrWhiteSpace(aiOptions.Value.ApiKey) ? "assetbox-advisor" : aiOptions.Value.Model,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -85,6 +95,17 @@ public class AiAdvisorService(
         return true;
     }
 
+    public async Task<int> CleanupEmptySessionsAsync(
+        Guid userId,
+        Guid? keepSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        var deleted = await aiRepository.DeleteEmptySessionsAsync(userId, keepSessionId, cancellationToken);
+        if (deleted > 0)
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        return deleted;
+    }
+
     public async Task<SendAiMessageResponse?> SendMessageAsync(
         Guid userId,
         Guid sessionId,
@@ -116,8 +137,37 @@ public class AiAdvisorService(
         };
         aiRepository.AddMessage(userMessage);
 
-        var suggestions = await BuildSuggestionsAsync(request.Content, cancellationToken);
-        var answer = BuildMockAnswer(request.Content, suggestions.Select(s => s.Title).ToList());
+        var trimmedContent = request.Content.Trim();
+        var historySession = await aiRepository.GetSessionAsync(sessionId, userId, cancellationToken);
+        var recentUserContents = historySession?.Messages
+            .Where(m => m.Role == AiMessageRole.User)
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .Select(m => m.Content)
+            .ToList() ?? [];
+        var recentMessages = historySession?.Messages
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .Select(m => (m.Role.ToString().ToLowerInvariant(), m.Content))
+            .ToList() ?? [];
+
+        var suggestAssets = AiReplyHelpers.ShouldSuggestAssets(trimmedContent, recentUserContents);
+        var suggestionEntries = suggestAssets
+            ? await BuildSuggestionsAsync(trimmedContent, recentUserContents, cancellationToken)
+            : [];
+        var suggestions = suggestionEntries.Select(e => e.Response).ToList();
+
+        var answer = await llmChatService.GenerateAdvisorReplyAsync(
+            request.Content.Trim(),
+            recentMessages,
+            suggestionEntries.Select(e => (e.Response.Title, e.Category)).ToList(),
+            cancellationToken);
+
+        if (!AiReplyHelpers.IsCasualMessage(trimmedContent)
+            && session.Title is "New AI Session" or "AssetBox AI Chat" or "Phiên chat mới")
+        {
+            var title = TruncateTitle(trimmedContent);
+            if (!string.IsNullOrWhiteSpace(title))
+                session.Title = title;
+        }
 
         if (!unlimited)
         {
@@ -137,6 +187,10 @@ public class AiAdvisorService(
             });
         }
 
+        var assetSuggestionStatus = suggestAssets
+            ? suggestions.Count > 0 ? "found" : "not_found"
+            : null;
+
         var assistantMessage = new AiMessage
         {
             Id = Guid.NewGuid(),
@@ -145,7 +199,8 @@ public class AiAdvisorService(
             Content = answer,
             TokenUsed = answer.Length / 4,
             XuCharged = unlimited ? 0 : XuPerMessage,
-            CreatedAt = now
+            Metadata = BuildAssetSuggestionMetadata(assetSuggestionStatus),
+            CreatedAt = now.AddMilliseconds(1)
         };
         aiRepository.AddMessage(assistantMessage);
 
@@ -166,7 +221,7 @@ public class AiAdvisorService(
 
         return new SendAiMessageResponse(
             ToMessageResponse(userMessage),
-            ToMessageResponse(assistantMessage, suggestions),
+            ToMessageResponse(assistantMessage, suggestions, assetSuggestionStatus),
             wallet.Balance,
             unlimited);
     }
@@ -180,7 +235,7 @@ public class AiAdvisorService(
         var sb = new StringBuilder();
         sb.AppendLine($"# {session.Title}");
         sb.AppendLine();
-        foreach (var msg in session.Messages.OrderBy(m => m.CreatedAt))
+        foreach (var msg in session.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Role))
         {
             sb.AppendLine($"## {msg.Role.ToString().ToUpperInvariant()}");
             sb.AppendLine(msg.Content);
@@ -189,38 +244,118 @@ public class AiAdvisorService(
         return new AiExportResponse("markdown", sb.ToString().TrimEnd());
     }
 
-    private async Task<List<AiSuggestedAssetResponse>> BuildSuggestionsAsync(string prompt, CancellationToken cancellationToken)
+    private async Task<List<(AiSuggestedAssetResponse Response, string? Category)>> BuildSuggestionsAsync(
+        string prompt,
+        IReadOnlyList<string> recentUserMessages,
+        CancellationToken cancellationToken)
     {
-        var query = new DTOs.Marketplace.AssetQueryParams
+        var terms = AiReplyHelpers.ExtractSearchTerms(prompt, recentUserMessages);
+        var seen = new HashSet<Guid>();
+        var ranked = new List<(Models.Entities.Asset Asset, int Rank)>();
+
+        foreach (var term in terms)
         {
-            Search = prompt,
-            Page = 1,
-            PageSize = 3
-        };
-        var (items, _) = await assetRepository.ListApprovedAsync(query, cancellationToken);
-        return items.Take(3).Select((a, index) => new AiSuggestedAssetResponse(
-            a.Id,
-            a.Title,
-            a.ThumbnailUrl,
-            Math.Round(0.95m - (index * 0.1m), 2))).ToList();
+            if (ranked.Count >= 8)
+                break;
+
+            var (items, _) = await assetRepository.ListApprovedAsync(new DTOs.Marketplace.AssetQueryParams
+            {
+                Search = term,
+                Page = 1,
+                PageSize = 6
+            }, cancellationToken);
+
+            foreach (var asset in items)
+            {
+                if (seen.Add(asset.Id))
+                    ranked.Add((asset, 100 - ranked.Count));
+            }
+        }
+
+        return ranked
+            .Take(4)
+            .Select((entry, index) => (
+                new AiSuggestedAssetResponse(
+                    entry.Asset.Id,
+                    entry.Asset.Title,
+                    entry.Asset.ThumbnailUrl,
+                    Math.Round(0.94m - (index * 0.07m), 2)),
+                entry.Asset.Category?.Name))
+            .ToList();
     }
 
-    private static string BuildMockAnswer(string prompt, IReadOnlyList<string> suggestedTitles)
+    private static string TruncateTitle(string text)
     {
-        if (suggestedTitles.Count == 0)
-            return $"Mock AI: Based on '{prompt}', start with low-poly assets, optimize texture size, and test in your target engine.";
-        return $"Mock AI: For '{prompt}', consider these assets: {string.Join(", ", suggestedTitles)}. They align with your request and are good starting points.";
+        var oneLine = text.Replace('\n', ' ').Trim();
+        return oneLine.Length <= 48 ? oneLine : oneLine[..45] + "...";
     }
 
-    private static AiSessionListItemResponse MapListItem(AiSession s) =>
-        new(s.Id, s.Title, s.TotalXuUsed, s.IsArchived, s.UpdatedAt);
+    private static AiSessionListItemResponse MapListItem(AiSession s, int messageCount) =>
+        new(s.Id, s.Title, s.TotalXuUsed, messageCount, s.IsArchived, s.UpdatedAt);
 
     private static AiSessionDetailResponse MapDetail(AiSession s) =>
-        new(s.Id, s.Title, s.IsArchived, s.Messages.Select(ToMessageResponse).ToList());
+        new(s.Id, s.Title, s.IsArchived, s.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Role).Select(MapMessageFromEntity).ToList());
+
+    private static AiMessageResponse MapMessageFromEntity(AiMessage msg)
+    {
+        var suggestions = msg.SuggestedAssets?
+            .OrderBy(sa => sa.SortOrder)
+            .Select(sa => new AiSuggestedAssetResponse(
+                sa.AssetId,
+                sa.Asset?.Title ?? "Asset",
+                sa.Asset?.ThumbnailUrl,
+                sa.RelevanceScore))
+            .ToList();
+
+        var status = ReadAssetSuggestionStatus(msg);
+        if (suggestions is { Count: > 0 })
+            status = "found";
+
+        return suggestions is { Count: > 0 }
+            ? ToMessageResponse(msg, suggestions, status)
+            : ToMessageResponse(msg, null, status);
+    }
 
     private static AiMessageResponse ToMessageResponse(AiMessage msg) =>
         new(msg.Id, msg.Role.ToString().ToLowerInvariant(), msg.Content, msg.XuCharged, msg.CreatedAt, null);
 
-    private static AiMessageResponse ToMessageResponse(AiMessage msg, IReadOnlyList<AiSuggestedAssetResponse> suggestions) =>
-        new(msg.Id, msg.Role.ToString().ToLowerInvariant(), msg.Content, msg.XuCharged, msg.CreatedAt, suggestions);
+    private static AiMessageResponse ToMessageResponse(
+        AiMessage msg,
+        IReadOnlyList<AiSuggestedAssetResponse>? suggestions,
+        string? assetSuggestionStatus = null) =>
+        new(
+            msg.Id,
+            msg.Role.ToString().ToLowerInvariant(),
+            msg.Content,
+            msg.XuCharged,
+            msg.CreatedAt,
+            suggestions,
+            assetSuggestionStatus);
+
+    private static string BuildAssetSuggestionMetadata(string? status) =>
+        string.IsNullOrWhiteSpace(status)
+            ? "{}"
+            : JsonSerializer.Serialize(new { assetSuggestionStatus = status });
+
+    private static string? ReadAssetSuggestionStatus(AiMessage msg)
+    {
+        if (msg.Role != AiMessageRole.Assistant || string.IsNullOrWhiteSpace(msg.Metadata) || msg.Metadata == "{}")
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(msg.Metadata);
+            if (doc.RootElement.TryGetProperty("assetSuggestionStatus", out var prop))
+            {
+                var value = prop.GetString();
+                return value is "found" or "not_found" ? value : null;
+            }
+        }
+        catch (JsonException)
+        {
+            // ignore invalid metadata
+        }
+
+        return null;
+    }
 }
