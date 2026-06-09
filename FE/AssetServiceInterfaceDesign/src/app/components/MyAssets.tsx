@@ -18,7 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { ClientPagination, getPageSlice } from "./ui/ClientPagination";
@@ -307,7 +307,7 @@ export default function MyAssets() {
                 to="/marketplace"
                 className="inline-block bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-6 py-3 rounded-lg font-bold transition-all hover:scale-105 hover:shadow-[0_0_30px_rgba(0,217,255,0.5)]"
               >
-                Đi tới Marketplace
+                Đi tới Chợ Assets
               </Link>
             </div>
           </div>
@@ -481,7 +481,7 @@ export default function MyAssets() {
                     </div>
                     {viewingAsset.isDelisted && (
                       <div className="bg-warning/90 text-warning-foreground px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                        Ngừng bán trên Marketplace
+                        Ngừng bán trên Chợ Assets
                       </div>
                     )}
                   </div>
@@ -545,7 +545,7 @@ export default function MyAssets() {
                 {viewingAsset.isDelisted && (
                   <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
                     <p className="text-foreground text-sm">
-                      Asset này đã bị gỡ khỏi Marketplace nhưng bạn vẫn giữ quyền tải xuống vì đã mua trước đó.
+                      Asset này đã bị gỡ khỏi Chợ Assets nhưng bạn vẫn giữ quyền tải xuống vì đã mua trước đó.
                     </p>
                   </div>
                 )}

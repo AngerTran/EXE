@@ -5,6 +5,9 @@ namespace Exe.Repositories.Billing;
 
 public interface ISubscriptionRepository
 {
+    /// <summary>Marks active subscriptions past <see cref="Subscription.ExpiredAt"/> as expired.</summary>
+    Task ExpireOverdueForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<Subscription?> GetActiveWithPlanAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task<bool> HasActivePaidPlanAsync(Guid userId, CancellationToken cancellationToken = default);

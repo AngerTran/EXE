@@ -14,7 +14,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { AppLogo } from "./AppLogo";
 import authHero from "../../assets/auth-hero.png";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { forgotPassword } from "../../api/auth";
 import { ApiError, getRememberMePreference, setRememberMePreference } from "../../api/client";
 import { getSupabase } from "../../lib/supabase";

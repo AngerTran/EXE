@@ -1,4 +1,4 @@
-# 🎮 Game Assets AI Platform
+# AssetBox
 
 Platform AI giúp game developers tìm kiếm và quản lý assets, với AI chat để phân tích ý tưởng game và gợi ý assets phù hợp.
 
@@ -222,7 +222,7 @@ pnpm preview  # Preview production build
 
 ## 📄 License
 
-Private - Game Assets AI Platform © 2024
+Private — AssetBox © 2026
 
 ---
 

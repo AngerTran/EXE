@@ -25,7 +25,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ClientPagination } from "./ui/ClientPagination";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { fetchAssets, fetchAssetById } from "../../api/assets";
 import { fetchCategories } from "../../api/lookup";
@@ -38,6 +38,7 @@ import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import type { CategoryItem } from "../../api/types/marketplace";
 import type { CartItem } from "../../api/types/commerce";
 import { componentClasses } from "../../constants/theme";
+import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 
 export type Asset = MarketplaceAsset;
 
@@ -337,6 +338,7 @@ export default function AssetsMarketplace() {
   const freeItemsCount = cartDisplayItems.filter((asset) => asset.isFree).length;
   const paidItemsCount = cartDisplayItems.length - freeItemsCount;
   const walletBalance = user?.credits ?? 0;
+  const isUnlimited = user?.isUnlimited ?? false;
 
   const handleCheckout = () => {
     if (cartItems.length === 0) return;
@@ -647,9 +649,15 @@ export default function AssetsMarketplace() {
                         </span>
                       </div>
                       {user && totalPrice > 0 && (
-                        <div className="flex justify-between text-muted-foreground text-sm">
+                        <div className="flex justify-between items-center text-muted-foreground text-sm">
                           <span>Số dư hiện tại:</span>
-                          <span className="font-mono">{walletBalance.toLocaleString("vi-VN")} xu</span>
+                          <span className="font-mono flex items-center">
+                            {isUnlimited ? (
+                              <UnlimitedXuIcon size="sm" />
+                            ) : (
+                              `${walletBalance.toLocaleString("vi-VN")} xu`
+                            )}
+                          </span>
                         </div>
                       )}
                       <div className="border-t border-border pt-2 mt-2">
@@ -668,7 +676,7 @@ export default function AssetsMarketplace() {
                     size="lg"
                     className="w-full"
                     onClick={handleCheckout}
-                    disabled={user != null && totalPrice > 0 && walletBalance < totalPrice}
+                    disabled={user != null && totalPrice > 0 && !isUnlimited && walletBalance < totalPrice}
                   >
                     {totalPrice > 0
                       ? `Thanh toán ${totalPrice.toLocaleString("vi-VN")} xu`
@@ -676,9 +684,15 @@ export default function AssetsMarketplace() {
                     <ArrowRight className="w-4 h-4" />
                   </Button>
 
-                  {user && totalPrice > 0 && walletBalance < totalPrice && (
+                  {user && totalPrice > 0 && !isUnlimited && walletBalance < totalPrice && (
                     <p className="text-center text-sm text-destructive mt-4">
                       Thiếu {(totalPrice - walletBalance).toLocaleString("vi-VN")} xu
+                    </p>
+                  )}
+
+                  {user && isUnlimited && totalPrice > 0 && (
+                    <p className="text-center text-sm text-success mt-4 font-medium">
+                      Gói Pro — mua asset không trừ xu
                     </p>
                   )}
 

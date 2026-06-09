@@ -29,6 +29,11 @@ public interface IOrderRepository
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<Order?> GetPendingSubscriptionOrderForPlanAsync(
+        Guid userId,
+        Guid planId,
+        CancellationToken cancellationToken = default);
+
     void Add(Order order);
 
     void AddItems(IEnumerable<OrderItem> items);

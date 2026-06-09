@@ -1,6 +1,7 @@
 using Exe.DTOs.Auth;
 using Exe.Models;
 using Exe.Repositories;
+using Exe.Repositories.Billing;
 using Exe.Repositories.Profile;
 using Exe.Services.IServices;
 
@@ -8,6 +9,7 @@ namespace Exe.Services;
 
 public class AuthService(
     IProfileRepository profileRepository,
+    ISubscriptionRepository subscriptionRepository,
     IProfileProvisioningService profileProvisioning,
     IUnitOfWork unitOfWork,
     ISupabaseAuthClient supabaseAuthClient) : IAuthService
@@ -37,6 +39,8 @@ public class AuthService(
         ProfileBootstrapInfo? bootstrap = null,
         CancellationToken cancellationToken = default)
     {
+        await subscriptionRepository.ExpireOverdueForUserAsync(userId, cancellationToken);
+
         var profile = await profileRepository.GetActiveByIdWithDetailsAsync(userId, asNoTracking: true, cancellationToken);
         if (profile is null && bootstrap is not null && !string.IsNullOrWhiteSpace(bootstrap.Email))
         {
@@ -56,6 +60,8 @@ public class AuthService(
         UpdateProfileRequest request,
         CancellationToken cancellationToken = default)
     {
+        await subscriptionRepository.ExpireOverdueForUserAsync(userId, cancellationToken);
+
         var profile = await profileRepository.GetActiveByIdForUpdateAsync(userId, cancellationToken);
         if (profile is null)
             return null;
@@ -97,7 +103,7 @@ public class AuthService(
     private static MeResponse MapToMeResponse(Models.Entities.Profile profile)
     {
         var activeSubscription = profile.Subscriptions
-            .Where(s => s.Status == SubscriptionStatus.Active)
+            .Where(s => SubscriptionRules.IsEffectivelyActive(s))
             .OrderByDescending(s => s.StartedAt)
             .FirstOrDefault();
         var planTier = activeSubscription?.Plan.Slug ?? SubscriptionTier.Free;

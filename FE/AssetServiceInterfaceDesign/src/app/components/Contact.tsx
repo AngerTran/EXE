@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mail, MessageSquare, Calendar, Send, CheckCircle, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { submitContact } from "../../api/contact";
 
@@ -60,7 +60,7 @@ export default function Contact() {
     {
       icon: <Mail className="w-6 h-6" />,
       title: "Email",
-      value: "support@gameassets.ai",
+      value: "support@assetbox.vn",
       description: "Phản hồi trong 24h",
     },
     {

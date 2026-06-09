@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   Users,
   Package,
@@ -21,6 +21,7 @@ import {
   Activity,
   PieChart,
   CheckCircle,
+  Clock,
   Loader2,
   Coins,
   Star,
@@ -28,7 +29,7 @@ import {
   ImageIcon,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
 import type { AssetRecord } from "../../types/asset";
@@ -220,15 +221,42 @@ function orderStatusLabel(status: Order["status"]): string {
   return "Đã hủy";
 }
 
+function orderTypeLabel(orderType: string): string {
+  if (orderType === "subscription") return "Gói DV";
+  if (orderType === "credit_pack") return "Nạp xu";
+  return "Asset";
+}
+
 interface AssetData extends Pick<
   AssetRecord,
   "id" | "title" | "category" | "price" | "rating" | "downloads" | "isFree"
 > {}
 
+const ADMIN_TABS: Tab[] = ["overview", "users", "assets", "orders", "packages"];
+
+function tabFromSearchParams(params: URLSearchParams): Tab {
+  const raw = params.get("tab");
+  return ADMIN_TABS.includes(raw as Tab) ? (raw as Tab) : "overview";
+}
+
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(() => tabFromSearchParams(searchParams));
   const [searchQuery, setSearchQuery] = useState("");
+
+  const selectTab = (tab: Tab) => {
+    setActiveTab(tab);
+    if (tab === "overview") {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab }, { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    setActiveTab(tabFromSearchParams(searchParams));
+  }, [searchParams]);
 
   // Admin data from BE
   const [users, setUsers] = useState<UserData[]>([]);
@@ -427,7 +455,7 @@ export default function AdminDashboard() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as Tab)}
+                onClick={() => selectTab(tab.id as Tab)}
                 className={`px-6 py-3 rounded-xl whitespace-nowrap transition-all flex items-center gap-2 ${
                   activeTab === tab.id
                     ? "bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-[0_0_30px_rgba(0,217,255,0.3)]"
@@ -1825,7 +1853,7 @@ function AssetsManagement({
                     {asset.title}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {asset.creatorName || "GameAssets Store"}
+                    {asset.creatorName || "AssetBox"}
                   </p>
                 </div>
 
@@ -1905,7 +1933,7 @@ function AssetsManagement({
                     {viewingApprovedAsset.title}
                   </SheetTitle>
                   <SheetDescription className="text-muted-foreground">
-                    by {viewingApprovedAsset.creatorName || "GameAssets Store"}
+                    by {viewingApprovedAsset.creatorName || "AssetBox"}
                   </SheetDescription>
                 </SheetHeader>
 
@@ -2492,18 +2520,38 @@ function OrdersManagement({
   users: UserData[];
 }) {
   const { refreshUserData } = useAuth();
-  const [page, setPage] = useState(1);
-  const pageSize = 6;
+  const [pendingPage, setPendingPage] = useState(1);
+  const [confirmedPage, setConfirmedPage] = useState(1);
+  const pageSize = 5;
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+
   const filteredOrders = orders.filter(
     (order) =>
       order.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
+      (order.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false),
   );
-  const { paged: pagedOrders, totalPages } = getPageSlice(filteredOrders, page, pageSize);
+
+  const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
+  const confirmedOrders = filteredOrders.filter((o) => o.status !== "pending");
+
+  const { paged: pagedPending, totalPages: pendingTotalPages } = getPageSlice(
+    pendingOrders,
+    pendingPage,
+    pageSize,
+  );
+  const { paged: pagedConfirmed, totalPages: confirmedTotalPages } = getPageSlice(
+    confirmedOrders,
+    confirmedPage,
+    pageSize,
+  );
+
+  useEffect(() => {
+    setPendingPage(1);
+    setConfirmedPage(1);
+  }, [searchQuery]);
 
   const handleConfirm = async (orderId: string) => {
     setActionOrderId(orderId);
@@ -2538,7 +2586,133 @@ function OrdersManagement({
     }
   };
 
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
+  const pendingCount = pendingOrders.length;
+  const confirmedCount = confirmedOrders.length;
+
+  const renderOrderCard = (order: Order) => (
+    <div
+      key={order.id}
+      className={cn(
+        componentClasses.cardSimple,
+        "p-5 hover:scale-100",
+        order.status === "pending" && "border-warning/40 bg-warning/5",
+      )}
+    >
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h3 className="font-bold text-foreground text-lg font-mono">{order.orderCode}</h3>
+            <span className={orderStatusBadgeClass(order.status)}>
+              {orderStatusLabel(order.status)}
+            </span>
+            <span className={componentClasses.badgePrimary}>{orderTypeLabel(order.orderType)}</span>
+          </div>
+          <p className="text-sm text-muted-foreground truncate">
+            {order.userName}
+            {order.userEmail ? ` • ${order.userEmail}` : ""}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
+        </div>
+        <p className="text-2xl font-bold text-primary font-mono shrink-0">
+          {formatAdminOrderAmount(order)}
+        </p>
+      </div>
+
+      <div className="bg-background/50 border border-border rounded-lg p-4 mb-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+          Sản phẩm ({order.items.length})
+        </p>
+        <ul className="space-y-1">
+          {order.items.map((item, index) => (
+            <li key={`${order.id}-item-${index}`} className="text-sm text-foreground">
+              • {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => setViewingOrder(order)}>
+          <Eye className="w-4 h-4" />
+          Chi tiết
+        </Button>
+        {order.status === "pending" && (
+          <>
+            <Button
+              variant="success"
+              size="sm"
+              onClick={() => handleConfirm(order.id)}
+              disabled={actionOrderId === order.id}
+            >
+              <UserCheck className="w-4 h-4" />
+              {actionOrderId === order.id ? "Đang xử lý..." : "Xác nhận CK"}
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setCancelTarget(order)}
+              disabled={actionOrderId === order.id}
+            >
+              Hủy
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderOrderColumn = (
+    title: string,
+    subtitle: string,
+    icon: ReactNode,
+    count: number,
+    badgeClass: string,
+    items: Order[],
+    page: number,
+    totalPages: number,
+    onPageChange: (p: number) => void,
+    emptyMessage: string,
+    columnClass?: string,
+  ) => (
+    <section
+      className={cn(
+        "flex flex-col min-h-[320px] rounded-xl border border-border bg-background/30",
+        columnClass,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="shrink-0 w-10 h-10 rounded-lg border border-border bg-card flex items-center justify-center">
+            {icon}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-bold text-foreground">{title}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+          </div>
+        </div>
+        <span className={cn("shrink-0 px-2.5 py-1 rounded-full text-xs font-bold", badgeClass)}>
+          {count}
+        </span>
+      </div>
+
+      <div className="flex-1 p-4 space-y-4">
+        {items.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">{emptyMessage}</p>
+          </div>
+        ) : (
+          items.map(renderOrderCard)
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="px-4 pb-4">
+          <ClientPagination page={page} totalPages={totalPages} onPageChange={onPageChange} />
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <div className={cn(componentClasses.card, "hover:scale-100 p-6")}>
@@ -2568,90 +2742,41 @@ function OrdersManagement({
         </div>
       </div>
 
-      {pagedOrders.length === 0 ? (
+      {filteredOrders.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-40" />
           <p>Chưa có đơn hàng phù hợp</p>
         </div>
       ) : (
-      <div className="space-y-4">
-        {pagedOrders.map((order) => (
-          <div
-            key={order.id}
-            className={cn(
-              componentClasses.cardSimple,
-              "p-5 hover:scale-100",
-              order.status === "pending" && "border-warning/40 bg-warning/5"
-            )}
-          >
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <h3 className="font-bold text-foreground text-lg font-mono">{order.orderCode}</h3>
-                  <span className={orderStatusBadgeClass(order.status)}>
-                    {orderStatusLabel(order.status)}
-                  </span>
-                  <span className={componentClasses.badgePrimary}>
-                    {order.orderType === "subscription" ? "Gói DV" : "Asset"}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground truncate">
-                  {order.userName}
-                  {order.userEmail ? ` • ${order.userEmail}` : ""}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{order.date}</p>
-              </div>
-              <p className="text-2xl font-bold text-primary font-mono shrink-0">
-                {formatAdminOrderAmount(order)}
-              </p>
-            </div>
-
-            <div className="bg-background/50 border border-border rounded-lg p-4 mb-4">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                Sản phẩm ({order.items.length})
-              </p>
-              <ul className="space-y-1">
-                {order.items.map((item, index) => (
-                  <li key={`${order.id}-item-${index}`} className="text-sm text-foreground">
-                    • {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={() => setViewingOrder(order)}>
-                <Eye className="w-4 h-4" />
-                Chi tiết
-              </Button>
-              {order.status === "pending" && (
-                <>
-                  <Button
-                    variant="success"
-                    size="sm"
-                    onClick={() => handleConfirm(order.id)}
-                    disabled={actionOrderId === order.id}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    {actionOrderId === order.id ? "Đang xử lý..." : "Xác nhận CK"}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setCancelTarget(order)}
-                    disabled={actionOrderId === order.id}
-                  >
-                    Hủy
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          {renderOrderColumn(
+            "Chưa xác nhận",
+            "Đơn mới — chờ đối soát chuyển khoản",
+            <Clock className="w-5 h-5 text-warning" />,
+            pendingCount,
+            "bg-warning/20 text-warning border border-warning/30",
+            pagedPending,
+            pendingPage,
+            pendingTotalPages,
+            setPendingPage,
+            "Không có đơn chờ xác nhận",
+            "border-warning/30",
+          )}
+          {renderOrderColumn(
+            "Đã xác nhận",
+            "Đơn hoàn thành hoặc đã hủy",
+            <CheckCircle className="w-5 h-5 text-success" />,
+            confirmedCount,
+            "bg-success/20 text-success border border-success/30",
+            pagedConfirmed,
+            confirmedPage,
+            confirmedTotalPages,
+            setConfirmedPage,
+            "Chưa có đơn đã xử lý",
+            "border-success/30",
+          )}
+        </div>
       )}
-
-      <ClientPagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Sheet
         open={!!viewingOrder}
@@ -2734,7 +2859,7 @@ function OrdersManagement({
                     <div className="bg-background/50 border border-border rounded-lg p-4">
                       <p className="text-xs text-muted-foreground mb-1">Loại</p>
                       <p className="font-semibold text-foreground">
-                        {viewingOrder.orderType === "subscription" ? "Gói dịch vụ" : "Asset"}
+                        {orderTypeLabel(viewingOrder.orderType)}
                       </p>
                     </div>
                     <div className="bg-background/50 border border-border rounded-lg p-4">

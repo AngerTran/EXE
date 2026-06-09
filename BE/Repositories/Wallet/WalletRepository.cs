@@ -1,11 +1,12 @@
 using Exe.Data;
 using Exe.Models;
 using Exe.Models.Entities;
+using Exe.Repositories.Billing;
 using Microsoft.EntityFrameworkCore;
 
 namespace Exe.Repositories.Wallet;
 
-public class WalletRepository(AppDbContext db) : IWalletRepository
+public class WalletRepository(AppDbContext db, ISubscriptionRepository subscriptionRepository) : IWalletRepository
 {
     public Task<Models.Entities.Wallet?> GetByUserIdAsync(
         Guid userId,
@@ -14,14 +15,20 @@ public class WalletRepository(AppDbContext db) : IWalletRepository
             .AsNoTracking()
             .FirstOrDefaultAsync(w => w.UserId == userId, cancellationToken);
 
-    public Task<bool> HasUnlimitedPlanAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        db.Subscriptions
+    public async Task<bool> HasUnlimitedPlanAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await subscriptionRepository.ExpireOverdueForUserAsync(userId, cancellationToken);
+
+        var now = DateTime.UtcNow;
+        return await db.Subscriptions
             .AsNoTracking()
             .AnyAsync(
                 s => s.UserId == userId
                     && s.Status == SubscriptionStatus.Active
+                    && (s.ExpiredAt == null || s.ExpiredAt > now)
                     && s.Plan.IsUnlimited,
                 cancellationToken);
+    }
 
     public async Task<(IReadOnlyList<WalletTransaction> Items, int Total)> GetTransactionsAsync(
         Guid userId,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -12,7 +12,7 @@ import {
   Copy,
   Building2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { createCreditPackOrder } from "../../api/orders";
 import { fetchBankTransferInfo, type BankTransferInfo } from "../../api/payments";
@@ -50,6 +50,7 @@ export default function CreditsCheckout() {
   const [bankInfo, setBankInfo] = useState<BankTransferInfo | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const orderInitPackIdRef = useRef<string | null>(null);
 
   const orderCompleted = usePollOrderCompletion(order?.id, paymentSubmitted, {
     onCompleted: () =>
@@ -79,13 +80,23 @@ export default function CreditsCheckout() {
   }, [user, canBuy, navigate]);
 
   useEffect(() => {
-    if (!user || !canBuy || !selectedPack || packsLoading) return;
+    orderInitPackIdRef.current = null;
+    setOrder(null);
+    setBankInfo(null);
+    setPaymentSubmitted(false);
+  }, [packId]);
+
+  useEffect(() => {
+    const packIdValue = selectedPack?.id;
+    if (!user?.id || !canBuy || !packIdValue || packsLoading) return;
+    if (orderInitPackIdRef.current === packIdValue) return;
+    orderInitPackIdRef.current = packIdValue;
 
     let cancelled = false;
     (async () => {
       setCheckoutLoading(true);
       try {
-        const created = await createCreditPackOrder(selectedPack.id);
+        const created = await createCreditPackOrder(packIdValue);
         if (cancelled) return;
         setOrder(created);
         if (created.status === "completed") {
@@ -106,6 +117,7 @@ export default function CreditsCheckout() {
         }
       } catch (error) {
         if (!cancelled) {
+          orderInitPackIdRef.current = null;
           if (error instanceof ApiError && error.code === "subscription_required") {
             toast.error("Chỉ thành viên gói STUDENT hoặc PRO mới mua thêm xu được.");
           } else {
@@ -121,7 +133,7 @@ export default function CreditsCheckout() {
     return () => {
       cancelled = true;
     };
-  }, [user, canBuy, selectedPack, packsLoading, navigate, refreshUserData]);
+  }, [user?.id, canBuy, selectedPack, packsLoading, navigate, refreshUserData]);
 
   const qrImageUrl = bankInfo?.qrImageUrl || bankInfo?.vietQrImageUrl || null;
 

@@ -11,7 +11,7 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { Link } from "react-router";
 import { ApiError } from "../../api/client";
 import {
@@ -25,6 +25,15 @@ import { useAuth, getUserAvatarSrc } from "../contexts/AuthContext";
 import { formatWalletBalance } from "../../utils/helpers";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { ClientPagination } from "./ui/ClientPagination";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
 
 function formatSubscription(sub: string | null | undefined) {
   if (!sub || sub === "free") return "FREE";
@@ -71,6 +80,7 @@ export default function Profile() {
   const [subHistory, setSubHistory] = useState<SubscriptionHistoryItem[]>([]);
   const [subLoading, setSubLoading] = useState(true);
   const [cancellingSub, setCancellingSub] = useState(false);
+  const [cancelSubDialogOpen, setCancelSubDialogOpen] = useState(false);
 
   const [walletTx, setWalletTx] = useState<WalletTransaction[]>([]);
   const [walletPage, setWalletPage] = useState(1);
@@ -215,7 +225,6 @@ export default function Profile() {
 
   const handleCancelSubscription = async () => {
     if (!canCancelSub) return;
-    if (!window.confirm("Bạn có chắc muốn hủy gói đăng ký hiện tại?")) return;
 
     setCancellingSub(true);
     try {
@@ -227,6 +236,7 @@ export default function Profile() {
       ]);
       setSubscription(sub);
       setSubHistory(history);
+      setCancelSubDialogOpen(false);
       toast.success("Đã hủy gói đăng ký");
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Không hủy được gói");
@@ -408,12 +418,12 @@ export default function Profile() {
             {canCancelSub && (
               <button
                 type="button"
-                onClick={handleCancelSubscription}
+                onClick={() => setCancelSubDialogOpen(true)}
                 disabled={cancellingSub}
                 className="bg-destructive/10 hover:bg-destructive/20 border border-destructive/30 text-destructive px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 <XCircle className="w-4 h-4" />
-                {cancellingSub ? "Đang hủy..." : "Hủy gói"}
+                Hủy gói
               </button>
             )}
           </div>
@@ -559,6 +569,67 @@ export default function Profile() {
           )}
         </div>
       </div>
+
+      <AlertDialog
+        open={cancelSubDialogOpen}
+        onOpenChange={(open) => {
+          if (!cancellingSub) setCancelSubDialogOpen(open);
+        }}
+      >
+        <AlertDialogContent className="bg-card border-border sm:max-w-md">
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15 border border-destructive/30">
+              <XCircle className="h-6 w-6 text-destructive" />
+            </div>
+            <AlertDialogTitle className="text-center text-foreground text-xl">
+              Hủy gói đăng ký?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground text-center">
+                <p>
+                  Bạn sắp hủy gói{" "}
+                  <span className="font-bold text-primary font-mono">{subscriptionLabel}</span>.
+                </p>
+                {subscriptionExpiry && (
+                  <p>
+                    Quyền lợi vẫn dùng được đến{" "}
+                    <span className="font-semibold text-foreground">
+                      {new Date(subscriptionExpiry).toLocaleDateString("vi-VN")}
+                    </span>
+                    .
+                  </p>
+                )}
+                <p className="text-xs rounded-lg border border-warning/30 bg-warning/10 text-warning px-3 py-2 text-left">
+                  Xu đã cấp không được hoàn lại. Sau khi hết hạn, tài khoản sẽ về gói Free.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-2 sm:justify-center">
+            <AlertDialogCancel disabled={cancellingSub} className="border-border hover:bg-muted/50">
+              Giữ gói
+            </AlertDialogCancel>
+            <button
+              type="button"
+              onClick={() => void handleCancelSubscription()}
+              disabled={cancellingSub}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {cancellingSub ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Đang hủy...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4" />
+                  Xác nhận hủy gói
+                </>
+              )}
+            </button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

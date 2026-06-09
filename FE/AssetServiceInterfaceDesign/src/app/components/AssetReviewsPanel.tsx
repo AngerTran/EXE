@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquare, Pencil, Star, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import {
   createReview,

@@ -12,7 +12,7 @@ import {
   Coins,
   Library,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { fetchCart, clearCart } from "../../api/cart";
 import { createAssetOrder } from "../../api/orders";
@@ -22,6 +22,8 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { componentClasses } from "../../constants/theme";
 import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
+import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
+import { formatWalletBalance } from "../../utils/helpers";
 
 export default function AssetsCheckout() {
   const [searchParams] = useSearchParams();
@@ -42,6 +44,7 @@ export default function AssetsCheckout() {
   const [loadingAssets, setLoadingAssets] = useState(true);
 
   const walletBalance = user?.credits ?? 0;
+  const isUnlimited = user?.isUnlimited ?? false;
   const totalPrice = selectedAssets.reduce(
     (sum, asset) => sum + (asset.isFree ? 0 : asset.price),
     0
@@ -49,8 +52,9 @@ export default function AssetsCheckout() {
   const freeItemsCount = selectedAssets.filter((asset) => asset.isFree).length;
   const paidItemsCount = selectedAssets.length - freeItemsCount;
   const balanceAfterPurchase = walletBalance - totalPrice;
-  const hasEnoughXu = totalPrice === 0 || walletBalance >= totalPrice;
+  const hasEnoughXu = isUnlimited || totalPrice === 0 || walletBalance >= totalPrice;
   const isFreeOnly = totalPrice === 0;
+  const proNoCharge = isUnlimited && totalPrice > 0;
 
   useEffect(() => {
     if (!user) {
@@ -172,6 +176,8 @@ export default function AssetsCheckout() {
               <p className="text-sm text-muted-foreground mb-6">
                 {isFreeOnly ? (
                   <span className="text-success font-medium">Không trừ xu</span>
+                ) : proNoCharge ? (
+                  <span className="text-success font-medium">Gói Pro — không trừ xu</span>
                 ) : (
                   <>
                     Đã trừ{" "}
@@ -258,7 +264,7 @@ export default function AssetsCheckout() {
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Quay lại Marketplace
+          Quay lại Chợ Assets
         </Link>
 
         <div className="grid lg:grid-cols-3 gap-6 items-start">
@@ -287,8 +293,12 @@ export default function AssetsCheckout() {
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">
                           Số dư ví xu
                         </p>
-                        <p className="text-xl font-bold text-foreground font-mono">
-                          {walletBalance.toLocaleString("vi-VN")} xu
+                        <p className="text-xl font-bold text-foreground font-mono flex items-center gap-2 min-h-8">
+                          {isUnlimited ? (
+                            <UnlimitedXuIcon size="md" />
+                          ) : (
+                            formatWalletBalance(walletBalance)
+                          )}
                         </p>
                       </div>
                     </div>
@@ -303,7 +313,12 @@ export default function AssetsCheckout() {
                       </div>
                     )}
                   </div>
-                  {totalPrice > 0 && hasEnoughXu && (
+                  {proNoCharge && (
+                    <p className="mt-3 text-xs text-success">
+                      Gói Pro — mua asset trả phí không trừ xu trong ví.
+                    </p>
+                  )}
+                  {totalPrice > 0 && hasEnoughXu && !isUnlimited && (
                     <p className="mt-3 text-xs text-muted-foreground">
                       Còn lại:{" "}
                       <span className="font-mono font-medium text-foreground">

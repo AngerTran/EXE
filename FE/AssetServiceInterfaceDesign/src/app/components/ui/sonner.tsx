@@ -1,6 +1,13 @@
 "use client";
 
-import { Toaster as Sonner, ToasterProps } from "sonner";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  Loader2,
+} from "lucide-react";
+import { Toaster as Sonner, type ToasterProps } from "sonner";
 import { useTheme } from "../../contexts/ThemeContext";
 
 const Toaster = ({ ...props }: ToasterProps) => {
@@ -10,6 +17,25 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="top-right"
+      richColors
+      closeButton
+      expand
+      visibleToasts={4}
+      icons={{
+        success: <CheckCircle2 className="h-4 w-4" />,
+        error: <AlertCircle className="h-4 w-4" />,
+        warning: <AlertTriangle className="h-4 w-4" />,
+        info: <Info className="h-4 w-4" />,
+        loading: <Loader2 className="h-4 w-4 animate-spin" />,
+      }}
+      toastOptions={{
+        classNames: {
+          toast: "border border-border shadow-lg backdrop-blur-sm",
+          title: "font-semibold",
+          description: "text-muted-foreground",
+        },
+      }}
       style={
         {
           "--normal-bg": "var(--popover)",

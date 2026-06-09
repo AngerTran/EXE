@@ -97,6 +97,20 @@ public class OrderService(
         var plan = await subscriptionPlanRepository.GetByIdAsync(request.PlanId, true, cancellationToken)
             ?? throw new ArgumentException("Subscription plan not found.");
 
+        var existingPending = await orderRepository.GetPendingSubscriptionOrderForPlanAsync(
+            userId,
+            request.PlanId,
+            cancellationToken);
+        if (existingPending is not null)
+        {
+            var existingPayment = await paymentRepository.GetByOrderIdForUserAsync(
+                existingPending.Id,
+                userId,
+                cancellationToken);
+            var bankTransfer = existingPayment?.Method == PaymentMethod.BankTransfer;
+            return MapOrder(existingPending, existingPayment, bankTransfer);
+        }
+
         var now = DateTime.UtcNow;
         var order = new Order
         {
@@ -197,7 +211,9 @@ public class OrderService(
         var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken)
             ?? throw new InvalidOperationException("Wallet not found.");
 
-        if (totalXu > 0 && wallet.Balance < totalXu)
+        var unlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
+
+        if (totalXu > 0 && !unlimited && wallet.Balance < totalXu)
             throw new InvalidOperationException("Not enough xu to purchase assets.");
 
         var order = new Order
@@ -235,7 +251,7 @@ public class OrderService(
         orderRepository.Add(order);
         orderRepository.AddItems(items);
 
-        if (totalXu > 0)
+        if (totalXu > 0 && !unlimited)
         {
             wallet.Balance -= totalXu;
             wallet.UpdatedAt = now;

@@ -14,7 +14,7 @@ function App() {
   useEffect(() => {
     if (import.meta.env.DEV) {
       seedDemoData();
-      console.log('\n🎮 === GAME ASSETS AI - DEMO ACCOUNTS ===');
+      console.log('\n🎮 === ASSETBOX — DEMO ACCOUNTS ===');
       console.log('📧 Admin:   admin@gameai.vn   / admin123');
       console.log('🎓 Student: student@demo.vn   / demo123');
       console.log('⚡ Indie:   indie@demo.vn     / demo123');

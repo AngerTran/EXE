@@ -422,7 +422,7 @@ export default function Home() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-4xl lg:text-5xl font-bold text-foreground mb-4">
-              Tại sao chọn GameAssets AI?
+              Tại sao chọn AssetBox?
             </h2>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Giải pháp toàn diện cho người mới làm game

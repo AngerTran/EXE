@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { Clock, ShoppingCart, CreditCard, Package, ListChecks, Loader2 } from "lucide-react";
 import { ClientPagination } from "./ui/ClientPagination";
 import { fetchMyOrders, fetchOrdersSummary } from "../../api/orders";
@@ -173,7 +173,7 @@ export default function MyOrders() {
                 to="/marketplace"
                 className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground px-4 py-2 rounded-lg transition-all font-bold hover:shadow-[0_0_30px_rgba(0,217,255,0.4)]"
               >
-                Marketplace
+                Chợ Assets
               </Link>
             </div>
           </div>

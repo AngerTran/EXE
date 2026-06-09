@@ -26,7 +26,7 @@ export default function Terms() {
             </div>
             <div className="text-gray-300 space-y-3">
               <p>
-                Bằng việc truy cập và sử dụng GameAssets AI, bạn đồng ý tuân theo các điều khoản và điều kiện được nêu dưới đây. Nếu bạn không đồng ý với bất kỳ phần nào của các điều khoản này, vui lòng không sử dụng dịch vụ của chúng tôi.
+                Bằng việc truy cập và sử dụng AssetBox, bạn đồng ý tuân theo các điều khoản và điều kiện được nêu dưới đây. Nếu bạn không đồng ý với bất kỳ phần nào của các điều khoản này, vui lòng không sử dụng dịch vụ của chúng tôi.
               </p>
             </div>
           </section>
@@ -38,10 +38,10 @@ export default function Terms() {
               <h2 className="text-2xl font-bold text-white">2. Dịch Vụ Cung Cấp</h2>
             </div>
             <div className="text-gray-300 space-y-3">
-              <p>GameAssets AI cung cấp:</p>
+              <p>AssetBox cung cấp:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>AI Assistant:</strong> Hệ thống tư vấn AI hỗ trợ gợi ý và hướng dẫn sử dụng assets phù hợp với ý tưởng game của bạn</li>
-                <li><strong>Assets Marketplace:</strong> Kho tài nguyên game (sprites, sounds, UI elements, etc.) có cả miễn phí và trả phí</li>
+                <li><strong>AssetBox AI:</strong> Hệ thống tư vấn AI hỗ trợ gợi ý và hướng dẫn sử dụng assets phù hợp với ý tưởng game của bạn</li>
+                <li><strong>Chợ Assets:</strong> Kho tài nguyên game (sprites, sounds, UI elements, v.v.) có cả miễn phí và trả phí</li>
                 <li><strong>Tư vấn chuyên gia:</strong> Dịch vụ tư vấn trực tiếp 1-1 với các chuyên gia game development (chỉ áp dụng cho gói INDIE và PRO)</li>
               </ul>
             </div>
@@ -56,7 +56,7 @@ export default function Terms() {
             <div className="text-gray-300 space-y-3">
               <h3 className="text-xl font-semibold text-white">3.1. Hệ thống Credits</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Mỗi câu hỏi gửi đến AI Assistant tiêu tốn 1 credit</li>
+                <li>Mỗi câu hỏi gửi đến AssetBox AI tiêu tốn 1 xu</li>
                 <li>Credits được cung cấp theo gói dịch vụ bạn đăng ký</li>
                 <li>Credits không được hoàn lại khi hủy gói</li>
                 <li>Credits hết hạn khi chu kỳ thanh toán kết thúc (không chuyển sang tháng sau)</li>
@@ -98,9 +98,9 @@ export default function Terms() {
               <h2 className="text-2xl font-bold text-white">4. Bản Quyền & Sở Hữu Trí Tuệ</h2>
             </div>
             <div className="text-gray-300 space-y-3">
-              <h3 className="text-xl font-semibold text-white">4.1. Assets từ Marketplace</h3>
+              <h3 className="text-xl font-semibold text-white">4.1. Assets từ Chợ Assets</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li><strong>Giấy phép sử dụng:</strong> Khi bạn tải xuống asset từ Marketplace, bạn được cấp giấy phép sử dụng không độc quyền để sử dụng trong các dự án game của mình</li>
+                <li><strong>Giấy phép sử dụng:</strong> Khi bạn tải xuống asset từ Chợ Assets, bạn được cấp giấy phép sử dụng không độc quyền để sử dụng trong các dự án game của mình</li>
                 <li><strong>Quyền sử dụng thương mại:</strong> Assets có thể được sử dụng trong các dự án thương mại (game bán ra) mà không cần trả thêm phí</li>
                 <li><strong>Không được phân phối lại:</strong> Bạn KHÔNG được phép bán, phân phối lại, hoặc chia sẻ assets dưới dạng tài nguyên đơn lẻ. Assets chỉ được sử dụng trong game đã được tích hợp</li>
                 <li><strong>Không chuyển nhượng:</strong> Giấy phép không được chuyển nhượng cho bên thứ ba</li>
@@ -108,14 +108,14 @@ export default function Terms() {
 
               <h3 className="text-xl font-semibold text-white mt-6">4.2. Nội dung do AI tạo ra</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Các gợi ý và hướng dẫn từ AI Assistant thuộc quyền sở hữu của bạn sau khi được tạo ra</li>
+                <li>Các gợi ý và hướng dẫn từ AssetBox AI thuộc quyền sở hữu của bạn sau khi được tạo ra</li>
                 <li>Bạn có thể sử dụng các gợi ý này cho bất kỳ mục đích nào, bao gồm thương mại</li>
-                <li>GameAssets AI không chịu trách nhiệm cho việc sử dụng các gợi ý từ AI</li>
+                <li>AssetBox không chịu trách nhiệm cho việc sử dụng các gợi ý từ AI</li>
               </ul>
 
               <h3 className="text-xl font-semibold text-white mt-6">4.3. Bản quyền của chúng tôi</h3>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Tất cả nội dung trên website (logo, design, code, AI models) thuộc sở hữu của GameAssets AI</li>
+                <li>Tất cả nội dung trên website (logo, design, code, AI models) thuộc sở hữu của AssetBox</li>
                 <li>Bạn không được phép sao chép, phân phối, hoặc tạo phiên bản tương tự của dịch vụ</li>
               </ul>
             </div>
@@ -147,9 +147,9 @@ export default function Terms() {
             </div>
             <div className="text-gray-300 space-y-3">
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>GameAssets AI cung cấp dịch vụ "AS IS" (như hiện tại) mà không có bảo đảm nào</li>
+                <li>AssetBox cung cấp dịch vụ "AS IS" (như hiện tại) mà không có bảo đảm nào</li>
                 <li>Chúng tôi không chịu trách nhiệm cho bất kỳ thiệt hại trực tiếp hoặc gián tiếp nào phát sinh từ việc sử dụng dịch vụ</li>
-                <li>AI Assistant chỉ mang tính chất tham khảo, chúng tôi không đảm bảo tính chính xác 100% của các gợi ý</li>
+                <li>AssetBox AI chỉ mang tính chất tham khảo, chúng tôi không đảm bảo tính chính xác 100% của các gợi ý</li>
                 <li>Chúng tôi có quyền tạm ngưng dịch vụ để bảo trì mà không cần thông báo trước</li>
               </ul>
             </div>
@@ -179,7 +179,7 @@ export default function Terms() {
                 Nếu bạn có bất kỳ câu hỏi nào về Điều khoản sử dụng, vui lòng liên hệ:
               </p>
               <ul className="list-none space-y-2 ml-4">
-                <li>📧 Email: support@gameassets-ai.com</li>
+                <li>📧 Email: support@assetbox.vn</li>
                 <li>📱 Hotline: 1900-xxxx</li>
                 <li>🏢 Địa chỉ: [Địa chỉ công ty của bạn]</li>
               </ul>
@@ -191,7 +191,7 @@ export default function Terms() {
         {/* Bottom Notice */}
         <div className="mt-8 p-6 bg-purple-600/10 border border-purple-500/20 rounded-xl">
           <p className="text-sm text-gray-400 text-center">
-            Bằng việc sử dụng GameAssets AI, bạn xác nhận rằng đã đọc, hiểu và đồng ý với các Điều khoản sử dụng này.
+            Bằng việc sử dụng AssetBox, bạn xác nhận rằng đã đọc, hiểu và đồng ý với các Điều khoản sử dụng này.
           </p>
         </div>
       </div>

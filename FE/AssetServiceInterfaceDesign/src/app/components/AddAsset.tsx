@@ -12,7 +12,7 @@ import {
   CheckCircle2,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { useAuth } from "../contexts/AuthContext";
 import { LICENSE_OPTIONS, type LicenseType, type PriceType } from "../../types/asset";
 import { ART_STYLE_OPTIONS, type ArtStyleValue } from "../../constants/artStyles";
@@ -382,8 +382,8 @@ export default function AddAsset() {
           </p>
           <p className="text-sm text-muted-foreground mb-8">
             {submittedStatus === "approved"
-              ? "Vì bạn là admin, asset đã được duyệt ngay và sẽ xuất hiện trên Marketplace."
-              : "Admin sẽ xem preview, duyệt hoặc từ chối. Sau khi được duyệt, asset sẽ hiện trên Marketplace."}
+              ? "Vì bạn là admin, asset đã được duyệt ngay và sẽ xuất hiện trên Chợ Assets."
+              : "Admin sẽ xem preview, duyệt hoặc từ chối. Sau khi được duyệt, asset sẽ hiện trên Chợ Assets."}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
@@ -393,7 +393,7 @@ export default function AddAsset() {
               Về trang Admin
             </Link>
             <Link to="/marketplace" className="border border-border px-6 py-3 rounded-lg text-foreground hover:border-primary/50 transition-all">
-              Xem Marketplace
+              Xem Chợ Assets
             </Link>
           </div>
         </div>
@@ -420,7 +420,7 @@ export default function AddAsset() {
             <h1 className="text-3xl lg:text-4xl font-bold text-foreground">Thêm Asset</h1>
           </div>
           <p className="text-muted-foreground">
-            Tải asset mới lên GameAssets AI. Sau khi gửi, asset sẽ chờ admin duyệt trước khi lên Marketplace.
+            Tải asset mới lên AssetBox. Sau khi gửi, asset sẽ chờ admin duyệt trước khi lên Chợ Assets.
           </p>
         </header>
 

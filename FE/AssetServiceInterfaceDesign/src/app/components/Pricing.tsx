@@ -29,7 +29,7 @@ import {
 } from "../../constants/creditPacks";
 import { hasPaidSubscription } from "../../constants/subscriptionPlanTemplates";
 import { cn } from "./ui/utils";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 
 type SlugMeta = {
   icon: React.ReactNode;

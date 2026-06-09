@@ -7,7 +7,10 @@ import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { SubscriptionPlanBadge } from "./SubscriptionPlanBadge";
 import { AppLogo, APP_NAME } from "./AppLogo";
 import { Toaster } from "./ui/sonner";
+import { NotificationBell } from "./NotificationBell";
 import { useTheme } from "../contexts/ThemeContext";
+import { useSubscriptionAlerts } from "../../hooks/useSubscriptionAlerts";
+import { useAdminPendingOrderAlerts } from "../../hooks/useAdminPendingOrderAlerts";
 
 export default function Root() {
   const location = useLocation();
@@ -46,6 +49,8 @@ export default function Root() {
   };
 
   const avatarSrc = getUserAvatarSrc(user);
+  useSubscriptionAlerts(user);
+  const { pendingCount: adminPendingOrders } = useAdminPendingOrderAlerts(user);
 
   return (
     <div className="min-h-screen relative">
@@ -127,20 +132,29 @@ export default function Root() {
                 <>
                   {user.role === "admin" && (
                     <Link
-                      to="/admin"
-                      className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
+                      to="/admin?tab=orders"
+                      className={`text-sm font-medium transition-all relative group whitespace-nowrap flex items-center gap-1.5 ${
                         isActive("/admin")
                           ? "text-primary"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       Admin Dashboard
+                      {adminPendingOrders > 0 && (
+                        <span
+                          className="min-w-[18px] h-[18px] px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold flex items-center justify-center"
+                          title={`${adminPendingOrders} đơn chờ xác nhận`}
+                        >
+                          {adminPendingOrders > 9 ? "9+" : adminPendingOrders}
+                        </span>
+                      )}
                       {isActive("/admin") && (
                         <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
                       )}
                     </Link>
                   )}
                   <div className="flex items-center gap-3 ml-2">
+                    <NotificationBell adminPendingOrders={adminPendingOrders} />
                     <button
                       type="button"
                       onClick={toggleTheme}
@@ -274,16 +288,25 @@ export default function Root() {
                 <>
                   {user.role === "admin" && (
                     <Link
-                      to="/admin"
-                      className={`block text-sm font-medium ${
+                      to="/admin?tab=orders"
+                      className={`flex items-center gap-2 text-sm font-medium ${
                         isActive("/admin") ? "text-primary" : "text-muted-foreground"
                       }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Admin Dashboard
+                      {adminPendingOrders > 0 && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-warning text-warning-foreground text-[10px] font-bold flex items-center justify-center">
+                          {adminPendingOrders > 9 ? "9+" : adminPendingOrders}
+                        </span>
+                      )}
                     </Link>
                   )}
                   <div className="pt-3 border-t border-border space-y-3">
+                    <div className="flex items-center gap-2">
+                      <NotificationBell adminPendingOrders={adminPendingOrders} />
+                      <span className="text-sm text-foreground">Thông báo</span>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {

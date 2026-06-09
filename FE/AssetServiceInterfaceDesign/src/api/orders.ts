@@ -41,7 +41,8 @@ export async function createCreditPackOrder(packId: string): Promise<Order> {
 export async function fetchAllOrders(
   page = 1,
   pageSize = 50,
-  userId?: string
+  userId?: string,
+  status?: string,
 ): Promise<PagedResponse<Order>> {
   const params = new URLSearchParams({
     all: "true",
@@ -49,7 +50,15 @@ export async function fetchAllOrders(
     pageSize: String(pageSize),
   });
   if (userId) params.set("userId", userId);
+  if (status) params.set("status", status);
   return apiRequest<PagedResponse<Order>>(`/orders?${params}`);
+}
+
+/** Đơn chờ admin xác nhận (chuyển khoản gói / nạp xu). */
+export async function fetchPendingOrdersForAdmin(
+  pageSize = 50,
+): Promise<PagedResponse<Order>> {
+  return fetchAllOrders(1, pageSize, undefined, "pending");
 }
 
 export async function updateOrderStatus(

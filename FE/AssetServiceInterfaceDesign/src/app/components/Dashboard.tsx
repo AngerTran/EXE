@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Coins, AlertCircle, Loader2, Lock, ShoppingBag, ExternalLink, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { useAuth } from "../contexts/AuthContext";
 import { ApiError } from "../../api/client";
 import {
@@ -297,7 +297,7 @@ export default function Dashboard() {
                     <div className="mt-4 space-y-3">
                       <div className="flex items-center gap-2 text-primary text-sm font-medium">
                         <ShoppingBag className="w-4 h-4" />
-                        <span>Assets được gợi ý từ Marketplace:</span>
+                        <span>Assets được gợi ý từ Chợ Assets:</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {message.suggestedAssets.map((asset) => (
@@ -335,7 +335,7 @@ export default function Dashboard() {
                         to="/marketplace"
                         className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors mt-2"
                       >
-                        <span>Xem tất cả trong Marketplace</span>
+                        <span>Xem tất cả trong Chợ Assets</span>
                         <ExternalLink className="w-4 h-4" />
                       </Link>
                     </div>

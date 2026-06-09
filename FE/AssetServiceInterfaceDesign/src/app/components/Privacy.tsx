@@ -22,7 +22,7 @@ export default function Privacy() {
           <section>
             <div className="text-gray-300 space-y-3">
               <p>
-                GameAssets AI cam kết bảo vệ quyền riêng tư của bạn. Chính sách này giải thích cách chúng tôi thu thập, sử dụng, và bảo vệ thông tin cá nhân của bạn khi sử dụng dịch vụ.
+                AssetBox cam kết bảo vệ quyền riêng tư của bạn. Chính sách này giải thích cách chúng tôi thu thập, sử dụng, và bảo vệ thông tin cá nhân của bạn khi sử dụng dịch vụ.
               </p>
             </div>
           </section>
@@ -38,7 +38,7 @@ export default function Privacy() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li><strong>Thông tin tài khoản:</strong> Tên, email, mật khẩu (được mã hóa)</li>
                 <li><strong>Thông tin thanh toán:</strong> Thông tin thẻ thanh toán được xử lý qua cổng thanh toán bên thứ ba bảo mật (không lưu trữ trên server của chúng tôi)</li>
-                <li><strong>Nội dung tương tác:</strong> Câu hỏi bạn gửi đến AI Assistant, feedback, đánh giá</li>
+                <li><strong>Nội dung tương tác:</strong> Câu hỏi bạn gửi đến AssetBox AI, feedback, đánh giá</li>
                 <li><strong>Thông tin liên hệ:</strong> Khi bạn đặt lịch tư vấn chuyên gia (số điện thoại, thông tin bổ sung)</li>
               </ul>
 
@@ -61,7 +61,7 @@ export default function Privacy() {
               <p>Chúng tôi sử dụng thông tin của bạn cho các mục đích sau:</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li><strong>Cung cấp dịch vụ:</strong> Xử lý câu hỏi AI, cung cấp assets, quản lý tài khoản</li>
-                <li><strong>Cải thiện AI Assistant:</strong> Training và fine-tuning AI models để cung cấp gợi ý chính xác hơn</li>
+                <li><strong>Cải thiện AssetBox AI:</strong> Training và fine-tuning AI models để cung cấp gợi ý chính xác hơn</li>
                 <li><strong>Xử lý thanh toán:</strong> Quản lý subscriptions, xử lý giao dịch mua assets</li>
                 <li><strong>Hỗ trợ khách hàng:</strong> Trả lời câu hỏi, giải quyết vấn đề kỹ thuật</li>
                 <li><strong>Marketing:</strong> Gửi email thông báo về tính năng mới, khuyến mãi (bạn có thể unsubscribe bất kỳ lúc nào)</li>
@@ -129,7 +129,7 @@ export default function Privacy() {
                 <li><strong>Opt-out Marketing:</strong> Hủy đăng ký nhận email marketing bất kỳ lúc nào</li>
               </ul>
               <p className="mt-4">
-                Để thực hiện các quyền này, vui lòng liên hệ: <strong>privacy@gameassets-ai.com</strong>
+                Để thực hiện các quyền này, vui lòng liên hệ: <strong>privacy@assetbox.vn</strong>
               </p>
             </div>
           </section>
@@ -205,7 +205,7 @@ export default function Privacy() {
                 Nếu bạn có bất kỳ câu hỏi nào về Chính sách bảo mật, vui lòng liên hệ:
               </p>
               <ul className="list-none space-y-2 ml-4">
-                <li>📧 Email: privacy@gameassets-ai.com</li>
+                <li>📧 Email: privacy@assetbox.vn</li>
                 <li>📱 Hotline: 1900-xxxx</li>
                 <li>🏢 Địa chỉ: [Địa chỉ công ty của bạn]</li>
               </ul>
@@ -217,7 +217,7 @@ export default function Privacy() {
         {/* Bottom Notice */}
         <div className="mt-8 p-6 bg-green-600/10 border border-green-500/20 rounded-xl">
           <p className="text-sm text-gray-400 text-center">
-            Bằng việc sử dụng GameAssets AI, bạn đồng ý với việc thu thập và sử dụng thông tin theo Chính sách bảo mật này.
+            Bằng việc sử dụng AssetBox, bạn đồng ý với việc thu thập và sử dụng thông tin theo Chính sách bảo mật này.
           </p>
         </div>
       </div>

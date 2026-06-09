@@ -1,6 +1,6 @@
 /**
  * Utility Helper Functions
- * Common helpers used across the Game Assets AI Platform
+ * Common helpers used across the AssetBox platform
  */
 
 import { credits as creditsConfig } from '../constants/theme';

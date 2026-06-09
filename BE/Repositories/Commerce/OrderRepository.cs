@@ -69,6 +69,19 @@ public class OrderRepository(AppDbContext db) : IOrderRepository
         return (total, spent, completed, pending);
     }
 
+    public Task<Order?> GetPendingSubscriptionOrderForPlanAsync(
+        Guid userId,
+        Guid planId,
+        CancellationToken cancellationToken = default) =>
+        WithItems()
+            .Where(o =>
+                o.UserId == userId
+                && o.OrderType == OrderType.Subscription
+                && o.Status == OrderStatus.Pending
+                && o.Items.Any(i => i.PlanId == planId))
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public void Add(Order order) => db.Orders.Add(order);
 
     public void AddItems(IEnumerable<OrderItem> items) => db.OrderItems.AddRange(items);

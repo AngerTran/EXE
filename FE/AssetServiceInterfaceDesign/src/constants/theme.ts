@@ -1,7 +1,7 @@
 /**
  * Design System Theme Constants
  *
- * Centralized theme values for the Game Assets AI Platform.
+ * Centralized theme values for the AssetBox platform.
  * These match the CSS custom properties in src/styles/theme.css
  */
 

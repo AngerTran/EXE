@@ -13,7 +13,7 @@ import { AppLogo } from "./AppLogo";
 import authHero from "../../assets/auth-hero.png";
 import { resetPassword } from "../../api/auth";
 import { ApiError } from "../../api/client";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 
 function parseHashParams(): Record<string, string> {
   const hash = window.location.hash.replace(/^#/, "");

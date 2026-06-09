@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -12,7 +12,7 @@ import {
   Copy,
   Building2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { fetchSubscriptionPlanBySlug } from "../../api/subscriptionPlans";
 import { createSubscriptionOrder } from "../../api/orders";
@@ -38,6 +38,7 @@ export default function Checkout() {
   const [bankInfo, setBankInfo] = useState<BankTransferInfo | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const orderInitPlanIdRef = useRef<string | null>(null);
 
   const orderCompleted = usePollOrderCompletion(order?.id, paymentSubmitted, {
     onCompleted: () =>
@@ -70,13 +71,23 @@ export default function Checkout() {
   }, [packageSlug, navigate]);
 
   useEffect(() => {
-    if (!user || !selectedPlan || selectedPlan.priceVnd <= 0) return;
+    orderInitPlanIdRef.current = null;
+    setOrder(null);
+    setBankInfo(null);
+    setPaymentSubmitted(false);
+  }, [packageSlug]);
+
+  useEffect(() => {
+    const planId = selectedPlan?.id;
+    if (!user?.id || !planId || !selectedPlan || selectedPlan.priceVnd <= 0) return;
+    if (orderInitPlanIdRef.current === planId) return;
+    orderInitPlanIdRef.current = planId;
 
     let cancelled = false;
     (async () => {
       setCheckoutLoading(true);
       try {
-        const created = await createSubscriptionOrder(selectedPlan.id, "bank");
+        const created = await createSubscriptionOrder(planId, "bank");
         if (cancelled) return;
         setOrder(created);
         if (created.status === "completed") {
@@ -100,6 +111,7 @@ export default function Checkout() {
         }
       } catch (error) {
         if (!cancelled) {
+          orderInitPlanIdRef.current = null;
           toast.error(error instanceof ApiError ? error.message : "Không tạo được đơn thanh toán");
           navigate("/pricing");
         }
@@ -111,7 +123,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [user, selectedPlan, navigate, refreshUserData]);
+  }, [user?.id, selectedPlan, navigate, refreshUserData]);
 
   const qrImageUrl =
     bankInfo?.qrImageUrl || bankInfo?.vietQrImageUrl || null;
