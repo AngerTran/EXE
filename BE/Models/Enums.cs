@@ -114,3 +114,22 @@ public enum AiMessageRole
     [PgName("assistant")] Assistant,
     [PgName("system")] System
 }
+
+public enum NotificationLevel
+{
+    [PgName("info")] Info,
+    [PgName("success")] Success,
+    [PgName("warning")] Warning,
+    [PgName("error")] Error
+}
+
+public enum NotificationCategory
+{
+    [PgName("subscription")] Subscription,
+    [PgName("wallet")] Wallet,
+    [PgName("order")] Order,
+    [PgName("asset")] Asset,
+    [PgName("admin")] Admin,
+    [PgName("account")] Account,
+    [PgName("ai")] Ai
+}

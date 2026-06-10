@@ -1,4 +1,5 @@
 using System.Net;
+using Exe.Models;
 using Microsoft.EntityFrameworkCore;
 using Exe.Models.Entities;
 
@@ -31,9 +32,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AiMessageAsset> AiMessageAssets => Set<AiMessageAsset>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ContactInquiry> ContactInquiries => Set<ContactInquiry>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresEnum<NotificationLevel>("notification_level");
+        modelBuilder.HasPostgresEnum<NotificationCategory>("notification_category");
+
         modelBuilder.Entity<Profile>(e =>
         {
             e.ToTable("profiles");
@@ -149,6 +154,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.ToTable("contact_inquiries");
             e.Property(c => c.Status).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<Notification>(e =>
+        {
+            e.ToTable("notifications");
+            e.Property(n => n.Level).HasColumnType("notification_level");
+            e.Property(n => n.Category).HasColumnType("notification_category");
+            e.Property(n => n.Metadata).HasColumnType("jsonb");
+            e.HasOne(n => n.User).WithMany(p => p.Notifications).HasForeignKey(n => n.UserId);
         });
     }
 }

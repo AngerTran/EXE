@@ -260,6 +260,12 @@ function mapApiOrderToAdmin(o: CommerceOrder): Order {
   };
 }
 
+function orderNeedsAdminConfirmation(order: Order): boolean {
+  if (order.status !== "pending") return false;
+  const type = order.orderType?.toLowerCase();
+  return type === "subscription" || type === "credit_pack";
+}
+
 function formatAdminOrderAmount(order: Order): string {
   if (order.orderType === "asset") {
     return `${order.totalXu.toLocaleString("vi-VN")} xu`;
@@ -338,6 +344,15 @@ export default function AdminDashboard() {
     }
   };
 
+  const reloadOrdersFromApi = useCallback(async () => {
+    try {
+      const ordersRes = await fetchAllOrders(1, 100);
+      setOrders(ordersRes.data.map(mapApiOrderToAdmin));
+    } catch {
+      /* im lặng khi poll nền — lỗi lớn đã toast ở load dashboard */
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -409,6 +424,30 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Đơn pending có thể tạo sau khi dashboard load — poll để khớp badge thông báo
+  useEffect(() => {
+    if (!user || user.role !== "admin") return;
+
+    void reloadOrdersFromApi();
+    const timer = window.setInterval(() => void reloadOrdersFromApi(), 30_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void reloadOrdersFromApi();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [user, reloadOrdersFromApi]);
+
+  useEffect(() => {
+    if (activeTab === "orders") void reloadOrdersFromApi();
+  }, [activeTab, reloadOrdersFromApi]);
+
   useEffect(() => {
     const reload = async () => {
       try {
@@ -467,7 +506,7 @@ export default function AdminDashboard() {
       icon: <ShoppingCart className="w-6 h-6" />,
       color: "from-success to-success/80",
       change: `${orders.filter((o) => o.status === "completed").length} hoàn thành`,
-      detail: `${orders.filter((o) => o.status === "pending").length} đang xử lý`,
+      detail: `${orders.filter(orderNeedsAdminConfirmation).length} chờ xác nhận CK`,
     },
     {
       label: "Doanh thu",
@@ -506,7 +545,7 @@ export default function AdminDashboard() {
                 id: "orders",
                 label: "Đơn hàng",
                 icon: <ShoppingCart className="w-4 h-4" />,
-                badge: orders.filter((o) => o.status === "pending").length,
+                badge: orders.filter(orderNeedsAdminConfirmation).length,
               },
               { id: "packages", label: "Gói dịch vụ", icon: <CreditCard className="w-4 h-4" /> },
             ]}
@@ -554,6 +593,7 @@ export default function AdminDashboard() {
             orders={orders}
             setOrders={setOrders}
             users={users}
+            onReload={reloadOrdersFromApi}
           />
         )}
 
@@ -2978,12 +3018,14 @@ function OrdersManagement({
   orders,
   setOrders,
   users,
+  onReload,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   orders: Order[];
   setOrders: (orders: Order[]) => void;
   users: UserData[];
+  onReload?: () => Promise<void>;
 }) {
   const { refreshUserData } = useAuth();
   const [pendingPage, setPendingPage] = useState(1);
@@ -3000,8 +3042,8 @@ function OrdersManagement({
       (order.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false),
   );
 
-  const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
-  const confirmedOrders = filteredOrders.filter((o) => o.status !== "pending");
+  const pendingOrders = filteredOrders.filter(orderNeedsAdminConfirmation);
+  const confirmedOrders = filteredOrders.filter((o) => !orderNeedsAdminConfirmation(o));
 
   const { paged: pagedPending, totalPages: pendingTotalPages } = getPageSlice(
     pendingOrders,
@@ -3018,6 +3060,10 @@ function OrdersManagement({
     setPendingPage(1);
     setConfirmedPage(1);
   }, [searchQuery]);
+
+  useEffect(() => {
+    void onReload?.();
+  }, [onReload]);
 
   const handleConfirm = async (orderId: string) => {
     setActionOrderId(orderId);

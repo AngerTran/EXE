@@ -5,6 +5,7 @@ export type AppNotification = {
   type: AppNotificationType;
   title: string;
   description?: string;
+  actionUrl?: string;
   createdAt: string;
   read: boolean;
 };

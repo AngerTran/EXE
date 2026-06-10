@@ -26,4 +26,5 @@ public class Profile
     public ICollection<AssetReview> Reviews { get; set; } = [];
     public ICollection<AiSession> AiSessions { get; set; } = [];
     public ICollection<Payment> Payments { get; set; } = [];
+    public ICollection<Notification> Notifications { get; set; } = [];
 }

@@ -29,6 +29,8 @@ public static class DependencyInjection
                 npgsql.MapEnum<LicenseType>("license_type");
                 npgsql.MapEnum<ArtStyle>("art_style");
                 npgsql.MapEnum<AiMessageRole>("ai_message_role");
+                npgsql.MapEnum<NotificationLevel>("notification_level");
+                npgsql.MapEnum<NotificationCategory>("notification_category");
             }).UseSnakeCaseNamingConvention());
 
         return services;

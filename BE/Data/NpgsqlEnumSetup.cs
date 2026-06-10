@@ -23,6 +23,8 @@ public static class NpgsqlEnumSetup
         builder.MapEnum<LicenseType>("license_type");
         builder.MapEnum<ArtStyle>("art_style");
         builder.MapEnum<AiMessageRole>("ai_message_role");
+        builder.MapEnum<NotificationLevel>("notification_level");
+        builder.MapEnum<NotificationCategory>("notification_category");
 
         return builder.Build();
     }

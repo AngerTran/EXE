@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import {
   Bell,
@@ -66,11 +66,18 @@ function NotificationRow({
   item: AppNotification;
   onRead: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   const Icon = typeIcon[item.type];
+
+  const handleClick = () => {
+    onRead(item.id);
+    if (item.actionUrl) navigate(item.actionUrl);
+  };
+
   return (
     <button
       type="button"
-      onClick={() => onRead(item.id)}
+      onClick={handleClick}
       className={cn(
         "group w-full text-left rounded-xl border p-3.5 transition-all",
         "hover:border-primary/40 hover:bg-primary/5 hover:shadow-[0_0_20px_rgba(0,217,255,0.08)]",
@@ -118,16 +125,26 @@ export function NotificationBell({ adminPendingOrders = 0 }: NotificationBellPro
   const [items, setItems] = useState<AppNotification[]>(() => notificationStore.getItems());
   const unread = items.filter((n) => !n.read).length;
   const isAdmin = user?.role === "admin";
-  const badgeCount =
-    isAdmin && adminPendingOrders > 0
-      ? Math.max(unread, adminPendingOrders)
-      : unread;
+  const badgeCount = unread;
 
   useEffect(() => notificationStore.subscribe(() => setItems(notificationStore.getItems())), []);
 
+  useEffect(() => {
+    if (!user) {
+      notificationStore.reset();
+      return;
+    }
+    void notificationStore.refreshFromApi();
+    const timer = window.setInterval(() => void notificationStore.refreshFromApi(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [user?.id]);
+
   const handleOpenChange = (next: boolean) => {
     setOpen(next);
-    if (next) notificationStore.markAllRead();
+    if (next) {
+      void notificationStore.refreshFromApi();
+      void notificationStore.markAllRead();
+    }
   };
 
   return (

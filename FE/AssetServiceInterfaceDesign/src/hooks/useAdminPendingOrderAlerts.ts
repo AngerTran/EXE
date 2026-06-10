@@ -3,9 +3,12 @@ import type { AppUser } from "../api/auth";
 import { fetchPendingOrdersForAdmin } from "../api/orders";
 import type { Order } from "../api/types/commerce";
 import { notifyAdminPendingOrder } from "../utils/notify";
+import { notificationStore } from "../stores/notificationStore";
+import type { AppNotification } from "../types/notification";
 
 const POLL_MS = 30_000;
 const SEEN_STORAGE_PREFIX = "assetbox:admin-seen-pending:";
+const EPHEMERAL_PREFIX = "pending-order-";
 
 function loadSeenIds(userId: string): Set<string> {
   try {
@@ -36,9 +39,28 @@ function orderLabel(order: Order): string {
   return order.orderCode;
 }
 
+function ordersToNotifications(awaiting: Order[]): AppNotification[] {
+  return awaiting.map((order) => {
+    const isSubscription = order.orderType?.toLowerCase() === "subscription";
+    const itemName = order.items?.[0]?.itemName;
+    const plan = itemName ?? (isSubscription ? "Gói đăng ký" : "Gói xu");
+    const buyer = order.userName || order.userEmail || "Khách hàng";
+    const amount = `${order.totalVnd.toLocaleString("vi-VN")}đ`;
+    return {
+      id: `${EPHEMERAL_PREFIX}${order.id}`,
+      type: "warning" as const,
+      title: isSubscription ? "Đơn mua gói chờ xác nhận" : "Đơn nạp xu chờ xác nhận",
+      description: `${buyer} · ${plan} · ${order.orderCode} · ${amount}. Vào Admin → Đơn hàng để xác nhận.`,
+      actionUrl: "/admin?tab=orders",
+      createdAt: order.createdAt,
+      read: false,
+    };
+  });
+}
+
 /**
  * Poll API đơn pending khi admin đang đăng nhập.
- * Phù hợp chuyển khoản ngân hàng — không cần WebSocket.
+ * Đồng bộ vào chuông thông báo (không popup toast).
  */
 export function useAdminPendingOrderAlerts(user: AppUser | null) {
   const [pendingCount, setPendingCount] = useState(0);
@@ -52,6 +74,7 @@ export function useAdminPendingOrderAlerts(user: AppUser | null) {
       const res = await fetchPendingOrdersForAdmin();
       const awaiting = res.data.filter(isAwaitingAdminConfirmation);
       setPendingCount(awaiting.length);
+      notificationStore.setEphemeral(EPHEMERAL_PREFIX, ordersToNotifications(awaiting));
 
       let changed = false;
       for (const order of awaiting) {
@@ -70,6 +93,7 @@ export function useAdminPendingOrderAlerts(user: AppUser | null) {
     if (!user || user.role !== "admin") {
       seenRef.current = new Set();
       setPendingCount(0);
+      notificationStore.setEphemeral(EPHEMERAL_PREFIX, []);
       return;
     }
 

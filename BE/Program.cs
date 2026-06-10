@@ -64,6 +64,7 @@ builder.Services.AddScoped<ISubscriptionUserService, SubscriptionUserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IContactService, ContactService>();
 builder.Services.AddScoped<IProfileAvatarService, ProfileAvatarService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHttpClient<IStorageService, SupabaseStorageService>(client =>
 {
     client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");

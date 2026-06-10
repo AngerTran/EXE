@@ -1,24 +1,53 @@
 import { toast as sonnerToast, type ExternalToast } from "sonner";
+import { getAccessToken } from "../api/client";
 import { notificationStore } from "../stores/notificationStore";
 import type { AppNotificationType } from "../types/notification";
 
-function record(type: AppNotificationType, message: string, data?: ExternalToast) {
+type NotifyOptions = ExternalToast & {
+  /** Bắt buộc hiện popup toast kể cả đã đăng nhập (lỗi form, v.v.) */
+  showToast?: boolean;
+  actionUrl?: string;
+};
+
+function isLoggedIn(): boolean {
+  return Boolean(getAccessToken());
+}
+
+/** Chỉ ghi vào chuông thông báo — không popup bên ngoài. */
+export function notifyPanel(input: {
+  type: AppNotificationType;
+  title: string;
+  description?: string;
+  actionUrl?: string;
+  id?: string;
+}) {
+  return notificationStore.push(input);
+}
+
+function record(type: AppNotificationType, message: string, data?: NotifyOptions) {
   const description =
     typeof data?.description === "string" ? data.description : undefined;
-  notificationStore.push({ type, title: message, description });
+  notificationStore.push({
+    type,
+    title: message,
+    description,
+    actionUrl: data?.actionUrl,
+  });
 }
 
 function wrap(
   type: AppNotificationType,
   fn: (message: string, data?: ExternalToast) => string | number,
 ) {
-  return (message: string, data?: ExternalToast) => {
+  return (message: string, data?: NotifyOptions) => {
     record(type, message, data);
+    // Đã đăng nhập: mặc định chỉ chuông, không popup toast
+    if (isLoggedIn() && !data?.showToast) return 0;
     return fn(message, data);
   };
 }
 
-/** Drop-in replacement for `sonner` toast — adds icons (via Toaster) + notification history. */
+/** Toast thao tác — khi đã login ghi vào chuông; popup chỉ khi showToast hoặc chưa login. */
 export const toast = {
   success: wrap("success", sonnerToast.success),
   error: wrap("error", sonnerToast.error),
@@ -35,27 +64,37 @@ export const notify = toast;
 
 export function notifySubscriptionExpired(planLabel?: string) {
   const label = planLabel ? planLabel.toUpperCase() : "đăng ký";
-  toast.warning(`Gói ${label} đã hết hạn`, {
+  notifyPanel({
+    type: "warning",
+    title: `Gói ${label} đã hết hạn`,
     description: "Tài khoản đã về gói Free. Nâng cấp lại tại trang Gói dịch vụ.",
-    duration: 9000,
+    actionUrl: "/pricing",
+    id: `sub-expired-${label}`,
   });
 }
 
 export function notifySubscriptionExpiringSoon(daysLeft: number, planLabel: string) {
-  toast.info(`Gói ${planLabel.toUpperCase()} sắp hết hạn`, {
+  notifyPanel({
+    type: "info",
+    title: `Gói ${planLabel.toUpperCase()} sắp hết hạn`,
     description: `Còn ${daysLeft} ngày. Gia hạn tại Gói dịch vụ để giữ quyền lợi.`,
-    duration: 7000,
+    actionUrl: "/pricing",
+    id: `sub-expiring-${planLabel}-${daysLeft}`,
   });
 }
 
 export function notifyLowCredits(credits: number) {
-  toast.warning("Xu sắp hết", {
+  notifyPanel({
+    type: "warning",
+    title: "Xu sắp hết",
     description: `Bạn còn ${credits} xu. Nạp thêm hoặc nâng cấp gói tại Gói dịch vụ.`,
-    duration: 6000,
+    actionUrl: "/pricing",
+    id: `low-xu-${credits}`,
   });
 }
 
 export function notifyAdminPendingOrder(order: {
+  id: string;
   orderCode: string;
   orderType: string;
   totalVnd: number;
@@ -72,10 +111,11 @@ export function notifyAdminPendingOrder(order: {
   const buyer = order.userName || order.userEmail || "Khách hàng";
   const amount = `${order.totalVnd.toLocaleString("vi-VN")}đ`;
 
-  // Chỉ lưu vào chuông thông báo — không popup toast (admin đã có badge + panel).
-  notificationStore.push({
+  notifyPanel({
     type: "warning",
     title,
     description: `${buyer} · ${plan} · ${order.orderCode} · ${amount}. Vào Admin → Đơn hàng để xác nhận.`,
+    actionUrl: "/admin?tab=orders",
+    id: `pending-order-${order.id}`,
   });
 }
