@@ -35,6 +35,13 @@ function mapApiItem(n: NotificationApiItem): AppNotification {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Legacy FE-only pending-order alerts — replaced by Supabase notifications. */
+const LEGACY_PENDING_ORDER_PREFIX = "pending-order-";
+
+function isLegacyPendingOrderNotification(n: AppNotification): boolean {
+  return n.id.startsWith(LEGACY_PENDING_ORDER_PREFIX);
+}
+
 function isLoggedIn(): boolean {
   return Boolean(getAccessToken());
 }
@@ -73,10 +80,13 @@ export const notificationStore = {
     if (!isLoggedIn()) return;
     loading = true;
     emit();
+    items = items.filter((n) => !isLegacyPendingOrderNotification(n));
     try {
       const res = await fetchNotifications({ page: 1, pageSize: MAX_ITEMS });
       const serverItems = res.data.map(mapApiItem);
-      const localOnly = items.filter((n) => !isServerId(n.id));
+      const localOnly = items.filter(
+        (n) => !isServerId(n.id) && !isLegacyPendingOrderNotification(n),
+      );
       items = mergeItems(serverItems, localOnly);
       emit();
     } catch {

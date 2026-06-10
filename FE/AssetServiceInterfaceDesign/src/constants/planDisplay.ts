@@ -1,4 +1,10 @@
 import type { SubscriptionPlan } from "../api/types/billing";
+import { calculateDiscount } from "../utils/helpers";
+
+/** Giá niêm yết trước khuyến mãi (chỉ hiển thị FE — giá thu thực tế lấy từ `priceVnd`). */
+const PLAN_COMPARE_AT_VND: Record<string, number> = {
+  student: 59_000,
+};
 
 /** Map feature keys từ DB sang mô tả hiển thị tiếng Việt. */
 const FEATURE_LABELS: Record<string, string> = {
@@ -78,6 +84,8 @@ export type PlanPriceDisplay = {
   primarySuffix?: string;
   secondary?: string;
   highlight?: string;
+  compareAt?: string;
+  discountPercent?: number;
 };
 
 export function formatPlanPrice(plan: SubscriptionPlan): PlanPriceDisplay {
@@ -101,9 +109,19 @@ export function formatPlanPrice(plan: SubscriptionPlan): PlanPriceDisplay {
     };
   }
 
+  const compareAtVnd = PLAN_COMPARE_AT_VND[plan.slug];
+  const hasPromo =
+    compareAtVnd != null && compareAtVnd > plan.priceVnd;
+
   return {
     primary: `${plan.priceVnd.toLocaleString("vi-VN")}đ`,
     primarySuffix: "/tháng",
+    compareAt: hasPromo
+      ? `${compareAtVnd.toLocaleString("vi-VN")}đ`
+      : undefined,
+    discountPercent: hasPromo
+      ? calculateDiscount(compareAtVnd, plan.priceVnd)
+      : undefined,
     secondary: plan.creditsMonthly
       ? `Bao gồm ${plan.creditsMonthly.toLocaleString("vi-VN")} xu mỗi tháng`
       : undefined,

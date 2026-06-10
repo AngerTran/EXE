@@ -156,7 +156,7 @@ export default function Root() {
                 <>
                   {user.role === "admin" && (
                     <Link
-                      to="/admin?tab=orders"
+                      to="/admin"
                       className={`text-sm font-medium transition-all relative group whitespace-nowrap flex items-center gap-1.5 ${
                         isActive("/admin")
                           ? "text-primary"
@@ -318,7 +318,7 @@ export default function Root() {
             ))}
             {user?.role === "admin" && (
               <Link
-                to="/admin?tab=orders"
+                to="/admin"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`touch-target justify-start px-3 rounded-lg text-sm font-medium flex items-center gap-2 ${
                   isActive("/admin") ? "text-primary bg-primary/10" : "text-muted-foreground"

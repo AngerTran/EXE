@@ -12,7 +12,7 @@ import type {
   ContactInquiry,
 } from "./types/admin";
 import type { SubscriptionPlan } from "./types/billing";
-import type { AssetListItem } from "./types/marketplace";
+import type { AssetListItem, UploadUrlMeta } from "./types/marketplace";
 import type { PagedResponse } from "./types/common";
 
 interface PlanListResponse {
@@ -109,6 +109,35 @@ export async function updateAdminAsset(id: string, body: AdminUpdateAssetBody) {
 
 export async function deleteAdminAsset(id: string): Promise<void> {
   return apiRequest<void>(`/admin/assets/${id}`, { method: "DELETE" });
+}
+
+export async function getAdminAssetUploadUrl(
+  assetId: string,
+  kind: "file" | "image",
+  fileName: string,
+  contentType: string,
+  fileSizeBytes: number,
+): Promise<UploadUrlMeta> {
+  return apiRequest<UploadUrlMeta>(`/admin/assets/${assetId}/upload-url`, {
+    method: "POST",
+    body: JSON.stringify({ kind, fileName, contentType, fileSizeBytes }),
+  });
+}
+
+export async function registerAdminAssetImage(
+  assetId: string,
+  body: {
+    storagePath: string;
+    altText?: string;
+    sortOrder?: number;
+    isThumbnail?: boolean;
+    replaceImageId?: string;
+  },
+): Promise<void> {
+  await apiRequest(`/admin/assets/${assetId}/images`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export async function fetchAdminSubscriptionPlans(): Promise<SubscriptionPlan[]> {

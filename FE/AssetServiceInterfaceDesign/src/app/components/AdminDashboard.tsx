@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode, type RefObject } from "react";
 import { Link, useSearchParams } from "react-router";
 import { BeamPanel } from "./BeamPanel";
 import {
@@ -33,6 +33,7 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
 import { ScrollableTabBar } from "./ui/ScrollableTabBar";
 import type { AssetRecord } from "../../types/asset";
@@ -48,6 +49,8 @@ import {
   fetchAdminUsers,
   fetchAdminUserDetail,
   fetchAdminAssets,
+  getAdminAssetUploadUrl,
+  registerAdminAssetImage,
   updateAdminUser,
   deleteAdminUser,
   updateAdminAsset,
@@ -73,7 +76,7 @@ import {
   mapAssetDetailToEditRecord,
 } from "../../api/adminAssetEdit";
 import { fetchCategories, fetchTagGroups } from "../../api/lookup";
-import type { CategoryItem, TagGroupItem } from "../../api/types/marketplace";
+import type { AssetImageItem, CategoryItem, TagGroupItem } from "../../api/types/marketplace";
 import {
   fetchAdminCreditPacks,
   createAdminCreditPack,
@@ -103,8 +106,6 @@ import {
   rejectAsset as apiRejectAsset,
   fetchAssetById,
   fetchPendingAssets,
-  getAssetUploadUrl,
-  registerAssetImage,
   uploadToSignedUrl,
 } from "../../api/assets";
 import { mapAssetListItem } from "../../api/mappers";
@@ -125,6 +126,7 @@ import {
   Legend,
   LineChart,
   Line,
+  type TooltipProps,
 } from "recharts";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import {
@@ -147,6 +149,60 @@ const PLAN_CHART_COLORS: Record<string, string> = {
   pro: "#f59e0b",
 };
 
+const CHART_BAR_CURSOR = { fill: "rgba(148, 163, 184, 0.07)" } as const;
+
+/** Tooltip tối — màu chữ inline để không bị light-mode CSS ghi đè. */
+function AdminChartTooltip({
+  active,
+  payload,
+  label,
+  labelFormatter,
+  formatter,
+}: TooltipProps<number, string>) {
+  if (!active || !payload?.length) return null;
+
+  const displayLabel =
+    labelFormatter != null && label != null ? labelFormatter(label, payload) : label;
+
+  return (
+    <div
+      className="admin-chart-tooltip"
+      style={{
+        backgroundColor: "#0f172a",
+        border: "1px solid #334155",
+        borderRadius: 8,
+        padding: "8px 12px",
+        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.4)",
+      }}
+    >
+      {displayLabel != null && String(displayLabel) !== "" && (
+        <p style={{ color: "#f8fafc", fontWeight: 600, margin: "0 0 6px", fontSize: 12 }}>
+          {displayLabel}
+        </p>
+      )}
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 4 }}>
+        {payload.map((entry, index) => {
+          const formatted = formatter
+            ? formatter(entry.value as number, entry.name ?? "", entry, index, payload)
+            : null;
+          const [valueText, nameText] = Array.isArray(formatted)
+            ? formatted
+            : [entry.value, entry.name];
+          const accent = (entry.color as string) || "#e2e8f0";
+
+          return (
+            <li key={`${String(entry.dataKey)}-${index}`} style={{ fontSize: 12, lineHeight: 1.45 }}>
+              <span style={{ color: "#cbd5e1" }}>{nameText}</span>
+              <span style={{ color: "#64748b" }}>: </span>
+              <span style={{ color: accent, fontWeight: 600 }}>{valueText}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function normalizeUserPlanKey(subscription?: string): string {
   const raw = (subscription ?? "free").toLowerCase().trim();
   if (!raw || raw === "free" || raw.includes("miễn phí") || raw.includes("mien phi")) return "free";
@@ -164,9 +220,10 @@ const USER_PLAN_LABELS: Record<string, string> = {
 };
 
 function orderTypeStatLabel(orderType: string): string {
-  if (orderType === "subscription") return "Gói đăng ký";
-  if (orderType === "credit_pack") return "Nạp xu";
-  if (orderType === "asset") return "Mua asset";
+  const key = orderType.toLowerCase().replace(/_/g, "");
+  if (key === "subscription") return "Gói đăng ký";
+  if (key === "creditpack") return "Nạp xu";
+  if (key === "asset") return "Mua asset";
   return orderType;
 }
 
@@ -710,12 +767,15 @@ function OverviewTab({
     })) ?? [];
 
   const aiUsageByUser =
-    aiUsageAnalytics?.byUser.map((u) => ({
-      name: u.userName || u.email,
-      messages: u.messageCount,
-      xu: u.totalXuCharged,
-      tokens: u.totalTokens,
-    })) ?? [];
+    aiUsageAnalytics?.byUser
+      .map((u) => ({
+        name: (u.userName || u.email).split("@")[0],
+        fullName: u.userName || u.email,
+        messages: u.messageCount,
+        xu: u.totalXuCharged,
+        tokens: u.totalTokens,
+      }))
+      .filter((u) => u.xu > 0) ?? [];
 
   if (loading) {
     return (
@@ -783,16 +843,11 @@ function OverviewTab({
               <XAxis dataKey="date" stroke="#64748b" />
               <YAxis stroke="#64748b" unit="k" />
               <Tooltip
+                content={<AdminChartTooltip />}
                 formatter={(value: number, _name, item) => [
                   `${(item.payload.revenueVnd as number).toLocaleString("vi-VN")}đ`,
                   "Doanh thu",
                 ]}
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  border: "1px solid #1e293b",
-                  borderRadius: "8px",
-                  color: "#f8f9fa",
-                }}
               />
               <Area
                 type="monotone"
@@ -839,14 +894,7 @@ function OverviewTab({
                   <Cell key={entry.id} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  border: "1px solid #1e293b",
-                  borderRadius: "8px",
-                  color: "#f8f9fa",
-                }}
-              />
+              <Tooltip content={<AdminChartTooltip />} />
             </RePieChart>
           </ResponsiveContainer>
           )}
@@ -868,9 +916,10 @@ function OverviewTab({
               {completedByType.map((t) => (
                 <span
                   key={t.orderType}
-                  className="text-xs font-mono px-2.5 py-1 rounded-full bg-muted/40 border border-border text-muted-foreground"
+                  className="text-xs px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-foreground"
                 >
-                  {orderTypeStatLabel(t.orderType)}: <strong className="text-foreground">{t.count}</strong>
+                  {orderTypeStatLabel(t.orderType)}:{" "}
+                  <strong className="text-primary">{t.count}</strong>
                 </span>
               ))}
             </div>
@@ -881,24 +930,17 @@ function OverviewTab({
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={purchaseChartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+              <BarChart data={purchaseChartData} barCategoryGap="20%" maxBarSize={56}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#64748b" allowDecimals={false} />
+                <YAxis stroke="#64748b" allowDecimals={false} width={32} />
                 <Tooltip
-                  formatter={(value: number, name) => {
-                    if (name === "count") return [value, "Số đơn"];
-                    return [value, name];
-                  }}
-                  labelFormatter={(label) => `Gói: ${label}`}
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #1e293b",
-                    borderRadius: "8px",
-                    color: "#f8f9fa",
-                  }}
+                  content={<AdminChartTooltip />}
+                  cursor={CHART_BAR_CURSOR}
+                  formatter={(value: number) => [value, "Số đơn"]}
+                  labelFormatter={(label) => `Gói ${label}`}
                 />
-                <Bar dataKey="count" name="count" radius={[8, 8, 0, 0]}>
+                <Bar dataKey="count" name="Số đơn" radius={[8, 8, 0, 0]} activeBar={{ opacity: 0.85 }}>
                   {purchaseChartData.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
                   ))}
@@ -1006,16 +1048,11 @@ function OverviewTab({
                 <XAxis dataKey="date" stroke="#64748b" />
                 <YAxis stroke="#64748b" allowDecimals={false} />
                 <Tooltip
+                  content={<AdminChartTooltip />}
                   formatter={(value: number, name: string) => [
                     value,
                     name === "xu" ? "Xu tiêu" : name === "messages" ? "Tin AI" : "Token",
                   ]}
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #1e293b",
-                    borderRadius: "8px",
-                    color: "#f8f9fa",
-                  }}
                 />
                 <Area
                   type="monotone"
@@ -1046,23 +1083,45 @@ function OverviewTab({
             <p className="text-muted-foreground text-sm py-16 text-center">Chưa có user dùng AI.</p>
           ) : (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={aiUsageByUser} layout="vertical" margin={{ left: 8, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis type="number" stroke="#64748b" allowDecimals={false} />
-                <YAxis type="category" dataKey="name" stroke="#64748b" width={100} tick={{ fontSize: 11 }} />
-                <Tooltip
-                  formatter={(value: number, name: string) => [
-                    value,
-                    name === "xu" ? "Xu" : name === "messages" ? "Tin" : "Token",
-                  ]}
-                  contentStyle={{
-                    backgroundColor: "#0f172a",
-                    border: "1px solid #1e293b",
-                    borderRadius: "8px",
-                    color: "#f8f9fa",
-                  }}
+              <BarChart
+                data={aiUsageByUser}
+                layout="vertical"
+                margin={{ left: 4, right: 20, top: 4, bottom: 4 }}
+                barCategoryGap="18%"
+                maxBarSize={28}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+                <XAxis
+                  type="number"
+                  stroke="#64748b"
+                  allowDecimals={false}
+                  domain={[0, "dataMax"]}
                 />
-                <Bar dataKey="xu" fill="#a855f7" radius={[0, 8, 8, 0]} />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#64748b"
+                  width={108}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip
+                  content={<AdminChartTooltip />}
+                  cursor={CHART_BAR_CURSOR}
+                  formatter={(value: number, name: string) => {
+                    if (name === "Xu tiêu") return [`${value} xu`, "Xu tiêu"];
+                    return [value, name];
+                  }}
+                  labelFormatter={(_, payload) =>
+                    payload?.[0]?.payload?.fullName ?? _
+                  }
+                />
+                <Bar
+                  dataKey="xu"
+                  name="Xu tiêu"
+                  fill="#a855f7"
+                  radius={[0, 8, 8, 0]}
+                  activeBar={{ fill: "#c084fc" }}
+                />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -1090,14 +1149,7 @@ function OverviewTab({
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
               <XAxis dataKey="date" stroke="#64748b" />
               <YAxis stroke="#64748b" allowDecimals={false} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  border: "1px solid #1e293b",
-                  borderRadius: "8px",
-                  color: "#f8f9fa",
-                }}
-              />
+              <Tooltip content={<AdminChartTooltip />} />
               <Line
                 type="monotone"
                 dataKey="users"
@@ -1127,19 +1179,22 @@ function OverviewTab({
             <p className="text-muted-foreground text-sm py-16 text-center">Chưa có asset.</p>
           ) : (
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={assetsByCategory}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="category" stroke="#64748b" />
-              <YAxis stroke="#64748b" />
+            <BarChart data={assetsByCategory} barCategoryGap="20%" maxBarSize={56}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+              <XAxis dataKey="category" stroke="#64748b" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#64748b" allowDecimals={false} width={32} />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  border: "1px solid #1e293b",
-                  borderRadius: "8px",
-                  color: "#f8f9fa",
-                }}
+                content={<AdminChartTooltip />}
+                cursor={CHART_BAR_CURSOR}
+                formatter={(value: number) => [value, "Số asset"]}
               />
-              <Bar dataKey="count" fill="#f59e0b" radius={[8, 8, 0, 0]} />
+              <Bar
+                dataKey="count"
+                name="Số asset"
+                fill="#f59e0b"
+                radius={[8, 8, 0, 0]}
+                activeBar={{ fill: "#fbbf24" }}
+              />
             </BarChart>
           </ResponsiveContainer>
           )}
@@ -2050,11 +2105,27 @@ function AssetsManagement({
     approvedPageSize
   );
 
+  const loadAssetDetailRecord = async (asset: AssetRecord): Promise<AssetRecord> => {
+    const detail = await fetchAssetById(asset.id);
+    return mapAssetDetailToEditRecord(detail);
+  };
+
+  const handleViewFromRecord = async (asset: AssetRecord) => {
+    setViewingApprovedAsset(asset);
+    try {
+      const record = await loadAssetDetailRecord(asset);
+      setViewingApprovedAsset(record);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không tải được chi tiết asset");
+      setViewingApprovedAsset(null);
+    }
+  };
+
   const handleEditFromRecord = async (asset: AssetRecord) => {
+    setViewingApprovedAsset(null);
     setLoadingEdit(true);
     try {
-      const detail = await fetchAssetById(asset.id);
-      setEditingAsset(mapAssetDetailToEditRecord(detail));
+      setEditingAsset(await loadAssetDetailRecord(asset));
       setShowEditModal(true);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Không tải được chi tiết asset");
@@ -2155,13 +2226,16 @@ function AssetsManagement({
                 key={asset.id}
                 className="bg-card border border-warning/20 rounded-xl p-4 hover:border-warning/40 transition-all"
               >
-                {asset.thumbnailPreview && (
-                  <img
-                    src={asset.thumbnailPreview}
+                <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-border bg-muted/30">
+                  <ImageWithFallback
+                    src={
+                      asset.thumbnailPreview ||
+                      `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.title)}`
+                    }
                     alt={asset.title}
-                    className="w-full h-32 object-cover rounded-lg mb-3 border border-border"
+                    className="w-full h-full object-cover"
                   />
-                )}
+                </div>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="min-w-0">
                     <h3 className="font-bold text-foreground truncate">{asset.title}</h3>
@@ -2321,7 +2395,7 @@ function AssetsManagement({
               {/* Preview Image (sync with Marketplace card) */}
               <div
                 className="relative aspect-video bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden cursor-pointer"
-                onClick={() => setViewingApprovedAsset(asset)}
+                onClick={() => void handleViewFromRecord(asset)}
               >
                 <ImageWithFallback
                   src={
@@ -2432,9 +2506,9 @@ function AssetsManagement({
           }}
         >
           {viewingApprovedAsset && (
-            <SheetContent className="p-0 sm:max-w-2xl">
-              <div className="flex h-full flex-col">
-                <SheetHeader className="border-b border-border p-6">
+            <SheetContent className="flex h-dvh max-h-dvh flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+              <div className="flex min-h-0 flex-1 flex-col">
+                <SheetHeader className="shrink-0 border-b border-border p-6">
                   <SheetTitle className="text-2xl font-bold text-foreground">
                     {viewingApprovedAsset.title}
                   </SheetTitle>
@@ -2443,24 +2517,12 @@ function AssetsManagement({
                   </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
-                    <ImageWithFallback
-                      src={
-                        viewingApprovedAsset.thumbnailPreview ||
-                        `https://source.unsplash.com/800x600/?${encodeURIComponent(
-                          viewingApprovedAsset.title
-                        )}`
-                      }
-                      alt={viewingApprovedAsset.title}
-                      className="w-full h-full object-cover"
-                    />
-                    {viewingApprovedAsset.isFree && (
-                      <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                        MIỄN PHÍ
-                      </div>
-                    )}
-                  </div>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-6">
+                  <AssetImagesSection
+                    mode="view"
+                    asset={viewingApprovedAsset}
+                    previewImages={viewingApprovedAsset.previewImages ?? []}
+                  />
 
                   <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
@@ -2553,25 +2615,39 @@ function AssetsManagement({
           }}
         >
           {editingAsset && (
-            <SheetContent className="p-0 sm:max-w-2xl">
-              <div className="flex h-full flex-col">
-                <SheetHeader className="border-b border-border p-6">
+            <SheetContent className="flex h-dvh max-h-dvh flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+              <div className="flex min-h-0 flex-1 flex-col">
+                <SheetHeader className="shrink-0 border-b border-border p-6 pb-4">
                   <SheetTitle>Chỉnh sửa Asset</SheetTitle>
-                  <SheetDescription className="hidden sm:block">
-                    Cập nhật thông tin hiển thị trong marketplace
+                  <SheetDescription>
+                    Cập nhật thumbnail và thông tin hiển thị trên marketplace
                   </SheetDescription>
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto p-6">
-                  <AssetForm
-                    asset={editingAsset}
-                    onChange={setEditingAsset}
-                    categories={categories}
-                    tagGroups={tagGroups}
-                  />
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  <div className="space-y-6 p-6">
+                    <AssetImagesSection
+                      mode="edit"
+                      asset={editingAsset}
+                      previewImages={editingAsset.previewImages ?? []}
+                      onAssetUpdated={(updated) => {
+                        setEditingAsset(updated);
+                        setApprovedAssetRecords((prev) =>
+                          prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)),
+                        );
+                      }}
+                    />
+                    <AssetForm
+                      asset={editingAsset}
+                      onChange={setEditingAsset}
+                      categories={categories}
+                      tagGroups={tagGroups}
+                      scrollTags={false}
+                    />
+                  </div>
                 </div>
 
-                <div className="border-t border-border p-6 flex gap-3">
+                <div className="shrink-0 border-t border-border bg-background p-6 flex gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -2598,6 +2674,15 @@ function AssetsManagement({
           )}
         </Sheet>
 
+        {loadingEdit && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/60 backdrop-blur-sm">
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 shadow-lg">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              <span className="text-sm text-foreground">Đang mở form chỉnh sửa...</span>
+            </div>
+          </div>
+        )}
+
         <ConfirmActionDialog
           open={!!deleteTarget}
           onOpenChange={(open) => {
@@ -2620,45 +2705,256 @@ function AssetsManagement({
   );
 }
 
+/** Khung ảnh đồng bộ với card / gallery trên trang Chợ Assets */
+const MARKETPLACE_IMAGE_FRAME =
+  "relative aspect-video w-full rounded-xl overflow-hidden border border-border bg-gradient-to-br from-primary/10 to-secondary/10";
+
+function AssetImagesSection({
+  asset,
+  previewImages,
+  mode,
+  onAssetUpdated,
+}: {
+  asset: AssetRecord;
+  previewImages: AssetImageItem[];
+  mode: "view" | "edit";
+  onAssetUpdated?: (asset: AssetRecord) => void | Promise<void>;
+}) {
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
+  const previewInputRef = useRef<HTMLInputElement>(null);
+  const previewAddInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [selectedPreview, setSelectedPreview] = useState<AssetImageItem | null>(
+    previewImages[0] ?? null,
+  );
+
+  useEffect(() => {
+    setSelectedPreview((current) => {
+      if (previewImages.length === 0) return null;
+      if (current && previewImages.some((img) => img.id === current.id)) return current;
+      return previewImages[0];
+    });
+  }, [previewImages]);
+
+  const withCacheBust = (url: string, token: string) => {
+    const joiner = url.includes("?") ? "&" : "?";
+    return `${url}${joiner}v=${encodeURIComponent(token)}`;
+  };
+  const thumbnailSrc = asset.thumbnailPreview
+    ? withCacheBust(asset.thumbnailPreview, asset.thumbnailPreview)
+    : `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.title)}`;
+  const refreshAssetImages = async () => {
+    const detail = await fetchAssetById(asset.id);
+    const updated = mapAssetDetailToEditRecord(detail);
+    await onAssetUpdated?.(updated);
+    return updated;
+  };
+
+  const handleImageUpload = async (
+    file: File,
+    kind: "thumbnail" | "preview",
+    options?: { replaceImageId?: string; sortOrder?: number },
+  ) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Chọn file ảnh PNG, JPG hoặc WEBP");
+      return;
+    }
+
+    const setUploading = kind === "thumbnail" ? setUploadingThumbnail : setUploadingPreview;
+    setUploading(true);
+    try {
+      const meta = await getAdminAssetUploadUrl(
+        asset.id,
+        "image",
+        file.name,
+        file.type,
+        file.size,
+      );
+      await uploadToSignedUrl(meta.uploadUrl, file, file.type);
+      await registerAdminAssetImage(asset.id, {
+        storagePath: meta.storagePath,
+        altText: kind === "thumbnail" ? asset.title : `${asset.title} preview`,
+        sortOrder: options?.sortOrder ?? selectedPreview?.sortOrder ?? 0,
+        isThumbnail: kind === "thumbnail",
+        replaceImageId: options?.replaceImageId ?? (kind === "preview" ? selectedPreview?.id : undefined),
+      });
+      await refreshAssetImages();
+      toast.success(kind === "thumbnail" ? "Đã cập nhật ảnh đại diện" : "Đã cập nhật ảnh preview");
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError
+          ? error.message
+          : kind === "thumbnail"
+            ? "Upload ảnh đại diện thất bại"
+            : "Upload ảnh preview thất bại",
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const renderChangeImageButton = (
+    kind: "thumbnail" | "preview",
+    uploading: boolean,
+    hasImage: boolean,
+    inputRef: RefObject<HTMLInputElement | null>,
+  ) => (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleImageUpload(file, kind, kind === "preview" ? { replaceImageId: selectedPreview?.id } : undefined);
+          e.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => inputRef.current?.click()}
+        className="w-full border-2 border-dashed border-primary/30 rounded-xl p-3.5 hover:border-primary/60 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm font-medium text-foreground disabled:opacity-60"
+      >
+        {uploading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            Đang tải lên...
+          </>
+        ) : (
+          <>
+            <Upload className="w-4 h-4 text-primary" />
+            {hasImage
+              ? kind === "preview" && selectedPreview
+                ? `Đổi ảnh preview #${previewImages.findIndex((img) => img.id === selectedPreview.id) + 1}`
+                : "Đổi ảnh"
+              : "Tải ảnh"}
+          </>
+        )}
+      </button>
+    </>
+  );
+
+  return (
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-foreground">Ảnh đại diện</p>
+        <div className={MARKETPLACE_IMAGE_FRAME}>
+          <ImageWithFallback
+            key={thumbnailSrc}
+            src={thumbnailSrc}
+            alt={`${asset.title} — ảnh đại diện`}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {asset.isFree && mode === "view" && (
+            <div className="absolute top-3 left-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+              MIỄN PHÍ
+            </div>
+          )}
+          {!asset.thumbnailPreview && mode === "edit" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <p className="text-sm text-muted-foreground px-4 text-center">
+                Chưa có ảnh đại diện
+              </p>
+            </div>
+          )}
+        </div>
+        {mode === "edit" &&
+          renderChangeImageButton(
+            "thumbnail",
+            uploadingThumbnail,
+            !!asset.thumbnailPreview,
+            thumbnailInputRef,
+          )}
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-foreground">Ảnh preview</p>
+        {previewImages.length > 0 ? (
+          <AssetPreviewGallery
+            images={previewImages}
+            assetTitle={asset.title}
+            onActiveChange={mode === "edit" ? (_index, image) => setSelectedPreview(image) : undefined}
+          />
+        ) : (
+          <div className={MARKETPLACE_IMAGE_FRAME}>
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <p className="text-sm text-muted-foreground px-4 text-center">Chưa có ảnh preview</p>
+            </div>
+          </div>
+        )}
+        {mode === "edit" && (
+          <>
+            {previewImages.length > 0 && selectedPreview && (
+              <p className="text-xs text-muted-foreground">
+                Đang chọn ảnh {previewImages.findIndex((img) => img.id === selectedPreview.id) + 1}/
+                {previewImages.length} — bấm « » hoặc chấm tròn để chọn ảnh cần thay. Các ảnh khác giữ nguyên.
+              </p>
+            )}
+            {renderChangeImageButton(
+              "preview",
+              uploadingPreview,
+              previewImages.length > 0,
+              previewInputRef,
+            )}
+            {previewImages.length > 0 && previewImages.length < 15 && (
+              <>
+                <input
+                  ref={previewAddInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      void handleImageUpload(file, "preview", {
+                        sortOrder: previewImages.length,
+                        replaceImageId: undefined,
+                      });
+                    }
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={uploadingPreview}
+                  onClick={() => previewAddInputRef.current?.click()}
+                  className="w-full border border-border rounded-xl p-3 hover:border-primary/40 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-60"
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm ảnh preview (tối đa 15)
+                </button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {mode === "edit" && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+          <ImageIcon className="w-3.5 h-3.5 shrink-0" />
+          PNG, JPG, WEBP · lưu trên Supabase Storage
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AssetForm({
   asset,
   onChange,
   categories,
   tagGroups,
+  scrollTags = true,
 }: {
   asset: AssetRecord;
   onChange: (asset: AssetRecord) => void;
   categories: CategoryItem[];
   tagGroups: TagGroupItem[];
+  scrollTags?: boolean;
 }) {
-  const thumbnailInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingThumb, setUploadingThumb] = useState(false);
-
-  const handleThumbnailUpload = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Chọn file ảnh PNG, JPG hoặc WEBP");
-      return;
-    }
-    setUploadingThumb(true);
-    try {
-      const meta = await getAssetUploadUrl(asset.id, "Image", file.name, file.type, file.size);
-      await uploadToSignedUrl(meta.uploadUrl, file, file.type);
-      await registerAssetImage(asset.id, {
-        storagePath: meta.storagePath,
-        altText: asset.title,
-        sortOrder: 0,
-        isThumbnail: true,
-      });
-      const detail = await fetchAssetById(asset.id);
-      onChange(mapAssetDetailToEditRecord(detail));
-      toast.success("Đã cập nhật ảnh thumbnail");
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Upload thumbnail thất bại");
-    } finally {
-      setUploadingThumb(false);
-    }
-  };
-
   const toggleTag = (tagName: string) => {
     const has = asset.tags.includes(tagName);
     onChange({
@@ -2669,58 +2965,6 @@ function AssetForm({
 
   return (
     <div className="space-y-6">
-      {/* Preview */}
-      <div className="space-y-3">
-        <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-secondary/10">
-          <ImageWithFallback
-            src={
-              asset.thumbnailPreview ||
-              `https://source.unsplash.com/800x600/?${encodeURIComponent(asset.title)}`
-            }
-            alt={asset.title}
-            className="w-full h-full object-cover"
-          />
-          {asset.isFree && (
-            <div className="absolute top-4 left-4 bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-              MIỄN PHÍ
-            </div>
-          )}
-        </div>
-        <input
-          ref={thumbnailInputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleThumbnailUpload(file);
-            e.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          disabled={uploadingThumb}
-          onClick={() => thumbnailInputRef.current?.click()}
-          className="w-full border-2 border-dashed border-border rounded-xl p-4 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-sm text-muted-foreground disabled:opacity-60"
-        >
-          {uploadingThumb ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              Đang tải lên...
-            </>
-          ) : (
-            <>
-              <Upload className="w-4 h-4" />
-              Tải ảnh thumbnail mới
-            </>
-          )}
-        </button>
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <ImageIcon className="w-3.5 h-3.5 shrink-0" />
-          Ảnh lưu trên Supabase Storage — không cần dán URL thủ công.
-        </p>
-      </div>
-
       {/* Basic */}
       <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 space-y-4">
         <h3 className="text-lg font-bold text-foreground">Thông tin cơ bản</h3>
@@ -2822,7 +3066,12 @@ function AssetForm({
           </button>
         </div>
 
-        <div className="space-y-4 rounded-xl border border-border bg-background/40 p-4 max-h-[420px] overflow-y-auto">
+        <div
+          className={cn(
+            "space-y-4 rounded-xl border border-border bg-background/40 p-4",
+            scrollTags && "max-h-[420px] overflow-y-auto",
+          )}
+        >
           {tagGroups.map((group) => (
             <div key={group.id}>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -3227,7 +3476,7 @@ function OrdersManagement({
   );
 
   return (
-    <BeamPanel className={cn(componentClasses.card, "hover:scale-100 p-6")} beam={4.4}>
+    <BeamPanel className={cn(componentClasses.card, "hover:scale-100 md:hover:scale-100 p-6")} beam={4.4}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Quản lý đơn hàng</h2>

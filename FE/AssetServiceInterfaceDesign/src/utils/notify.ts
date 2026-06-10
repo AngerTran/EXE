@@ -92,30 +92,3 @@ export function notifyLowCredits(credits: number) {
     id: `low-xu-${credits}`,
   });
 }
-
-export function notifyAdminPendingOrder(order: {
-  id: string;
-  orderCode: string;
-  orderType: string;
-  totalVnd: number;
-  userName?: string | null;
-  userEmail?: string | null;
-  items?: { itemName: string }[];
-}) {
-  const itemName = order.items?.[0]?.itemName;
-  const isSubscription = order.orderType?.toLowerCase() === "subscription";
-  const title = isSubscription
-    ? "Đơn mua gói chờ xác nhận"
-    : "Đơn nạp xu chờ xác nhận";
-  const plan = itemName ?? (isSubscription ? "Gói đăng ký" : "Gói xu");
-  const buyer = order.userName || order.userEmail || "Khách hàng";
-  const amount = `${order.totalVnd.toLocaleString("vi-VN")}đ`;
-
-  notifyPanel({
-    type: "warning",
-    title,
-    description: `${buyer} · ${plan} · ${order.orderCode} · ${amount}. Vào Admin → Đơn hàng để xác nhận.`,
-    actionUrl: "/admin?tab=orders",
-    id: `pending-order-${order.id}`,
-  });
-}

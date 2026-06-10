@@ -26,23 +26,11 @@ public class AssetStorageService(
         CancellationToken cancellationToken = default)
     {
         var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
-        if (asset is null || !CanEditAsset(userId, asset))
+        if (asset is null || !await CanEditAssetAsync(userId, asset, cancellationToken))
             return null;
 
         ValidateUploadRequest(request);
-
-        var kindFolder = request.Kind == StorageUploadKind.File ? "files" : "images";
-        var extension = Path.GetExtension(request.FileName);
-        var objectPath = $"{assetId}/{kindFolder}/{Guid.NewGuid():N}{extension}";
-        var bucket = request.Kind == StorageUploadKind.File ? _options.AssetFilesBucket : _options.AssetImagesBucket;
-
-        var uploadUrl = await storageService.CreateSignedUploadUrlAsync(
-            bucket,
-            objectPath,
-            _options.UploadUrlExpiresSeconds,
-            cancellationToken);
-
-        return new UploadUrlResponse(uploadUrl, objectPath, bucket, _options.UploadUrlExpiresSeconds);
+        return await BuildUploadUrlAsync(assetId, request, cancellationToken);
     }
 
     public async Task<AssetFileResponse?> RegisterFileAsync(
@@ -52,7 +40,7 @@ public class AssetStorageService(
         CancellationToken cancellationToken = default)
     {
         var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
-        if (asset is null || !CanEditAsset(userId, asset))
+        if (asset is null || !await CanEditAssetAsync(userId, asset, cancellationToken))
             return null;
 
         if (request.FileSizeBytes <= 0 || request.FileSizeBytes > _options.MaxZipBytes)
@@ -85,39 +73,10 @@ public class AssetStorageService(
         CancellationToken cancellationToken = default)
     {
         var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
-        if (asset is null || !CanEditAsset(userId, asset))
+        if (asset is null || !await CanEditAssetAsync(userId, asset, cancellationToken))
             return null;
 
-        var count = await assetStorageRepository.CountImagesAsync(assetId, cancellationToken);
-        if (count >= _options.MaxImagesPerAsset)
-            throw new ArgumentException($"Maximum images per asset is {_options.MaxImagesPerAsset}.");
-
-        var image = new AssetImage
-        {
-            Id = Guid.NewGuid(),
-            AssetId = assetId,
-            StoragePath = request.StoragePath.Trim(),
-            AltText = string.IsNullOrWhiteSpace(request.AltText) ? null : request.AltText.Trim(),
-            SortOrder = request.SortOrder,
-            IsThumbnail = request.IsThumbnail,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        assetStorageRepository.AddImage(image);
-        if (request.IsThumbnail)
-        {
-            asset.ThumbnailUrl = storageService.GetPublicObjectUrl(_options.AssetImagesBucket, image.StoragePath);
-            asset.UpdatedAt = DateTime.UtcNow;
-        }
-
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new AssetImageResponse(
-            image.Id,
-            storageService.GetPublicObjectUrl(_options.AssetImagesBucket, image.StoragePath),
-            image.AltText,
-            image.IsThumbnail,
-            image.SortOrder);
+        return await RegisterImageCoreAsync(asset, assetId, request, cancellationToken);
     }
 
     public async Task<AssetDownloadResponse?> GetDownloadUrlAsync(
@@ -202,8 +161,169 @@ public class AssetStorageService(
         return new AssetFileStreamResult(content, file.FileName, contentType);
     }
 
-    private static bool CanEditAsset(Guid userId, Asset asset) =>
-        asset.UploaderId == userId && asset.Status is AssetStatus.Draft or AssetStatus.PendingReview;
+    private async Task<bool> CanEditAssetAsync(
+        Guid userId,
+        Asset asset,
+        CancellationToken cancellationToken)
+    {
+        var role = await profileRepository.GetRoleAsync(userId, cancellationToken);
+        if (role == UserRole.Admin)
+            return true;
+
+        return asset.UploaderId == userId && asset.Status is AssetStatus.Draft or AssetStatus.PendingReview;
+    }
+
+    public async Task<UploadUrlResponse?> AdminCreateUploadUrlAsync(
+        Guid adminUserId,
+        Guid assetId,
+        CreateUploadUrlRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (await profileRepository.GetRoleAsync(adminUserId, cancellationToken) != UserRole.Admin)
+            return null;
+
+        var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
+        if (asset is null)
+            return null;
+
+        ValidateUploadRequest(request);
+        return await BuildUploadUrlAsync(assetId, request, cancellationToken);
+    }
+
+    public async Task<AssetImageResponse?> AdminRegisterImageAsync(
+        Guid adminUserId,
+        Guid assetId,
+        RegisterAssetImageRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (await profileRepository.GetRoleAsync(adminUserId, cancellationToken) != UserRole.Admin)
+            return null;
+
+        var asset = await assetStorageRepository.GetAssetForStorageAsync(assetId, cancellationToken);
+        if (asset is null)
+            return null;
+
+        return await RegisterImageCoreAsync(asset, assetId, request, cancellationToken);
+    }
+
+    private async Task<UploadUrlResponse> BuildUploadUrlAsync(
+        Guid assetId,
+        CreateUploadUrlRequest request,
+        CancellationToken cancellationToken)
+    {
+        var kindFolder = request.Kind == StorageUploadKind.File ? "files" : "images";
+        var extension = Path.GetExtension(request.FileName);
+        var objectPath = $"{assetId}/{kindFolder}/{Guid.NewGuid():N}{extension}";
+        var bucket = request.Kind == StorageUploadKind.File ? _options.AssetFilesBucket : _options.AssetImagesBucket;
+
+        var uploadUrl = await storageService.CreateSignedUploadUrlAsync(
+            bucket,
+            objectPath,
+            _options.UploadUrlExpiresSeconds,
+            cancellationToken);
+
+        return new UploadUrlResponse(uploadUrl, objectPath, bucket, _options.UploadUrlExpiresSeconds);
+    }
+
+    private async Task<AssetImageResponse> RegisterImageCoreAsync(
+        Asset asset,
+        Guid assetId,
+        RegisterAssetImageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var storagePath = request.StoragePath.Trim();
+        var altText = string.IsNullOrWhiteSpace(request.AltText) ? null : request.AltText.Trim();
+        var publicUrl = storageService.GetPublicObjectUrl(_options.AssetImagesBucket, storagePath);
+
+        if (request.ReplaceImageId is Guid replaceImageId)
+        {
+            var existingById = await assetStorageRepository.GetImageByIdAsync(assetId, replaceImageId, cancellationToken);
+            if (existingById is not null && existingById.IsThumbnail == request.IsThumbnail)
+            {
+                existingById.StoragePath = storagePath;
+                existingById.AltText = altText;
+                if (request.IsThumbnail)
+                    asset.ThumbnailUrl = publicUrl;
+
+                asset.UpdatedAt = DateTime.UtcNow;
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                return new AssetImageResponse(
+                    existingById.Id,
+                    publicUrl,
+                    existingById.AltText,
+                    existingById.IsThumbnail,
+                    existingById.SortOrder);
+            }
+        }
+
+        if (request.IsThumbnail)
+        {
+            var existingThumbnail = await assetStorageRepository.GetThumbnailImageAsync(assetId, cancellationToken);
+            if (existingThumbnail is not null)
+            {
+                existingThumbnail.StoragePath = storagePath;
+                existingThumbnail.AltText = altText;
+                asset.ThumbnailUrl = publicUrl;
+                asset.UpdatedAt = DateTime.UtcNow;
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                return new AssetImageResponse(
+                    existingThumbnail.Id,
+                    publicUrl,
+                    existingThumbnail.AltText,
+                    existingThumbnail.IsThumbnail,
+                    existingThumbnail.SortOrder);
+            }
+        }
+        else if (request.SortOrder == 0)
+        {
+            var existingPreview = await assetStorageRepository.GetFirstPreviewImageAsync(assetId, cancellationToken);
+            if (existingPreview is not null)
+            {
+                existingPreview.StoragePath = storagePath;
+                existingPreview.AltText = altText;
+                asset.UpdatedAt = DateTime.UtcNow;
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+
+                return new AssetImageResponse(
+                    existingPreview.Id,
+                    publicUrl,
+                    existingPreview.AltText,
+                    existingPreview.IsThumbnail,
+                    existingPreview.SortOrder);
+            }
+        }
+
+        var count = await assetStorageRepository.CountImagesAsync(assetId, cancellationToken);
+        if (count >= _options.MaxImagesPerAsset)
+            throw new ArgumentException($"Maximum images per asset is {_options.MaxImagesPerAsset}.");
+
+        var image = new AssetImage
+        {
+            Id = Guid.NewGuid(),
+            AssetId = assetId,
+            StoragePath = storagePath,
+            AltText = altText,
+            SortOrder = request.SortOrder,
+            IsThumbnail = request.IsThumbnail,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        assetStorageRepository.AddImage(image);
+        if (request.IsThumbnail)
+            asset.ThumbnailUrl = publicUrl;
+
+        asset.UpdatedAt = DateTime.UtcNow;
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new AssetImageResponse(
+            image.Id,
+            publicUrl,
+            image.AltText,
+            image.IsThumbnail,
+            image.SortOrder);
+    }
 
     private void ValidateUploadRequest(CreateUploadUrlRequest request)
     {

@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "./ui/alert-dialog";
 import { fetchUserAssets, downloadUserAssetFile, removeUserAssetFromLibrary } from "../../api/userAssets";
+import { XuPrice } from "./XuPrice";
 import { mapUserAssetToUi, type PurchasedAssetUi } from "../../api/mappers";
 import { ApiError } from "../../api/client";
 import { componentClasses } from "../../constants/theme";
@@ -236,9 +237,7 @@ export default function MyAssets() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Tổng chi tiêu</p>
-                  <p className="text-2xl font-bold text-foreground font-mono">
-                    {totalSpent.toLocaleString("vi-VN")} xu
-                  </p>
+                  <XuPrice amount={totalSpent} size="xl" />
                 </div>
                 <div className="bg-emerald-500/30 dark:bg-success/35 border border-emerald-500/55 dark:border-success/50 p-3 rounded-lg shadow-[0_0_14px_rgba(16,185,129,0.22)] dark:shadow-[0_0_14px_rgba(16,185,129,0.28)]">
                   <Download className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
@@ -515,12 +514,12 @@ export default function MyAssets() {
                     <p className="text-sm text-muted-foreground">Dung lượng</p>
                   </div>
                   <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
-                    <div className="mb-2">
-                      <span className="text-2xl font-bold text-primary font-mono">
-                        {viewingAsset.price === 0
-                          ? "Miễn phí"
-                          : `${viewingAsset.price.toLocaleString("vi-VN")} xu`}
-                      </span>
+                    <div className="mb-2 flex justify-center">
+                      {viewingAsset.price === 0 ? (
+                        <span className="text-2xl font-bold text-success">Miễn phí</span>
+                      ) : (
+                        <XuPrice amount={viewingAsset.price} size="xl" />
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">Giá</p>
                   </div>

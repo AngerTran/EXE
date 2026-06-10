@@ -25,6 +25,7 @@ import { cn } from "./ui/utils";
 import { BeamPanel } from "./BeamPanel";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { formatWalletBalance } from "../../utils/helpers";
+import { XuPrice } from "./XuPrice";
 
 export default function AssetsCheckout() {
   const [searchParams] = useSearchParams();
@@ -185,10 +186,7 @@ export default function AssetsCheckout() {
                   <span className="text-success font-medium">Gói Pro — không trừ xu</span>
                 ) : (
                   <>
-                    Đã trừ{" "}
-                    <span className="font-mono font-semibold text-foreground">
-                      {totalPrice.toLocaleString("vi-VN")} xu
-                    </span>
+                    Đã trừ <XuPrice amount={totalPrice} size="sm" className="inline-flex" />
                   </>
                 )}
               </p>
@@ -312,9 +310,7 @@ export default function AssetsCheckout() {
                         <p className="text-xs text-muted-foreground uppercase tracking-wide">
                           Cần thanh toán
                         </p>
-                        <p className="text-xl font-bold text-primary font-mono">
-                          {totalPrice.toLocaleString("vi-VN")} xu
-                        </p>
+                        <XuPrice amount={totalPrice} size="lg" />
                       </div>
                     )}
                   </div>
@@ -325,10 +321,7 @@ export default function AssetsCheckout() {
                   )}
                   {totalPrice > 0 && hasEnoughXu && !isUnlimited && (
                     <p className="mt-3 text-xs text-muted-foreground">
-                      Còn lại:{" "}
-                      <span className="font-mono font-medium text-foreground">
-                        {balanceAfterPurchase.toLocaleString("vi-VN")} xu
-                      </span>
+                      Còn lại: <XuPrice amount={balanceAfterPurchase} size="sm" className="inline-flex" />
                     </p>
                   )}
                   {totalPrice > 0 && !hasEnoughXu && (
@@ -375,7 +368,7 @@ export default function AssetsCheckout() {
                 <Button
                   variant="gradient"
                   size="lg"
-                  className="w-full"
+                  className="w-full h-14 sm:h-16 text-amber-300 hover:text-amber-300"
                   onClick={handlePurchase}
                   disabled={isProcessing || !hasEnoughXu}
                 >
@@ -390,7 +383,17 @@ export default function AssetsCheckout() {
                       Thêm vào thư viện
                     </>
                   ) : (
-                    `Mua bằng ${totalPrice.toLocaleString("vi-VN")} xu`
+                    <span className="inline-flex items-center justify-center gap-2.5 text-amber-300">
+                      <Coins className="w-6 h-6 shrink-0 text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.65)]" />
+                      <span className="inline-flex items-baseline gap-1.5 tabular-nums leading-none">
+                        <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-amber-300 drop-shadow-[0_2px_8px_rgba(120,53,15,0.45)]">
+                          {totalPrice.toLocaleString("vi-VN")}
+                        </span>
+                        <span className="text-base sm:text-lg font-bold uppercase tracking-[0.2em] text-amber-200/95">
+                          xu
+                        </span>
+                      </span>
+                    </span>
                   )}
                 </Button>
               </div>
@@ -430,14 +433,13 @@ export default function AssetsCheckout() {
                       {asset.author && (
                         <p className="text-xs text-muted-foreground truncate">{asset.author}</p>
                       )}
-                      <p
-                        className={cn(
-                          "text-xs font-semibold mt-1",
-                          asset.isFree ? "text-success" : "text-foreground font-mono"
+                      <div className="mt-1">
+                        {asset.isFree ? (
+                          <span className="text-xs font-semibold text-success">Miễn phí</span>
+                        ) : (
+                          <XuPrice amount={asset.price} size="sm" />
                         )}
-                      >
-                        {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
-                      </p>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -462,9 +464,7 @@ export default function AssetsCheckout() {
                 )}
                 <div className="flex justify-between items-baseline pt-2 border-t border-border">
                   <span className="font-semibold text-foreground">Tổng trừ xu</span>
-                  <span className="text-lg font-bold text-primary font-mono">
-                    {totalPrice.toLocaleString("vi-VN")} xu
-                  </span>
+                  <XuPrice amount={totalPrice} size="lg" />
                 </div>
               </div>
 

@@ -28,6 +28,7 @@ export interface AssetFeatures {
 }
 
 import type { ArtStyleValue } from "../constants/artStyles";
+import type { AssetImageItem } from "../api/types/marketplace";
 
 export interface AssetRecord {
   id: string;
@@ -48,6 +49,7 @@ export interface AssetRecord {
   isFree: boolean;
   thumbnailName?: string;
   thumbnailPreview?: string;
+  previewImages?: AssetImageItem[];
   previewNames?: string[];
   zipFileName?: string;
   status: AssetStatus;
@@ -91,12 +93,15 @@ export const TAG_GROUPS = [
       "Hand Painted",
       "Minimalist",
       "Retro",
+      "Cozy",
+      "Chiptune",
     ],
   },
   {
     label: "Thể loại game",
     tags: [
       "RPG",
+      "Life Sim",
       "Action",
       "Horror",
       "Survival",
@@ -124,6 +129,9 @@ export const TAG_GROUPS = [
       "Magic",
       "Zombie",
       "Character",
+      "Interior",
+      "Furniture",
+      "Environment",
     ],
   },
   {
@@ -150,9 +158,13 @@ export const TAG_GROUPS = [
       "Modular",
       "Particle",
       "SFX Pack",
+      "Music Pack",
+      "BGM",
+      "Soundtrack",
       "Ambient",
       "Loop",
       "Sprite Sheet",
+      "Top-Down",
     ],
   },
   {

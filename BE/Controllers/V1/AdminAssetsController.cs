@@ -15,7 +15,9 @@ namespace Exe.Controllers.V1;
 [Tags("4.13 Admin Assets")]
 [Authorize]
 [Produces("application/json")]
-public class AdminAssetsController(IAssetService assetService) : ControllerBase
+public class AdminAssetsController(
+    IAssetService assetService,
+    IAssetStorageService assetStorageService) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> List(
@@ -62,6 +64,87 @@ public class AdminAssetsController(IAssetService assetService) : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new ErrorResponse(ex.Message, "invalid_status"));
+        }
+    }
+
+    [HttpPost("{id:guid}/upload-url")]
+    [ProducesResponseType(typeof(UploadUrlResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CreateUploadUrl(
+        Guid id,
+        [FromBody] CreateUploadUrlRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        try
+        {
+            var result = await assetStorageService.AdminCreateUploadUrlAsync(
+                userId.Value,
+                id,
+                request,
+                cancellationToken);
+
+            if (result is null)
+                return NotFound(new ErrorResponse("Asset not found.", "asset_not_found"));
+
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                new ErrorResponse(ex.Message, "storage_unavailable"));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
+        }
+    }
+
+    [HttpPost("{id:guid}/images")]
+    [ProducesResponseType(typeof(AssetImageResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RegisterImage(
+        Guid id,
+        [FromBody] RegisterAssetImageRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        try
+        {
+            var result = await assetStorageService.AdminRegisterImageAsync(
+                userId.Value,
+                id,
+                request,
+                cancellationToken);
+
+            if (result is null)
+                return NotFound(new ErrorResponse("Asset not found.", "asset_not_found"));
+
+            return CreatedAtAction(nameof(RegisterImage), new { id }, result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
         }
     }
 

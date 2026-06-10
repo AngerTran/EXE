@@ -330,7 +330,7 @@ BEGIN
       NEW.order_code,
       to_char(NEW.total_vnd, 'FM999G999G999')
     ),
-    '/admin',
+    '/admin?tab=orders',
     'order',
     NEW.id,
     jsonb_build_object(

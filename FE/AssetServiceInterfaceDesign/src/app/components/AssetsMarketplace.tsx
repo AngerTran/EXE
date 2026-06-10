@@ -40,6 +40,7 @@ import type { CategoryItem } from "../../api/types/marketplace";
 import type { CartItem } from "../../api/types/commerce";
 import { componentClasses } from "../../constants/theme";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
+import { XuPrice } from "./XuPrice";
 
 export type Asset = MarketplaceAsset;
 
@@ -604,9 +605,7 @@ export default function AssetsMarketplace() {
                             {asset.isFree ? (
                               <p className="text-sm font-bold text-success">Miễn phí</p>
                             ) : (
-                              <p className="text-sm font-bold text-foreground font-mono">
-                                {asset.price.toLocaleString("vi-VN")} xu
-                              </p>
+                              <XuPrice amount={asset.price} size="sm" />
                             )}
                           </div>
                           <button
@@ -646,11 +645,9 @@ export default function AssetsMarketplace() {
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between text-muted-foreground">
+                      <div className="flex justify-between items-baseline text-muted-foreground">
                         <span>Tổng trừ xu:</span>
-                        <span className="font-medium text-foreground font-mono">
-                          {totalPrice.toLocaleString("vi-VN")} xu
-                        </span>
+                        <XuPrice amount={totalPrice} size="sm" />
                       </div>
                       {user && totalPrice > 0 && (
                         <div className="flex justify-between items-center text-muted-foreground text-sm">
@@ -665,11 +662,9 @@ export default function AssetsMarketplace() {
                         </div>
                       )}
                       <div className="border-t border-border pt-2 mt-2">
-                        <div className="flex justify-between text-xl font-bold text-foreground">
+                        <div className="flex justify-between items-baseline text-xl font-bold text-foreground">
                           <span>Tổng cộng:</span>
-                          <span className="text-primary font-mono">
-                            {totalPrice.toLocaleString("vi-VN")} xu
-                          </span>
+                          <XuPrice amount={totalPrice} size="lg" />
                         </div>
                       </div>
                     </div>
@@ -871,10 +866,12 @@ function AssetDetailDrawerContent({
               <p className="text-sm text-muted-foreground">Downloads</p>
             </div>
             <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 text-center">
-              <div className="mb-2">
-                <span className="text-2xl font-bold text-primary font-mono">
-                  {asset.isFree ? "Miễn phí" : `${asset.price.toLocaleString("vi-VN")} xu`}
-                </span>
+              <div className="mb-2 flex justify-center">
+                {asset.isFree ? (
+                  <span className="text-2xl font-bold text-success">Miễn phí</span>
+                ) : (
+                  <XuPrice amount={asset.price} size="xl" />
+                )}
               </div>
               <p className="text-sm text-muted-foreground">Price</p>
             </div>
@@ -971,9 +968,11 @@ function AssetDetailDrawerContent({
                         <Star className="w-3 h-3 fill-warning text-warning" />
                         <span className="text-xs text-foreground">{related.rating}</span>
                       </div>
-                      <span className="text-xs font-bold text-primary font-mono">
-                        {related.isFree ? 'Miễn phí' : `${related.price.toLocaleString('vi-VN')} xu`}
-                      </span>
+                      {related.isFree ? (
+                        <span className="text-xs font-bold text-success">Miễn phí</span>
+                      ) : (
+                        <XuPrice amount={related.price} size="sm" />
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1049,10 +1048,6 @@ function AssetCard({
   onViewDetails,
   onToggleBookmark,
 }: AssetCardProps) {
-  const priceLabel = asset.isFree
-    ? "Miễn phí"
-    : `${asset.price.toLocaleString("vi-VN")} xu`;
-
   const thumbnailSrc =
     asset.thumbnailUrl ||
     `https://source.unsplash.com/400x300/?${encodeURIComponent(asset.preview)}`;
@@ -1146,14 +1141,11 @@ function AssetCard({
               <ShoppingBag className="w-4 h-4" />
               Giá
             </span>
-            <span
-              className={cn(
-                "font-medium font-mono",
-                asset.isFree ? "text-success" : "text-foreground"
-              )}
-            >
-              {priceLabel}
-            </span>
+            {asset.isFree ? (
+              <span className="font-medium text-success">Miễn phí</span>
+            ) : (
+              <XuPrice amount={asset.price} size="sm" />
+            )}
           </div>
         </div>
 

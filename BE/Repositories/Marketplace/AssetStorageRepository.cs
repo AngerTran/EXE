@@ -31,6 +31,27 @@ public class AssetStorageRepository(AppDbContext db) : IAssetStorageRepository
 
     public void AddImage(AssetImage image) => db.AssetImages.Add(image);
 
+    public Task<AssetImage?> GetFirstPreviewImageAsync(Guid assetId, CancellationToken cancellationToken = default) =>
+        db.AssetImages
+            .Where(i => i.AssetId == assetId && !i.IsThumbnail)
+            .OrderBy(i => i.SortOrder)
+            .ThenBy(i => i.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<AssetImage?> GetThumbnailImageAsync(Guid assetId, CancellationToken cancellationToken = default) =>
+        db.AssetImages
+            .Where(i => i.AssetId == assetId && i.IsThumbnail)
+            .OrderBy(i => i.SortOrder)
+            .ThenByDescending(i => i.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<AssetImage?> GetImageByIdAsync(
+        Guid assetId,
+        Guid imageId,
+        CancellationToken cancellationToken = default) =>
+        db.AssetImages
+            .FirstOrDefaultAsync(i => i.AssetId == assetId && i.Id == imageId, cancellationToken);
+
     public async Task IncrementDownloadStatsAsync(
         Guid assetId,
         Guid? userId,

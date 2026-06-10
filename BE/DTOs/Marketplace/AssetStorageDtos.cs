@@ -33,7 +33,8 @@ public record RegisterAssetImageRequest(
     [Required, MaxLength(1024)] string StoragePath,
     [MaxLength(255)] string? AltText,
     short SortOrder = 0,
-    bool IsThumbnail = false);
+    bool IsThumbnail = false,
+    Guid? ReplaceImageId = null);
 
 public record AssetDownloadResponse(
     string DownloadUrl,

@@ -1,6 +1,7 @@
 import type { AdminUpdateAssetBody } from "./admin";
 import type { AssetDetail } from "./types/marketplace";
 import type { TagGroupItem } from "./types/marketplace";
+import { getAssetPreviewImages } from "./mappers";
 import type { AssetRecord, LicenseType } from "../types/asset";
 import { normalizeArtStyleFromApi } from "../constants/artStyles";
 
@@ -50,6 +51,7 @@ export function mapAssetDetailToEditRecord(detail: AssetDetail): AssetRecord {
     license,
     isFree: detail.isFree,
     thumbnailPreview: detail.thumbnailUrl ?? undefined,
+    previewImages: getAssetPreviewImages(detail.images),
     artStyle: normalizeArtStyleFromApi(detail.artStyle),
     status: "approved",
     rating: detail.ratingAvg,

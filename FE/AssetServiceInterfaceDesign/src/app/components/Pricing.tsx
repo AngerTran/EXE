@@ -420,8 +420,23 @@ export default function Pricing() {
 
                     {/* Giá — ngay dưới tên gói */}
                     <div className="mb-5 pb-5 border-b border-border/50">
+                      {price.compareAt && price.discountPercent != null && price.discountPercent > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="text-sm text-muted-foreground line-through decoration-muted-foreground/70">
+                            {price.compareAt}
+                          </span>
+                          <span className="inline-flex items-center rounded-md border border-success/40 bg-success/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-success">
+                            −{price.discountPercent}%
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-baseline gap-1 flex-wrap">
-                        <span className="text-4xl font-bold text-foreground font-mono tracking-tight">
+                        <span
+                          className={cn(
+                            "text-4xl font-bold font-mono tracking-tight",
+                            price.discountPercent ? "text-primary" : "text-foreground",
+                          )}
+                        >
                           {price.primary}
                         </span>
                         {price.primarySuffix && (

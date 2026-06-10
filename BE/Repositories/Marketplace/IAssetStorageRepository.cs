@@ -18,6 +18,15 @@ public interface IAssetStorageRepository
 
     void AddImage(AssetImage image);
 
+    Task<AssetImage?> GetFirstPreviewImageAsync(Guid assetId, CancellationToken cancellationToken = default);
+
+    Task<AssetImage?> GetThumbnailImageAsync(Guid assetId, CancellationToken cancellationToken = default);
+
+    Task<AssetImage?> GetImageByIdAsync(
+        Guid assetId,
+        Guid imageId,
+        CancellationToken cancellationToken = default);
+
     Task IncrementDownloadStatsAsync(
         Guid assetId,
         Guid? userId,

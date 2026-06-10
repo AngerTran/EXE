@@ -16,6 +16,8 @@ interface AssetPreviewGalleryProps {
   loading?: boolean;
   assetTitle: string;
   overlay?: ReactNode;
+  /** Gọi khi người dùng chuyển slide — dùng để chọn ảnh cần thay trong form admin */
+  onActiveChange?: (index: number, image: AssetImageItem) => void;
 }
 
 export function AssetPreviewGallery({
@@ -23,19 +25,25 @@ export function AssetPreviewGallery({
   loading = false,
   assetTitle,
   overlay,
+  onActiveChange,
 }: AssetPreviewGalleryProps) {
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
     if (!api) return;
-    const onSelect = () => setCurrent(api.selectedScrollSnap());
+    const onSelect = () => {
+      const index = api.selectedScrollSnap();
+      setCurrent(index);
+      const image = images[index];
+      if (image) onActiveChange?.(index, image);
+    };
     onSelect();
     api.on("select", onSelect);
     return () => {
       api.off("select", onSelect);
     };
-  }, [api]);
+  }, [api, images, onActiveChange]);
 
   useEffect(() => {
     setCurrent(0);
