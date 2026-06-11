@@ -96,4 +96,39 @@ public class AiSessionsController(IAiAdvisorService aiService) : ControllerBase
         var export = await aiService.ExportSessionAsync(userId.Value, id, cancellationToken);
         return export is null ? NotFound() : Ok(export);
     }
+
+    [HttpPost("{id:guid}/outline")]
+    public async Task<IActionResult> GenerateOutline(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var result = await aiService.GenerateOutlineAsync(userId.Value, id, cancellationToken);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "insufficient_credits"));
+        }
+    }
+
+    [HttpPost("{id:guid}/outline/refine")]
+    public async Task<IActionResult> RefineOutline(
+        Guid id,
+        [FromBody] RefineAiOutlineRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var result = await aiService.RefineOutlineAsync(userId.Value, id, request, cancellationToken);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "insufficient_credits"));
+        }
+    }
 }

@@ -15,4 +15,10 @@ public interface IAiAdvisorService
         CancellationToken cancellationToken = default);
     Task<SendAiMessageResponse?> SendMessageAsync(Guid userId, Guid sessionId, SendAiMessageRequest request, CancellationToken cancellationToken = default);
     Task<AiExportResponse?> ExportSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+    Task<AiOutlineResponse?> GenerateOutlineAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken = default);
+    Task<AiOutlineResponse?> RefineOutlineAsync(
+        Guid userId,
+        Guid sessionId,
+        RefineAiOutlineRequest request,
+        CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,8 @@ import {
   ExternalLink,
   PanelLeft,
   PanelLeftClose,
+  PanelRight,
+  PanelRightClose,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "../../utils/notify";
@@ -27,6 +29,7 @@ import { BeamPanel } from "./BeamPanel";
 import { AiChatSidebar } from "./ai/AiChatSidebar";
 import { AiMessageBody } from "./ai/AiMessageBody";
 import { AiNoAssetsNotice } from "./ai/AiNoAssetsNotice";
+import { AiOutlinePanel } from "./ai/AiOutlinePanel";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 interface Message {
@@ -79,6 +82,8 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [outlineSheetOpen, setOutlineSheetOpen] = useState(false);
+  const [desktopOutlineOpen, setDesktopOutlineOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -317,6 +322,16 @@ export default function Dashboard() {
     onCleanupEmpty: () => void handleCleanupEmptySessions(),
   };
 
+  const outlinePanelProps = {
+    sessionId,
+    sessionTitle: activeSessionTitle,
+    hasConversation,
+    credits,
+    isUnlimited,
+    onCreditsUpdate: setCredits,
+    onRefreshUser: refreshUserData,
+  };
+
   const renderInput = (variant: "empty" | "chat") => (
     <div className="w-full max-w-2xl mx-auto">
       <BeamPanel
@@ -481,9 +496,34 @@ export default function Dashboard() {
             <PanelLeft className="w-5 h-5" />
           </button>
           {hasConversation && (
-            <span className="text-sm text-muted-foreground truncate min-w-0">
+            <span className="text-sm text-muted-foreground truncate min-w-0 flex-1">
               {activeSessionTitle}
             </span>
+          )}
+          {hasConversation && (
+            <button
+              type="button"
+              className="hidden md:inline-flex p-2 rounded-lg text-primary bg-primary/10 border border-primary/25 hover:bg-primary/20 transition-colors shrink-0 ml-auto"
+              onClick={() => setDesktopOutlineOpen((open) => !open)}
+              aria-label={desktopOutlineOpen ? "Thu gọn tổng hợp" : "Mở tổng hợp dự án"}
+              title={desktopOutlineOpen ? "Thu gọn tổng hợp" : "Mở tổng hợp dự án"}
+            >
+              {desktopOutlineOpen ? (
+                <PanelRightClose className="w-5 h-5" />
+              ) : (
+                <PanelRight className="w-5 h-5" />
+              )}
+            </button>
+          )}
+          {hasConversation && (
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-lg text-primary bg-primary/10 border border-primary/25 hover:bg-primary/20 transition-colors shrink-0 ml-auto"
+              onClick={() => setOutlineSheetOpen(true)}
+              aria-label="Mở tổng hợp dự án"
+            >
+              <PanelRight className="w-5 h-5" />
+            </button>
           )}
         </header>
 
@@ -523,6 +563,20 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div
+        className={`hidden md:flex shrink-0 self-stretch min-h-0 transition-[width] duration-200 ease-out overflow-hidden ${
+          desktopOutlineOpen && hasConversation ? "w-[min(100%,320px)]" : "w-0"
+        }`}
+      >
+        {hasConversation && (
+          <AiOutlinePanel
+            {...outlinePanelProps}
+            onCollapse={() => setDesktopOutlineOpen(false)}
+            className="w-[320px] h-full min-h-0 shrink-0"
+          />
+        )}
+      </div>
+
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent
           side="left"
@@ -533,6 +587,23 @@ export default function Dashboard() {
             <SheetDescription>Danh sách phiên chat AssetBox AI</SheetDescription>
           </SheetHeader>
           <AiChatSidebar {...sidebarProps} className="h-full border-0" />
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={outlineSheetOpen} onOpenChange={setOutlineSheetOpen}>
+        <SheetContent
+          side="right"
+          className="w-[min(100vw-2rem,320px)] p-0 border-l ai-glass-sidebar"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Tổng hợp dự án</SheetTitle>
+            <SheetDescription>Gom hội thoại AI thành kế hoạch game</SheetDescription>
+          </SheetHeader>
+          <AiOutlinePanel
+            {...outlinePanelProps}
+            showCollapseButton={false}
+            className="h-full border-0"
+          />
         </SheetContent>
       </Sheet>
     </div>

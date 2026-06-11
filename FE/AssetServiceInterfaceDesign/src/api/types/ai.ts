@@ -39,3 +39,14 @@ export interface SendAiMessageResult {
   walletBalance: number;
   isUnlimited: boolean;
 }
+
+export interface AiOutlineResult {
+  content: string;
+  walletBalance: number;
+  isUnlimited: boolean;
+}
+
+export interface RefineAiOutlineBody {
+  currentOutline: string;
+  instruction: string;
+}

@@ -1,7 +1,9 @@
 import { apiRequest } from "./client";
 import type {
+  AiOutlineResult,
   AiSessionDetail,
   AiSessionListItem,
+  RefineAiOutlineBody,
   SendAiMessageResult,
 } from "./types/ai";
 
@@ -45,6 +47,42 @@ export async function exportAiSession(
   id: string
 ): Promise<{ format: string; content: string }> {
   return apiRequest<{ format: string; content: string }>(`/ai/sessions/${id}/export`);
+}
+
+export async function generateAiOutline(sessionId: string): Promise<AiOutlineResult> {
+  return apiRequest<AiOutlineResult>(`/ai/sessions/${sessionId}/outline`, {
+    method: "POST",
+  });
+}
+
+export async function refineAiOutline(
+  sessionId: string,
+  body: RefineAiOutlineBody
+): Promise<AiOutlineResult> {
+  return apiRequest<AiOutlineResult>(`/ai/sessions/${sessionId}/outline/refine`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+const OUTLINE_STORAGE_PREFIX = "assetbox_ai_outline_";
+
+export function getStoredOutline(sessionId: string): string | null {
+  try {
+    return localStorage.getItem(`${OUTLINE_STORAGE_PREFIX}${sessionId}`);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredOutline(sessionId: string, content: string | null): void {
+  try {
+    const key = `${OUTLINE_STORAGE_PREFIX}${sessionId}`;
+    if (content?.trim()) localStorage.setItem(key, content);
+    else localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
 }
 
 const ACTIVE_SESSION_KEY = "assetbox_ai_active_session";

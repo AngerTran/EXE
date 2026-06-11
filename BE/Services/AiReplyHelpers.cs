@@ -302,4 +302,219 @@ internal static class AiReplyHelpers
 
     private static bool ContainsGameIntent(string normalizedLower) =>
         GameIntentKeywords.Any(k => normalizedLower.Contains(k, StringComparison.OrdinalIgnoreCase));
+
+    internal sealed record BlueprintAdaptiveFlags(bool OnlineBackend, bool Monetization);
+
+    private static readonly string[] OnlineBackendKeywords =
+    [
+        "multiplayer", "online", "server", "database", "account", "backend", "api",
+        "mmo", "co-op", "coop", "pvp", "realtime", "socket", "cloud save", "login",
+        "dang nhap", "đăng nhập", "ket noi", "kết nối", "may chu", "máy chủ",
+    ];
+
+    private static readonly string[] MonetizationKeywords =
+    [
+        "free-to-play", "f2p", "iap", "in-app", "ads", "quang cao", "quảng cáo",
+        "monetization", "retention", "analytics", "mobile game", "game mobile",
+        "kiem tien", "kiếm tiền", "mua trong app", "steam marketing",
+    ];
+
+    public static BlueprintAdaptiveFlags DetectBlueprintAdaptiveFlags(
+        IReadOnlyList<(string Role, string Content)> messages)
+    {
+        var blob = NormalizeForSearch(string.Join(" ", messages.Select(m => m.Content)));
+        var online = OnlineBackendKeywords.Any(k => blob.Contains(k, StringComparison.OrdinalIgnoreCase));
+        var monetization = MonetizationKeywords.Any(k => blob.Contains(k, StringComparison.OrdinalIgnoreCase));
+        return new BlueprintAdaptiveFlags(online, monetization);
+    }
+
+    public static string BuildBlueprintAdaptiveSectionGuide(BlueprintAdaptiveFlags flags)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("PHẦN THÍCH ỨNG (chỉ thêm khi phù hợp ngữ cảnh — KHÔNG ép nếu không liên quan):");
+        if (flags.OnlineBackend)
+        {
+            sb.AppendLine("- Thêm: ## Kiến trúc kỹ thuật (Database, API, Server) — ngắn gọn, thực tế.");
+        }
+        else
+        {
+            sb.AppendLine("- KHÔNG thêm Database Schema / API / Microservice nếu game offline hoặc single-player đơn giản.");
+        }
+
+        if (flags.Monetization)
+        {
+            sb.AppendLine("- Thêm: ## Monetization & Retention (IAP/Ads, retention, analytics) — nếu dự án commercial mobile/F2P.");
+        }
+        else
+        {
+            sb.AppendLine("- KHÔNG thêm Monetization / Steam Marketing nếu user chỉ học làm game hoặc prototype.");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    public static string BuildOutlineFallback(
+        string sessionTitle,
+        IReadOnlyList<(string Role, string Content)> messages)
+    {
+        var flags = DetectBlueprintAdaptiveFlags(messages);
+        var userMsgs = messages.Where(m => m.Role.Equals("user", StringComparison.OrdinalIgnoreCase)).ToList();
+        var idea = userMsgs.Count > 0 ? userMsgs[0].Content.Trim() : "Ý tưởng game chưa mô tả chi tiết.";
+        var projectName = sessionTitle is "New AI Session" or "AssetBox AI Chat" or "Phiên chat mới"
+            ? SummarizePrompt(idea)
+            : sessionTitle;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"# Project Blueprint — {projectName}");
+        sb.AppendLine();
+        sb.AppendLine("## 1. Tóm tắt ý tưởng (Executive Summary)");
+        sb.AppendLine($"- **Tên dự án (đề xuất):** {projectName}");
+        sb.AppendLine("- **Thể loại:** (suy luận từ hội thoại — cần xác nhận)");
+        sb.AppendLine("- **Đối tượng người chơi:** Casual / học làm game / indie");
+        sb.AppendLine("- **Nền tảng phát hành:** PC hoặc Mobile (ưu tiên theo mô tả)");
+        sb.AppendLine($"- **Pitch:** {idea}");
+        sb.AppendLine();
+
+        sb.AppendLine("## 2. Gameplay Loop");
+        sb.AppendLine("Người chơi làm gì?");
+        sb.AppendLine("↓");
+        sb.AppendLine("Nhận phần thưởng gì?");
+        sb.AppendLine("↓");
+        sb.AppendLine("Dùng phần thưởng để làm gì?");
+        sb.AppendLine("↓");
+        sb.AppendLine("Tiếp tục vòng lặp");
+        sb.AppendLine();
+        sb.AppendLine("*(Điền cụ thể sau khi chat thêm với AI — hiện suy luận từ ý tưởng ban đầu.)*");
+        sb.AppendLine();
+
+        sb.AppendLine("## 3. MVP (phiên bản tối thiểu)");
+        sb.AppendLine("**Cần có:**");
+        sb.AppendLine("- ✓ Di chuyển / tương tác cơ bản");
+        sb.AppendLine("- ✓ Một vòng gameplay loop hoàn chỉnh");
+        sb.AppendLine("- ✓ UI tối thiểu (HUD, menu)");
+        sb.AppendLine();
+        sb.AppendLine("**Chưa cần:**");
+        sb.AppendLine("- ✗ Nội dung quá lớn / multiplayer / polish nặng");
+        sb.AppendLine();
+
+        sb.AppendLine("## 4. Roadmap phát triển");
+        sb.AppendLine("1. **Prototype** — chứng minh core loop");
+        sb.AppendLine("2. **Core Features** — hệ thống chính");
+        sb.AppendLine("3. **Content** — asset, level, nhân vật");
+        sb.AppendLine("4. **Polish** — UX, SFX, balance");
+        sb.AppendLine("5. **Release** — build, store page (nếu cần)");
+        sb.AppendLine();
+
+        sb.AppendLine("## 5. Asset cần tìm (AssetBox)");
+        sb.AppendLine("- **Environment** — tileset, nội thất, map");
+        sb.AppendLine("- **Character** — sprite, animation");
+        sb.AppendLine("- **UI** — button, panel, icon");
+        sb.AppendLine("- **Audio** — BGM, SFX");
+        sb.AppendLine("- **Animation / VFX** — hiệu ứng, particle");
+        sb.AppendLine();
+
+        sb.AppendLine("## 6. Rủi ro dự án");
+        sb.AppendLine("- ⚠ Scope creep — làm quá nhiều tính năng sớm");
+        sb.AppendLine("- ⚠ Asset chưa đủ — cần lên checklist asset sớm");
+        if (flags.OnlineBackend)
+            sb.AppendLine("- ⚠ Multiplayer / server — nên để sau MVP");
+        sb.AppendLine();
+
+        sb.AppendLine("## 7. Checklist & bước tiếp theo");
+        sb.AppendLine("- [ ] Khóa MVP (3–5 tính năng)");
+        sb.AppendLine("- [ ] Chọn engine (Unity / Godot)");
+        sb.AppendLine("- [ ] Tìm asset trên Chợ AssetBox");
+        sb.AppendLine("- [ ] Prototype trong 1–2 tuần");
+        sb.AppendLine();
+
+        if (flags.OnlineBackend)
+        {
+            sb.AppendLine("## 8. Kiến trúc kỹ thuật (mở rộng)");
+            sb.AppendLine("- Database: lưu tài khoản / tiến trình (nếu online)");
+            sb.AppendLine("- API: auth, save game, leaderboard (nếu cần)");
+            sb.AppendLine("- Server: realtime hoặc REST — ưu tiên sau MVP");
+            sb.AppendLine();
+        }
+
+        if (flags.Monetization)
+        {
+            sb.AppendLine("## 9. Monetization & Retention (mở rộng)");
+            sb.AppendLine("- Monetization: IAP / quảng cáo (nếu F2P mobile)");
+            sb.AppendLine("- Retention: daily reward, progression");
+            sb.AppendLine("- Analytics: theo dõi funnel, session length");
+            sb.AppendLine();
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    public static string BuildOutlineSystemPrompt() =>
+        """
+        Bạn là trợ lý sinh **Project Blueprint** cho game developer Việt Nam trên AssetBox.
+        Đọc toàn bộ hội thoại user ↔ AI và viết MỘT bản thiết kế dự án hoàn chỉnh.
+
+        NGUYÊN TẮC: **Core Structure (cố định) + Adaptive Sections (linh hoạt)**.
+        Ngay cả khi user chỉ nói một câu ngắn (vd. "làm game quản lý quán cà phê 2D"), bạn PHẢI tự suy luận và điền đầy đủ phần cốt lõi — đừng chỉ tóm tắt lại chat.
+
+        KHÔNG liệt kê chat log. KHÔNG copy nguyên văn từng tin nhắn. Tiếng Việt, markdown rõ ràng.
+
+        ## PHẦN CỐ ĐỊNH — LUÔN CÓ (đánh số ## 1–7):
+
+        ### 1. Tóm tắt ý tưởng (Executive Summary)
+        - Tên dự án (đề xuất nếu chưa có)
+        - Thể loại
+        - Đối tượng người chơi
+        - Nền tảng phát hành
+        - Pitch 1–2 câu
+
+        ### 2. Gameplay Loop
+        Dạng chuỗi:
+        Người chơi làm gì? → Nhận phần thưởng gì? → Dùng phần thưởng để làm gì? → Lặp lại
+        Viết cụ thể cho dự án, không để placeholder trống.
+
+        ### 3. MVP
+        **Cần có** (✓) — 3–6 mục tối thiểu để chơi được
+        **Chưa cần** (✗) — những thứ nên hoãn (scope creep)
+
+        ### 4. Roadmap phát triển
+        1. Prototype → 2. Core Features → 3. Content → 4. Polish → 5. Release
+        Mỗi giai đoạn 1–2 dòng mô tả việc cần làm.
+
+        ### 5. Asset cần tìm (AssetBox)
+        Nhóm bắt buộc (điền cụ thể theo dự án):
+        - Environment
+        - Character
+        - UI
+        - Audio
+        - Animation / VFX (nếu cần)
+        Gợi ý loại asset phù hợp — không cần tên file cụ thể.
+
+        ### 6. Rủi ro dự án
+        2–4 cảnh báo ⚠ thực tế (scope, kỹ thuật, thời gian, multiplayer sớm…).
+
+        ### 7. Checklist & bước tiếp theo
+        Checklist ngắn + 3–5 việc nên làm NGAY.
+
+        ## PHẦN THÍCH ỨNG — CHỈ THÊM KHI PHÙ HỢP:
+
+        Nếu hội thoại nhắc multiplayer / online / server / database / account:
+        → Thêm ## 8. Kiến trúc kỹ thuật (Database, API, Server) — ngắn gọn.
+
+        Nếu hội thoại nhắc mobile F2P / ads / IAP / monetization / retention:
+        → Thêm ## Monetization & Retention (IAP, ads, analytics).
+
+        KHÔNG thêm nếu không liên quan:
+        - Database / API / Microservice cho game offline Unity đơn giản
+        - Monetization / Steam Marketing nếu user chỉ học làm game
+
+        Độ dài: khoảng 400–900 từ, đủ chi tiết để xuất file và bắt đầu làm.
+        """;
+
+    public static string BuildRefineOutlineSystemPrompt() =>
+        """
+        Bạn chỉnh sửa **Project Blueprint** cho game developer Việt Nam trên AssetBox.
+        Giữ cấu trúc Core (mục 1–7) + Adaptive (nếu đã có).
+        Áp dụng yêu cầu chỉnh sửa của user; không thêm chat log.
+        Trả về TOÀN BỘ blueprint đã chỉnh (không chỉ phần thay đổi). Tiếng Việt, markdown.
+        """;
 }

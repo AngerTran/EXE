@@ -232,16 +232,114 @@ public class AiAdvisorService(
         if (session is null)
             return null;
 
-        var sb = new StringBuilder();
-        sb.AppendLine($"# {session.Title}");
-        sb.AppendLine();
-        foreach (var msg in session.Messages.OrderBy(m => m.CreatedAt).ThenBy(m => m.Role))
+        var messages = session.Messages
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .Select(m => (m.Role.ToString().ToLowerInvariant(), m.Content))
+            .ToList();
+
+        var outline = await llmChatService.GenerateSessionOutlineAsync(session.Title, messages, cancellationToken);
+        return new AiExportResponse("markdown", outline);
+    }
+
+    public async Task<AiOutlineResponse?> GenerateOutlineAsync(
+        Guid userId,
+        Guid sessionId,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await aiRepository.GetSessionForUpdateAsync(sessionId, userId, cancellationToken);
+        if (session is null || session.IsArchived)
+            return null;
+
+        var detail = await aiRepository.GetSessionAsync(sessionId, userId, cancellationToken);
+        if (detail is null)
+            return null;
+
+        var messages = detail.Messages
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .Select(m => (m.Role.ToString().ToLowerInvariant(), m.Content))
+            .ToList();
+
+        if (!messages.Any(m => m.Item1 == "user"))
+            throw new InvalidOperationException("Cần ít nhất một tin nhắn trong hội thoại để tạo Project Blueprint.");
+
+        var (wallet, unlimited) = await ChargeXuForAiAsync(userId, session, "AI project blueprint", cancellationToken);
+
+        var outline = await llmChatService.GenerateSessionOutlineAsync(session.Title, messages, cancellationToken);
+        session.UpdatedAt = DateTime.UtcNow;
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new AiOutlineResponse(outline, wallet.Balance, unlimited);
+    }
+
+    public async Task<AiOutlineResponse?> RefineOutlineAsync(
+        Guid userId,
+        Guid sessionId,
+        RefineAiOutlineRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var session = await aiRepository.GetSessionForUpdateAsync(sessionId, userId, cancellationToken);
+        if (session is null || session.IsArchived)
+            return null;
+
+        var detail = await aiRepository.GetSessionAsync(sessionId, userId, cancellationToken);
+        if (detail is null)
+            return null;
+
+        var messages = detail.Messages
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .Select(m => (m.Role.ToString().ToLowerInvariant(), m.Content))
+            .ToList();
+
+        var (wallet, unlimited) = await ChargeXuForAiAsync(userId, session, "AI blueprint refine", cancellationToken);
+
+        var refined = await llmChatService.RefineSessionOutlineAsync(
+            request.CurrentOutline.Trim(),
+            request.Instruction.Trim(),
+            messages,
+            cancellationToken);
+
+        session.UpdatedAt = DateTime.UtcNow;
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new AiOutlineResponse(refined, wallet.Balance, unlimited);
+    }
+
+    private async Task<(Wallet Wallet, bool Unlimited)> ChargeXuForAiAsync(
+        Guid userId,
+        AiSession session,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken);
+        if (wallet is null)
+            throw new InvalidOperationException("Wallet not found.");
+
+        var unlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
+        if (!unlimited && wallet.Balance < XuPerMessage)
+            throw new InvalidOperationException("Not enough xu to send AI message.");
+
+        var now = DateTime.UtcNow;
+        if (!unlimited)
         {
-            sb.AppendLine($"## {msg.Role.ToString().ToUpperInvariant()}");
-            sb.AppendLine(msg.Content);
-            sb.AppendLine();
+            wallet.Balance -= XuPerMessage;
+            wallet.UpdatedAt = now;
+            unitOfWork.AddWalletTransaction(new WalletTransaction
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet.Id,
+                Type = WalletTxType.AiUsage,
+                Amount = -XuPerMessage,
+                BalanceAfter = wallet.Balance,
+                Description = description,
+                ReferenceType = "ai_session",
+                ReferenceId = session.Id,
+                CreatedAt = now
+            });
         }
-        return new AiExportResponse("markdown", sb.ToString().TrimEnd());
+
+        session.TotalXuUsed += unlimited ? 0 : XuPerMessage;
+        session.UpdatedAt = now;
+        return (wallet, unlimited);
     }
 
     private async Task<List<(AiSuggestedAssetResponse Response, string? Category)>> BuildSuggestionsAsync(

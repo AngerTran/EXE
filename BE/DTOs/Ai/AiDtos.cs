@@ -50,3 +50,12 @@ public record SendAiMessageResponse(
     bool IsUnlimited);
 
 public record AiExportResponse(string Format, string Content);
+
+public record AiOutlineResponse(
+    string Content,
+    int WalletBalance,
+    bool IsUnlimited);
+
+public record RefineAiOutlineRequest(
+    [Required, MaxLength(8000)] string CurrentOutline,
+    [Required, MaxLength(2000)] string Instruction);
