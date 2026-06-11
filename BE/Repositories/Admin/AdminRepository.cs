@@ -21,13 +21,12 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
     public async Task<(int TotalAssets, int PendingAssets, int TotalDownloads)> GetAssetStatsAsync(
         CancellationToken cancellationToken = default)
     {
-        var total = await db.Assets.CountAsync(a => a.DeletedAt == null, cancellationToken);
+        var listed = db.Assets.Where(a => a.DeletedAt == null && a.Status == AssetStatus.Approved);
+        var total = await listed.CountAsync(cancellationToken);
         var pending = await db.Assets.CountAsync(
             a => a.DeletedAt == null && a.Status == AssetStatus.PendingReview,
             cancellationToken);
-        var downloads = await db.Assets
-            .Where(a => a.DeletedAt == null)
-            .SumAsync(a => a.DownloadCount, cancellationToken);
+        var downloads = await listed.SumAsync(a => a.DownloadCount, cancellationToken);
         return (total, pending, downloads);
     }
 
@@ -191,7 +190,7 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
     {
         var rows = await db.Assets
             .AsNoTracking()
-            .Where(a => a.DeletedAt == null)
+            .Where(a => a.DeletedAt == null && a.Status == AssetStatus.Approved)
             .Include(a => a.Category)
             .GroupBy(a => new { a.CategoryId, a.Category!.Name })
             .Select(g => new

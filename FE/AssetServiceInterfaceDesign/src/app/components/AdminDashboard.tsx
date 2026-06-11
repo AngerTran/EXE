@@ -384,6 +384,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [packages, setPackages] = useState<SubscriptionPlan[]>([]);
   const [assets, setAssets] = useState<AssetData[]>([]);
+  const [marketplaceAssets, setMarketplaceAssets] = useState<AssetData[]>([]);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [revenueAnalytics, setRevenueAnalytics] = useState<AdminAnalyticsRevenue | null>(null);
   const [usersAnalytics, setUsersAnalytics] = useState<AdminAnalyticsUsers | null>(null);
@@ -459,17 +460,17 @@ export default function AdminDashboard() {
 
         const approved = assetsRes.data.map(mapAssetListItem);
         const pending = pendingRes.data.map(mapAssetListItem);
-        setAssets(
-          [...pending, ...approved].map((a) => ({
-            id: a.id,
-            title: a.title,
-            category: a.category as AssetCategory,
-            price: a.price,
-            rating: a.rating,
-            downloads: a.downloads,
-            isFree: a.isFree,
-          }))
-        );
+        const toAssetData = (a: ReturnType<typeof mapAssetListItem>): AssetData => ({
+          id: a.id,
+          title: a.title,
+          category: a.category as AssetCategory,
+          price: a.price,
+          rating: a.rating,
+          downloads: a.downloads,
+          isFree: a.isFree,
+        });
+        setMarketplaceAssets(approved.map(toAssetData));
+        setAssets([...pending, ...approved].map(toAssetData));
       } catch {
         toast.error("Không tải được dữ liệu admin — kiểm tra BE và quyền admin");
       } finally {
@@ -514,17 +515,17 @@ export default function AdminDashboard() {
         ]);
         const approved = assetsRes.data.map(mapAssetListItem);
         const pending = pendingRes.data.map(mapAssetListItem);
-        setAssets(
-          [...pending, ...approved].map((a) => ({
-            id: a.id,
-            title: a.title,
-            category: a.category as AssetCategory,
-            price: a.price,
-            rating: a.rating,
-            downloads: a.downloads,
-            isFree: a.isFree,
-          }))
-        );
+        const toAssetData = (a: ReturnType<typeof mapAssetListItem>): AssetData => ({
+          id: a.id,
+          title: a.title,
+          category: a.category as AssetCategory,
+          price: a.price,
+          rating: a.rating,
+          downloads: a.downloads,
+          isFree: a.isFree,
+        });
+        setMarketplaceAssets(approved.map(toAssetData));
+        setAssets([...pending, ...approved].map(toAssetData));
       } catch {
         /* ignore */
       }
@@ -551,11 +552,11 @@ export default function AdminDashboard() {
     },
     {
       label: "Tổng Assets",
-      value: overview?.totalAssets ?? assets.length,
+      value: overview?.totalAssets ?? marketplaceAssets.length,
       icon: <Package className="w-6 h-6" />,
       color: "from-secondary to-secondary/80",
       change: `${overview?.pendingAssets ?? 0} chờ duyệt`,
-      detail: `${assets.filter((a) => a.isFree).length} miễn phí · ${assets.filter((a) => !a.isFree).length} trả phí`,
+      detail: `${marketplaceAssets.filter((a) => a.isFree).length} miễn phí · ${marketplaceAssets.filter((a) => !a.isFree).length} trả phí`,
     },
     {
       label: "Đơn hàng",
