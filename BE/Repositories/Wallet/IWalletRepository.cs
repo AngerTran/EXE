@@ -1,3 +1,4 @@
+using Exe.Models;
 using Exe.Models.Entities;
 
 namespace Exe.Repositories.Wallet;
@@ -18,5 +19,9 @@ public interface IWalletRepository
 
     Task<Models.Entities.Wallet?> GetByUserIdForUpdateAsync(
         Guid userId,
+        CancellationToken cancellationToken = default);
+
+    Task<HashSet<Guid>> GetAssetPurchaseOrderIdsAsync(
+        IReadOnlyList<Guid> orderIds,
         CancellationToken cancellationToken = default);
 }

@@ -69,6 +69,9 @@ export interface UserAssetItem {
   lastDownloadAt?: string | null;
   acquiredAt: string;
   isDelisted: boolean;
+  fileSizeBytes?: number | null;
+  primaryFileName?: string | null;
+  paidXu?: number;
 }
 
 export interface UserAssetDetail extends UserAssetItem {

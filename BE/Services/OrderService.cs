@@ -414,11 +414,20 @@ public class OrderService(
             UpdatedAt = now
         };
 
+    private static string SerializeOrderType(OrderType type) =>
+        type switch
+        {
+            OrderType.Asset => "asset",
+            OrderType.Subscription => "subscription",
+            OrderType.CreditPack => "credit_pack",
+            _ => type.ToString().ToLowerInvariant()
+        };
+
     private OrderResponse MapOrder(Order o, Payment? payment = null, bool includePaymentRedirect = false) =>
         new(
             o.Id,
             o.OrderCode,
-            o.OrderType.ToString().ToLowerInvariant(),
+            SerializeOrderType(o.OrderType),
             o.Status.ToString().ToLowerInvariant(),
             o.SubtotalVnd,
             o.DiscountVnd,

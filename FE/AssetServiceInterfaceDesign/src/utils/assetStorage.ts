@@ -164,3 +164,10 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+export function formatFileExtension(fileName?: string | null): string {
+  if (!fileName?.trim()) return "ZIP";
+  const parts = fileName.trim().split(".");
+  if (parts.length < 2) return "ZIP";
+  return parts.pop()!.toUpperCase();
+}

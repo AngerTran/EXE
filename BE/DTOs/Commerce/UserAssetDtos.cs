@@ -10,7 +10,10 @@ public record UserAssetListItemResponse(
     int DownloadCount,
     DateTime? LastDownloadAt,
     DateTime AcquiredAt,
-    bool IsDelisted);
+    bool IsDelisted,
+    long? FileSizeBytes,
+    string? PrimaryFileName,
+    int PaidXu);
 
 public record UserAssetDetailResponse(
     Guid AssetId,
@@ -24,4 +27,7 @@ public record UserAssetDetailResponse(
     DateTime AcquiredAt,
     string? DownloadUrl,
     int? DownloadExpiresInSeconds,
-    bool IsDelisted);
+    bool IsDelisted,
+    long? FileSizeBytes,
+    string? PrimaryFileName,
+    int PaidXu);

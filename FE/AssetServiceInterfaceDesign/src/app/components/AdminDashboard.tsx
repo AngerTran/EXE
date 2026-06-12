@@ -32,6 +32,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../../utils/notify";
+import {
+  isAssetOrderType,
+  isBankTransferAwaitingConfirmation,
+  orderTypeDisplayLabel,
+} from "../../utils/orderType";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
@@ -318,13 +323,11 @@ function mapApiOrderToAdmin(o: CommerceOrder): Order {
 }
 
 function orderNeedsAdminConfirmation(order: Order): boolean {
-  if (order.status !== "pending") return false;
-  const type = order.orderType?.toLowerCase();
-  return type === "subscription" || type === "credit_pack";
+  return isBankTransferAwaitingConfirmation(order);
 }
 
 function formatAdminOrderAmount(order: Order): string {
-  if (order.orderType === "asset") {
+  if (isAssetOrderType(order.orderType)) {
     return `${order.totalXu.toLocaleString("vi-VN")} xu`;
   }
   return `${order.totalVnd.toLocaleString("vi-VN")}đ`;
@@ -343,9 +346,7 @@ function orderStatusLabel(status: Order["status"]): string {
 }
 
 function orderTypeLabel(orderType: string): string {
-  if (orderType === "subscription") return "Gói DV";
-  if (orderType === "credit_pack") return "Nạp xu";
-  return "Asset";
+  return orderTypeDisplayLabel(orderType);
 }
 
 interface AssetData extends Pick<
@@ -1904,7 +1905,7 @@ function UsersManagement({
                   </div>
 
                   {(() => {
-                    const assetOrders = viewOrders.filter((o) => o.orderType === "asset");
+                    const assetOrders = viewOrders.filter((o) => isAssetOrderType(o.orderType));
                     return (
                       <div className="space-y-4 pt-2">
                         <div className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4">

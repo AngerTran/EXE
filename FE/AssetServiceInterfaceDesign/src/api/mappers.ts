@@ -2,6 +2,7 @@ import type { AssetDetail, AssetImageItem, AssetListItem } from "./types/marketp
 import { ART_STYLE_OPTIONS } from "../constants/artStyles";
 import type { Order } from "./types/commerce";
 import type { UserAssetItem } from "./types/commerce";
+import { formatFileExtension, formatFileSize } from "../utils/assetStorage";
 
 /** Asset card dùng chung Marketplace / Dashboard gợi ý */
 export interface MarketplaceAsset {
@@ -152,15 +153,16 @@ export interface PurchasedAssetUi {
 }
 
 export function mapUserAssetToUi(item: UserAssetItem): PurchasedAssetUi {
+  const fileSizeBytes = item.fileSizeBytes ?? null;
   return {
     id: item.assetId,
     title: item.title,
     category: item.categoryName,
-    price: 0,
+    price: item.paidXu ?? 0,
     purchaseDate: item.acquiredAt.split("T")[0],
     downloadCount: item.downloadCount,
-    fileSize: "—",
-    fileType: item.categoryName,
+    fileSize: fileSizeBytes && fileSizeBytes > 0 ? formatFileSize(fileSizeBytes) : "—",
+    fileType: formatFileExtension(item.primaryFileName),
     thumbnailUrl: item.thumbnailUrl,
     isDelisted: item.isDelisted,
   };

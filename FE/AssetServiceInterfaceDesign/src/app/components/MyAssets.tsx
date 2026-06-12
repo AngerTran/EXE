@@ -386,10 +386,12 @@ export default function MyAssets() {
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Folder className="w-4 h-4" />
-                        File
+                        Gói tải
                       </span>
                       <span className="font-medium text-foreground font-mono">
-                        {asset.fileType} • {asset.fileSize}
+                        {asset.fileSize !== "—"
+                          ? `${asset.fileType} • ${asset.fileSize}`
+                          : asset.fileType}
                       </span>
                     </div>
                   </div>
@@ -541,7 +543,9 @@ export default function MyAssets() {
                       {viewingAsset.category}
                     </span>
                     <span className="px-3 py-1 bg-card border border-border text-foreground rounded-full text-sm hover:border-primary/50 transition-colors">
-                      {viewingAsset.fileType}
+                      {viewingAsset.fileSize !== "—"
+                        ? `${viewingAsset.fileType} • ${viewingAsset.fileSize}`
+                        : viewingAsset.fileType}
                     </span>
                     <span className="px-3 py-1 bg-card border border-border text-foreground rounded-full text-sm hover:border-primary/50 transition-colors">
                       Mua ngày: {viewingAsset.purchaseDate}

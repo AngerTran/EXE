@@ -2,19 +2,23 @@ import { useCallback, useEffect, useState } from "react";
 import type { AppUser } from "../api/auth";
 import { fetchPendingOrdersForAdmin } from "../api/orders";
 import type { Order } from "../api/types/commerce";
+import {
+  isBankTransferAwaitingConfirmation,
+  normalizeOrderType,
+} from "../utils/orderType";
 
 const POLL_MS = 30_000;
 
 function isAwaitingAdminConfirmation(order: Order): boolean {
-  const type = order.orderType?.toLowerCase();
-  return type === "subscription" || type === "credit_pack";
+  return isBankTransferAwaitingConfirmation(order);
 }
 
 function orderLabel(order: Order): string {
   const itemName = order.items?.[0]?.itemName;
   if (itemName) return itemName;
-  if (order.orderType === "subscription") return "Gói đăng ký";
-  if (order.orderType === "credit_pack") return "Gói nạp xu";
+  const type = normalizeOrderType(order.orderType);
+  if (type === "subscription") return "Gói đăng ký";
+  if (type === "creditpack") return "Gói nạp xu";
   return order.orderCode;
 }
 

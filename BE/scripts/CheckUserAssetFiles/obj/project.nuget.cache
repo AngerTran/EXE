@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "dgSpecHash": "UJXmzrNLn7Q=",
+  "success": true,
+  "projectFilePath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\CheckUserAssetFiles\\CheckUserAssetFiles.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.configuration\\10.0.0\\microsoft.extensions.configuration.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.configuration.abstractions\\10.0.0\\microsoft.extensions.configuration.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.configuration.fileextensions\\10.0.0\\microsoft.extensions.configuration.fileextensions.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.configuration.json\\10.0.0\\microsoft.extensions.configuration.json.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.dependencyinjection.abstractions\\10.0.0\\microsoft.extensions.dependencyinjection.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.fileproviders.abstractions\\10.0.0\\microsoft.extensions.fileproviders.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.fileproviders.physical\\10.0.0\\microsoft.extensions.fileproviders.physical.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.filesystemglobbing\\10.0.0\\microsoft.extensions.filesystemglobbing.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.logging.abstractions\\10.0.0\\microsoft.extensions.logging.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\microsoft.extensions.primitives\\10.0.0\\microsoft.extensions.primitives.10.0.0.nupkg.sha512",
+    "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\ddf692417c601a6fe54a98b7aa3291cd\\nuget\\npgsql\\10.0.1\\npgsql.10.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}

@@ -1,13 +1,16 @@
 using Exe.DTOs.Commerce;
+using Exe.Models;
 using Exe.Repositories;
 using Exe.Repositories.Commerce;
 using Exe.Repositories.Marketplace;
+using Exe.Repositories.Wallet;
 using Exe.Services.IServices;
 
 namespace Exe.Services;
 
 public class UserAssetService(
     IUserAssetRepository userAssetRepository,
+    IWalletRepository walletRepository,
     IAssetStorageRepository assetStorageRepository,
     IAssetStorageService assetStorageService,
     IStorageService storageService,
@@ -19,13 +22,18 @@ public class UserAssetService(
     public async Task<IReadOnlyList<UserAssetListItemResponse>> ListAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var assets = await userAssetRepository.ListAsync(userId, cancellationToken);
-        return assets.Select(MapListItem).ToList();
+        var chargedOrderIds = await GetChargedOrderIdsAsync(assets, cancellationToken);
+        return assets.Select(ua => MapListItem(ua, chargedOrderIds)).ToList();
     }
 
     public async Task<UserAssetDetailResponse?> GetAsync(Guid userId, Guid assetId, CancellationToken cancellationToken = default)
     {
         var userAsset = await userAssetRepository.GetAsync(userId, assetId, cancellationToken);
-        return userAsset is null ? null : await MapDetailAsync(userAsset, includeDownloadUrl: false, cancellationToken);
+        if (userAsset is null)
+            return null;
+
+        var chargedOrderIds = await GetChargedOrderIdsAsync([userAsset], cancellationToken);
+        return await MapDetailAsync(userAsset, chargedOrderIds, includeDownloadUrl: false, cancellationToken);
     }
 
     public async Task<UserAssetDetailResponse?> RecordDownloadAsync(
@@ -43,7 +51,8 @@ public class UserAssetService(
         if (userAsset is null)
             return null;
 
-        return await MapDetailAsync(userAsset, includeDownloadUrl: true, cancellationToken);
+        var chargedOrderIds = await GetChargedOrderIdsAsync([userAsset], cancellationToken);
+        return await MapDetailAsync(userAsset, chargedOrderIds, includeDownloadUrl: true, cancellationToken);
     }
 
     public async Task<UserAssetFileDownloadResult?> DownloadFileAsync(
@@ -80,8 +89,25 @@ public class UserAssetService(
         return true;
     }
 
-    private static UserAssetListItemResponse MapListItem(Models.Entities.UserAsset ua) =>
-        new(
+    private async Task<HashSet<Guid>> GetChargedOrderIdsAsync(
+        IReadOnlyList<Models.Entities.UserAsset> assets,
+        CancellationToken cancellationToken)
+    {
+        var orderIds = assets
+            .Where(ua => ua.OrderId is not null)
+            .Select(ua => ua.OrderId!.Value)
+            .Distinct()
+            .ToList();
+
+        return await walletRepository.GetAssetPurchaseOrderIdsAsync(orderIds, cancellationToken);
+    }
+
+    private static UserAssetListItemResponse MapListItem(
+        Models.Entities.UserAsset ua,
+        HashSet<Guid> chargedOrderIds)
+    {
+        var (fileSizeBytes, primaryFileName) = ResolvePrimaryFile(ua);
+        return new(
             ua.AssetId,
             ua.Asset.Title,
             ua.Asset.Slug,
@@ -91,10 +117,40 @@ public class UserAssetService(
             ua.DownloadCount,
             ua.LastDownloadAt,
             ua.AcquiredAt,
-            ua.Asset.DeletedAt is not null);
+            ua.Asset.DeletedAt is not null,
+            fileSizeBytes,
+            primaryFileName,
+            ResolvePaidXu(ua, chargedOrderIds));
+    }
+
+    private static int ResolvePaidXu(Models.Entities.UserAsset ua, HashSet<Guid> chargedOrderIds)
+    {
+        if (ua.Asset.PriceType == PriceType.Free)
+            return 0;
+
+        if (ua.Order is not { Status: OrderStatus.Completed })
+            return 0;
+
+        if (ua.OrderId is null || !chargedOrderIds.Contains(ua.OrderId.Value))
+            return 0;
+
+        var line = ua.Order.Items.FirstOrDefault(i => i.AssetId == ua.AssetId);
+        return line is not null ? (int)line.LineTotal : 0;
+    }
+
+    private static (long? FileSizeBytes, string? PrimaryFileName) ResolvePrimaryFile(Models.Entities.UserAsset ua)
+    {
+        var primary = ua.Asset.Files.FirstOrDefault(f => f.IsPrimary)
+            ?? ua.Asset.Files.OrderBy(f => f.CreatedAt).FirstOrDefault();
+        if (primary is not null)
+            return (primary.FileSizeBytes, primary.FileName);
+
+        return (ua.Asset.FileSizeBytes, null);
+    }
 
     private async Task<UserAssetDetailResponse> MapDetailAsync(
         Models.Entities.UserAsset ua,
+        HashSet<Guid> chargedOrderIds,
         bool includeDownloadUrl,
         CancellationToken cancellationToken)
     {
@@ -113,6 +169,8 @@ public class UserAssetService(
             expires = _storageOptions.DownloadUrlExpiresSeconds;
         }
 
+        var (fileSizeBytes, primaryFileName) = ResolvePrimaryFile(ua);
+
         return new UserAssetDetailResponse(
             ua.AssetId,
             ua.Asset.Title,
@@ -125,6 +183,9 @@ public class UserAssetService(
             ua.AcquiredAt,
             downloadUrl,
             expires,
-            ua.Asset.DeletedAt is not null);
+            ua.Asset.DeletedAt is not null,
+            fileSizeBytes,
+            primaryFileName,
+            ResolvePaidXu(ua, chargedOrderIds));
     }
 }

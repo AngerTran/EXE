@@ -54,4 +54,23 @@ public class WalletRepository(AppDbContext db, ISubscriptionRepository subscript
         Guid userId,
         CancellationToken cancellationToken = default) =>
         db.Wallets.FirstOrDefaultAsync(w => w.UserId == userId, cancellationToken);
+
+    public async Task<HashSet<Guid>> GetAssetPurchaseOrderIdsAsync(
+        IReadOnlyList<Guid> orderIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (orderIds.Count == 0)
+            return [];
+
+        var ids = await db.WalletTransactions
+            .AsNoTracking()
+            .Where(t => t.Type == WalletTxType.AssetPurchase
+                && t.ReferenceId != null
+                && orderIds.Contains(t.ReferenceId.Value)
+                && t.Amount < 0)
+            .Select(t => t.ReferenceId!.Value)
+            .ToListAsync(cancellationToken);
+
+        return ids.ToHashSet();
+    }
 }
