@@ -96,11 +96,11 @@ public record CreateAssetRequest(
     bool FeatureAnimated = false,
     bool FeaturePbr = false,
     bool FeatureVrReady = false,
-    string? Version = null,
-    string? UnityVersion = null,
+    [MaxLength(20)] string? Version = null,
+    [MaxLength(20)] string? UnityVersion = null,
     long? FileSizeBytes = null,
-    string? PolygonCount = null,
-    string? TextureResolution = null,
+    [MaxLength(50)] string? PolygonCount = null,
+    [MaxLength(50)] string? TextureResolution = null,
     string? ThumbnailUrl = null);
 
 public record UpdateAssetRequest(
@@ -121,7 +121,10 @@ public record UpdateAssetRequest(
     bool? FeatureAnimated,
     bool? FeaturePbr,
     bool? FeatureVrReady,
-    string? Version,
+    [MaxLength(20)] string? Version,
+    [MaxLength(20)] string? UnityVersion,
+    [MaxLength(50)] string? PolygonCount,
+    [MaxLength(50)] string? TextureResolution,
     string? ThumbnailUrl);
 
 public record RejectAssetRequest(

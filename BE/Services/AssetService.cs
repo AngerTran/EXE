@@ -72,7 +72,7 @@ public partial class AssetService(
             Id = Guid.NewGuid(),
             Slug = slug,
             Title = request.Title.Trim(),
-            ShortDescription = request.ShortDescription?.Trim(),
+            ShortDescription = TrimOptional(request.ShortDescription, 500),
             FullDescription = request.FullDescription?.Trim(),
             CategoryId = category.Id,
             UploaderId = userId,
@@ -89,11 +89,11 @@ public partial class AssetService(
             FeatureAnimated = request.FeatureAnimated,
             FeaturePbr = request.FeaturePbr,
             FeatureVrReady = request.FeatureVrReady,
-            Version = request.Version,
-            UnityVersion = request.UnityVersion,
+            Version = TrimOptional(request.Version, 20),
+            UnityVersion = TrimOptional(request.UnityVersion, 20),
             FileSizeBytes = request.FileSizeBytes,
-            PolygonCount = request.PolygonCount,
-            TextureResolution = request.TextureResolution,
+            PolygonCount = TrimOptional(request.PolygonCount, 50),
+            TextureResolution = TrimOptional(request.TextureResolution, 50),
             ThumbnailUrl = request.ThumbnailUrl,
             SubmittedAt = now,
             CreatedAt = now,
@@ -177,7 +177,13 @@ public partial class AssetService(
         if (request.FeatureVrReady.HasValue)
             asset.FeatureVrReady = request.FeatureVrReady.Value;
         if (request.Version is not null)
-            asset.Version = request.Version;
+            asset.Version = TrimOptional(request.Version, 20);
+        if (request.UnityVersion is not null)
+            asset.UnityVersion = TrimOptional(request.UnityVersion, 20);
+        if (request.PolygonCount is not null)
+            asset.PolygonCount = TrimOptional(request.PolygonCount, 50);
+        if (request.TextureResolution is not null)
+            asset.TextureResolution = TrimOptional(request.TextureResolution, 50);
         if (request.ThumbnailUrl is not null)
             asset.ThumbnailUrl = request.ThumbnailUrl;
 
@@ -357,6 +363,14 @@ public partial class AssetService(
         while (await assetRepository.SlugExistsAsync(slug, excludeId, cancellationToken))
             slug = $"{baseSlug}-{suffix++}";
         return slug;
+    }
+
+    private static string? TrimOptional(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
     private static string Slugify(string title)

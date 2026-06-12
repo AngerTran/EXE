@@ -250,6 +250,9 @@ export default function AddAsset() {
     if (!zipFile) errs.push("Tải lên file asset.zip");
     if (!version.trim()) errs.push("Nhập phiên bản");
     if (priceType === "paid" && price < 1) errs.push("Giá trả phí tối thiểu 1 xu");
+    if (version.trim().length > 20) errs.push("Phiên bản tối đa 20 ký tự (vd. 1.0.0)");
+    if (polygonCount.trim().length > 50) errs.push("Số polygon tối đa 50 ký tự");
+    if (textureResolution.trim().length > 50) errs.push("Độ phân giải texture tối đa 50 ký tự");
     return errs;
   };
 
@@ -695,7 +698,7 @@ export default function AddAsset() {
             <div className="grid sm:grid-cols-2 gap-5">
               <div>
                 <FieldLabel htmlFor="version">Phiên bản</FieldLabel>
-                <input id="version" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.0.0" className={inputClass} />
+                <input id="version" value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.0.0" maxLength={20} className={inputClass} />
               </div>
               <div>
                 <FieldLabel htmlFor="fileSize">Dung lượng file</FieldLabel>
@@ -703,11 +706,11 @@ export default function AddAsset() {
               </div>
               <div>
                 <FieldLabel htmlFor="poly" hint="Tùy chọn">Số polygon</FieldLabel>
-                <input id="poly" value={polygonCount} onChange={(e) => setPolygonCount(e.target.value)} placeholder="15k tris" className={inputClass} />
+                <input id="poly" value={polygonCount} onChange={(e) => setPolygonCount(e.target.value)} placeholder="Low poly" maxLength={50} className={inputClass} />
               </div>
               <div>
                 <FieldLabel htmlFor="tex" hint="Tùy chọn">Độ phân giải texture</FieldLabel>
-                <input id="tex" value={textureResolution} onChange={(e) => setTextureResolution(e.target.value)} placeholder="2048x2048" className={inputClass} />
+                <input id="tex" value={textureResolution} onChange={(e) => setTextureResolution(e.target.value)} placeholder="2048x2048" maxLength={50} className={inputClass} />
               </div>
             </div>
             <div className="mt-5">

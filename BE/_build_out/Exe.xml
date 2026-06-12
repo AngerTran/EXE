@@ -1,0 +1,274 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Exe</name>
+    </assembly>
+    <members>
+        <member name="F:Exe.BillingConstants.WelcomeSignupXu">
+            <summary>Xu tặng một lần khi đăng ký tài khoản mới (email hoặc Google OAuth).</summary>
+        </member>
+        <member name="P:Exe.Configuration.AiOptions.ApiKey">
+            <summary>OpenAI-compatible API key. Empty = fallback mock advisor.</summary>
+        </member>
+        <member name="T:Exe.Configuration.BankTransferOptions">
+            <summary>Thông tin tài khoản ngân hàng nhận chuyển khoản (hiển thị QR VietQR).</summary>
+        </member>
+        <member name="P:Exe.Configuration.BankTransferOptions.BankBin">
+            <summary>Mã BIN ngân hàng (VietQR), VD Vietcombank = 970436.</summary>
+        </member>
+        <member name="P:Exe.Configuration.BankTransferOptions.QrImageUrl">
+            <summary>Ảnh QR tĩnh (tùy chọn). Để trống thì FE/BE sinh QR động qua VietQR.</summary>
+        </member>
+        <member name="T:Exe.Configuration.PaymentOptions">
+            <summary>Dev/MVP: tự hoàn tất payment ngay khi tạo order (trừ chuyển khoản). Tắt khi chỉ dùng CK + admin xác nhận.</summary>
+        </member>
+        <member name="P:Exe.Configuration.PaymentOptions.FeReturnUrl">
+            <summary>Trang FE sau khi user xác nhận đã chuyển khoản.</summary>
+        </member>
+        <member name="P:Exe.Configuration.StorageOptions.AssetFilesBucket">
+            <summary>Bucket zip Unity (.zip, .unitypackage).</summary>
+        </member>
+        <member name="P:Exe.Configuration.StorageOptions.AssetImagesBucket">
+            <summary>Bucket ảnh preview / thumbnail (public read).</summary>
+        </member>
+        <member name="P:Exe.Configuration.StorageOptions.AvatarsBucket">
+            <summary>Bucket avatar profile.</summary>
+        </member>
+        <member name="P:Exe.Configuration.SupabaseOptions.ServiceRoleKey">
+            <summary>Service role — chỉ BE, dùng signed URL Storage (không expose FE).</summary>
+        </member>
+        <member name="P:Exe.Configuration.SupabaseOptions.JwtSecret">
+            <summary>Optional. Legacy HS256 secret — chỉ cần nếu token cũ chưa migrate sang ECC JWKS.</summary>
+        </member>
+        <member name="P:Exe.Configuration.SupabaseOptions.PasswordResetRedirectUrl">
+            <summary>URL gửi Supabase trong email reset — trang BE chuyển tiếp sang FE (vd. http://localhost:5180/api/v1/auth/reset-callback).</summary>
+        </member>
+        <member name="P:Exe.Configuration.SupabaseOptions.FrontendBaseUrl">
+            <summary>URL FE nhận token sau bước chuyển tiếp (vd. http://localhost:5173).</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AdminController.HardDeleteSubscriptionPlan(System.Guid,System.Threading.CancellationToken)">
+            <summary>Xóa vĩnh viễn gói khỏi DB — chỉ khi không còn subscription/order tham chiếu.</summary>
+        </member>
+        <member name="T:Exe.Controllers.V1.AuthController">
+            <summary>§4.1 Auth &amp; Profile — đăng ký, đăng nhập, profile, wallet, subscription.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.#ctor(Exe.Services.IServices.IAuthService,Exe.Services.IServices.ISupabaseAuthClient,Exe.Services.IServices.IProfileAvatarService,Microsoft.Extensions.Options.IOptions{Exe.Configuration.SupabaseOptions})">
+            <summary>§4.1 Auth &amp; Profile — đăng ký, đăng nhập, profile, wallet, subscription.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.Register(Exe.DTOs.Auth.RegisterRequest,System.Threading.CancellationToken)">
+            <summary>Đăng ký qua Supabase Auth (tuỳ chọn — FE có thể gọi Supabase client trực tiếp).</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.Login(Exe.DTOs.Auth.LoginRequest,System.Threading.CancellationToken)">
+            <summary>Đăng nhập qua Supabase Auth (tuỳ chọn — FE có thể gọi Supabase client trực tiếp).</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.GetMe(System.Threading.CancellationToken)">
+            <summary>Profile hiện tại + wallet + subscription.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.UpdateMe(Exe.DTOs.Auth.UpdateProfileRequest,System.Threading.CancellationToken)">
+            <summary>Cập nhật name, avatar_url.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.ResetCallback">
+            <summary>Supabase redirect về đây sau khi bấm link email — chuyển token sang FE /auth/reset.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.Logout">
+            <summary>Logout — client nên gọi supabase.auth.signOut(); endpoint trả 204 để đồng bộ spec.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.AuthController.GetSupabaseConfig">
+            <summary>Cấu hình Supabase (url + anon key) để FE khởi tạo OAuth Google (PKCE).</summary>
+        </member>
+        <member name="T:Exe.Controllers.V1.SubscriptionPlansController">
+            <summary>§4.2 Subscription Plans — catalog gói Miễn phí / Student / Indie / Pro.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.SubscriptionPlansController.#ctor(Exe.Services.IServices.ISubscriptionPlanService)">
+            <summary>§4.2 Subscription Plans — catalog gói Miễn phí / Student / Indie / Pro.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.SubscriptionPlansController.GetPlans(System.Boolean,System.Threading.CancellationToken)">
+            <summary>Danh sách gói dịch vụ (mặc định chỉ gói đang active).</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.SubscriptionPlansController.GetBySlug(System.String,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Chi tiết gói theo slug (free, student, indie, pro) — tiện cho Checkout FE.</summary>
+        </member>
+        <member name="M:Exe.Controllers.V1.SubscriptionPlansController.GetById(System.Guid,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Chi tiết gói theo id.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.RegisterRequest">
+            <summary>Body đăng ký tài khoản mới (email, password, name, username tùy chọn).</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.RegisterRequest.#ctor(System.String,System.String,System.String,System.String)">
+            <summary>Body đăng ký tài khoản mới (email, password, name, username tùy chọn).</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.LoginRequest">
+            <summary>Body đăng nhập (email + password).</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.LoginRequest.#ctor(System.String,System.String)">
+            <summary>Body đăng nhập (email + password).</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.AuthSessionResponse">
+            <summary>Session trả về sau register/login. Dùng accessToken cho header Authorization.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.AuthSessionResponse.#ctor(System.String,System.String,System.Int32,System.String,Exe.DTOs.Auth.AuthUserResponse,System.Boolean)">
+            <summary>Session trả về sau register/login. Dùng accessToken cho header Authorization.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.MeResponse">
+            <summary>Response GET /auth/me — profile, wallet (xu), subscription cho AuthContext FE.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.MeResponse.#ctor(System.Guid,System.String,System.String,System.String,System.String,System.String,Exe.DTOs.Auth.MeWalletResponse,Exe.DTOs.Auth.MeSubscriptionResponse)">
+            <summary>Response GET /auth/me — profile, wallet (xu), subscription cho AuthContext FE.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.MeWalletResponse">
+            <summary>Số dư ví xu và cờ unlimited plan.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.MeWalletResponse.#ctor(System.Int32,System.Boolean)">
+            <summary>Số dư ví xu và cờ unlimited plan.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.MeSubscriptionResponse">
+            <summary>Gói subscription hiện tại (plan: free|student|indie|pro).</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.MeSubscriptionResponse.#ctor(System.String,System.String,System.Nullable{System.DateTime})">
+            <summary>Gói subscription hiện tại (plan: free|student|indie|pro).</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.UpdateProfileRequest">
+            <summary>Body PATCH /auth/me — ít nhất một field (name hoặc avatarUrl) bắt buộc.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.UpdateProfileRequest.#ctor(System.String,System.String)">
+            <summary>Body PATCH /auth/me — ít nhất một field (name hoặc avatarUrl) bắt buộc.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Auth.SupabasePublicConfigResponse">
+            <summary>Cấu hình Supabase public cho FE OAuth (PKCE) — anon key an toàn expose qua HTTPS.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Auth.SupabasePublicConfigResponse.#ctor(System.String,System.String)">
+            <summary>Cấu hình Supabase public cho FE OAuth (PKCE) — anon key an toàn expose qua HTTPS.</summary>
+        </member>
+        <member name="T:Exe.DTOs.Billing.SubscriptionPlanListResponse">
+            <summary>Danh sách gói dịch vụ (Pricing page).</summary>
+        </member>
+        <member name="M:Exe.DTOs.Billing.SubscriptionPlanListResponse.#ctor(System.Collections.Generic.IReadOnlyList{Exe.DTOs.Billing.SubscriptionPlanResponse})">
+            <summary>Danh sách gói dịch vụ (Pricing page).</summary>
+        </member>
+        <member name="T:Exe.DTOs.Billing.SubscriptionPlanResponse">
+            <summary>Chi tiết một gói subscription.</summary>
+        </member>
+        <member name="M:Exe.DTOs.Billing.SubscriptionPlanResponse.#ctor(System.Guid,System.String,System.String,System.String,System.Int64,System.Nullable{System.Int32},System.Boolean,System.Collections.Generic.IReadOnlyList{System.String},System.Int16,System.Boolean)">
+            <summary>Chi tiết một gói subscription.</summary>
+        </member>
+        <member name="M:Exe.Repositories.Billing.ISubscriptionRepository.ExpireOverdueForUserAsync(System.Guid,System.Threading.CancellationToken)">
+            <summary>Marks active subscriptions past <see cref="P:Exe.Models.Entities.Subscription.ExpiredAt"/> as expired.</summary>
+        </member>
+        <member name="T:Exe.Services.AiSearchTermLocalizer">
+            <summary>
+            Maps Vietnamese user phrases to English marketplace search terms (tags/titles are mostly English).
+            </summary>
+        </member>
+        <member name="M:Exe.Services.AssetService.NonAlphanumericRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>[^a-z0-9]+</code><br/>
+            Options:<br/>
+            <code>RegexOptions.Compiled</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match a character in the set [^0-9a-z] atomically at least once.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Exe.Services.AssetService.MultiDashRegex">
+            <remarks>
+            Pattern:<br/>
+            <code>-+</code><br/>
+            Options:<br/>
+            <code>RegexOptions.Compiled</code><br/>
+            Explanation:<br/>
+            <code>
+            ○ Match '-' atomically at least once.<br/>
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Exe.Services.IServices.IProfileProvisioningService.EnsureProfileAsync(System.Guid,Exe.Services.IServices.ProfileBootstrapInfo,System.Threading.CancellationToken)">
+            <summary>Tạo profile/wallet/gói free nếu chưa có (fallback khi trigger DB chưa chạy).</summary>
+        </member>
+        <member name="M:Exe.Services.OrderService.GenerateOrderCode(System.String)">
+            <summary>Mã đơn tối đa 20 ký tự (cột <c>orders.order_code</c> varchar(20)).</summary>
+        </member>
+        <member name="T:Program">
+            <summary>
+            Auto-generated public partial Program class for top-level statement apps.
+            </summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the NonAlphanumericRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.NonAlphanumericRegex_0.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultiDashRegex_1">
+            <summary>Custom <see cref="T:System.Text.RegularExpressions.Regex"/>-derived type for the MultiDashRegex method.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.MultiDashRegex_1.Instance">
+            <summary>Cached, thread-safe singleton instance.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultiDashRegex_1.#ctor">
+            <summary>Initializes the instance.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory">
+            <summary>Provides a factory for creating <see cref="T:System.Text.RegularExpressions.RegexRunner"/> instances to be used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory.CreateInstance">
+            <summary>Creates an instance of a <see cref="T:System.Text.RegularExpressions.RegexRunner"/> used by methods on <see cref="T:System.Text.RegularExpressions.Regex"/>.</summary>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory.Runner">
+            <summary>Provides the runner that contains the custom logic implementing the specified regular expression.</summary>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory.Runner.Scan(System.ReadOnlySpan{System.Char})">
+            <summary>Scan the <paramref name="inputSpan"/> starting from base.runtextstart for the next match.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory.Runner.TryFindNextPossibleStartingPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Search <paramref name="inputSpan"/> starting from base.runtextpos for the next location a match could possibly start.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if a possible match was found; false if no more matches are possible.</returns>
+        </member>
+        <member name="M:System.Text.RegularExpressions.Generated.MultiDashRegex_1.RunnerFactory.Runner.TryMatchAtCurrentPosition(System.ReadOnlySpan{System.Char})">
+            <summary>Determine whether <paramref name="inputSpan"/> at base.runtextpos is a match for the regular expression.</summary>
+            <param name="inputSpan">The text being scanned by the regular expression.</param>
+            <returns>true if the regular expression matches at the current position; otherwise, false.</returns>
+        </member>
+        <member name="T:System.Text.RegularExpressions.Generated.Utilities">
+            <summary>Helper methods used by generated <see cref="T:System.Text.RegularExpressions.Regex"/>-derived implementations.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout">
+            <summary>Default timeout value set in <see cref="T:System.AppContext"/>, or <see cref="F:System.Text.RegularExpressions.Regex.InfiniteMatchTimeout"/> if none was set.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_hasTimeout">
+            <summary>Whether <see cref="F:System.Text.RegularExpressions.Generated.Utilities.s_defaultTimeout"/> is non-infinite.</summary>
+        </member>
+        <member name="F:System.Text.RegularExpressions.Generated.Utilities.s_asciiLettersLowerAndDigits">
+            <summary>Supports searching for characters in or not in "0123456789abcdefghijklmnopqrstuvwxyz".</summary>
+        </member>
+    </members>
+</doc>

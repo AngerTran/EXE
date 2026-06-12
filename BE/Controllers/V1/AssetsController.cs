@@ -2,10 +2,12 @@ using Exe.DTOs.Auth;
 using Exe.DTOs.Common;
 using Exe.DTOs.Marketplace;
 using Exe.Extensions;
+using Exe.Models;
 using Exe.Services;
 using Exe.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Exe.Controllers.V1;
 
@@ -115,11 +117,25 @@ public class AssetsController(IAssetService assetService) : ControllerBase
         try
         {
             var asset = await assetService.CreateAsync(userId.Value, request, cancellationToken);
-            return CreatedAtAction(nameof(GetById), new { id = asset.Id }, asset);
+            return StatusCode(StatusCodes.Status201Created, asset);
         }
         catch (ArgumentException ex)
         {
             return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (DbUpdateException ex)
+        {
+            var detail = ex.InnerException?.Message ?? ex.Message;
+            return BadRequest(new ErrorResponse(
+                detail.Contains("value too long", StringComparison.OrdinalIgnoreCase)
+                    ? "Một số trường quá dài (phiên bản ≤20, polygon/texture ≤50 ký tự)."
+                    : "Không lưu được asset. Kiểm tra lại dữ liệu form.",
+                "database_error"));
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ErrorResponse(ex.Message, "internal_error"));
         }
     }
 
