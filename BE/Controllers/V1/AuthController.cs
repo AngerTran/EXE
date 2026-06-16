@@ -226,14 +226,15 @@ public class AuthController(
         }
     }
 
-    /// <summary>Supabase redirect về đây sau khi bấm link email — chuyển token sang FE /auth/reset.</summary>
+    /// <summary>Supabase redirect về đây — OAuth Google (?code=) hoặc email reset (hash recovery).</summary>
     [HttpGet("reset-callback")]
     [AllowAnonymous]
     [Produces("text/html")]
     public IActionResult ResetCallback()
     {
         var feBase = (_supabase.FrontendBaseUrl ?? "http://localhost:5173").TrimEnd('/');
-        var target = $"{feBase}/auth/reset";
+        var feReset = $"{feBase}/auth/reset";
+        const string appOAuth = "vn.assetbox.app://auth/callback";
         var html = $$"""
             <!DOCTYPE html>
             <html lang="vi">
@@ -247,13 +248,60 @@ public class AuthController(
               </style>
             </head>
             <body>
-              <p>Đang chuyển đến trang đặt lại mật khẩu…</p>
+              <p id="msg">Đang chuyển hướng…</p>
+              <script>
+                (function () {
+                  var feReset = {{System.Text.Json.JsonSerializer.Serialize(feReset)}};
+                  var appOAuth = {{System.Text.Json.JsonSerializer.Serialize(appOAuth)}};
+                  var hash = window.location.hash || "";
+                  var search = window.location.search || "";
+                  var isOAuthCode = search.indexOf("code=") >= 0;
+                  var target;
+                  var suffix;
+                  if (isOAuthCode) {
+                    target = appOAuth;
+                    suffix = search;
+                    document.getElementById("msg").textContent = "Đang quay lại AssetBox…";
+                  } else {
+                    target = feReset;
+                    suffix = hash || search;
+                  }
+                  window.location.replace(target + suffix);
+                })();
+              </script>
+            </body>
+            </html>
+            """;
+        return Content(html, "text/html; charset=utf-8");
+    }
+
+    /// <summary>Supabase OAuth redirect cho mobile — chuyển code/token sang deep link app.</summary>
+    [HttpGet("oauth-callback")]
+    [AllowAnonymous]
+    [Produces("text/html")]
+    public IActionResult OAuthCallback()
+    {
+        const string target = "vn.assetbox.app://auth/callback";
+        var html = $$"""
+            <!DOCTYPE html>
+            <html lang="vi">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>Đang chuyển hướng…</title>
+              <style>
+                body { font-family: system-ui, sans-serif; background: #131b2e; color: #dae2fd; display: flex;
+                  align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+              </style>
+            </head>
+            <body>
+              <p>Đang quay lại AssetBox…</p>
               <script>
                 (function () {
                   var target = {{System.Text.Json.JsonSerializer.Serialize(target)}};
                   var hash = window.location.hash || "";
                   var search = window.location.search || "";
-                  window.location.replace(target + (hash || search));
+                  window.location.replace(target + (search || "") + (hash || ""));
                 })();
               </script>
             </body>
@@ -336,6 +384,9 @@ public class AuthController(
                     "configuration_error"));
         }
 
-        return Ok(new SupabasePublicConfigResponse(url, anonKey));
+        return Ok(new SupabasePublicConfigResponse(
+            url,
+            anonKey,
+            _supabase.MobileOAuthRedirectUrl?.Trim() ?? ""));
     }
 }

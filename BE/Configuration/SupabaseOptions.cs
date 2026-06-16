@@ -15,4 +15,6 @@ public class SupabaseOptions
     public string PasswordResetRedirectUrl { get; set; } = "http://localhost:5180/api/v1/auth/reset-callback";
     /// <summary>URL FE nhận token sau bước chuyển tiếp (vd. http://localhost:5173).</summary>
     public string FrontendBaseUrl { get; set; } = "http://localhost:5173";
+    /// <summary>Tùy chọn — gợi ý redirect OAuth cho mobile (Flutter đọc deep link riêng).</summary>
+    public string MobileOAuthRedirectUrl { get; set; } = "";
 }
