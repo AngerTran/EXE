@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
+import '../../core/utils/error_messages.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/common_widgets.dart';
@@ -21,6 +23,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
   bool _hasMore = true;
   int _page = 1;
   OrdersSummary? _summary;
+  String? _loadError;
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
       _page = 1;
       _hasMore = true;
       _orders.clear();
+      _loadError = null;
     }
     if (!_hasMore) return;
     setState(() => _loading = true);
@@ -56,7 +60,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
         _loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        if (_orders.isEmpty) {
+          _loadError = friendlyErrorMessage(e);
+        }
+      });
     }
   }
 
@@ -68,14 +77,20 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     if (!auth.isLoggedIn) {
       return Scaffold(
         appBar: AppBar(title: const Text('Đơn hàng')),
-        body: EmptyState(
-          icon: Icons.receipt_long_outlined,
-          title: 'Lịch sử đơn hàng',
-          subtitle: 'Đăng nhập để xem đơn của bạn.',
-          action: GradientCtaButton(
-            label: 'Đăng nhập',
-            expand: false,
-            onPressed: () => context.push('/auth'),
+        body: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: AppCard(
+            child: EmptyState(
+              icon: Icons.receipt_long_outlined,
+              title: 'Lịch sử đơn hàng',
+              subtitle: 'Đăng nhập để xem đơn và trạng thái thanh toán.',
+              action: GradientCtaButton(
+                label: 'Đăng nhập',
+                icon: Icons.login_rounded,
+                expand: false,
+                onPressed: () => context.push('/auth'),
+              ),
+            ),
           ),
         ),
       );
@@ -90,117 +105,320 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           await _loadSummary();
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            AppSpacing.sm,
+            AppSpacing.page,
+            AppSpacing.pageBottom,
+          ),
           children: [
-            if (_summary != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.card.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Stat(
-                        label: 'Tổng đơn',
-                        value: '${_summary!.totalOrders}',
-                      ),
+            if (_summary != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Tổng đơn',
+                      value: '${_summary!.totalOrders}',
+                      color: AppColors.primary,
                     ),
-                    Expanded(
-                      child: _Stat(
-                        label: 'Đã hoàn tất',
-                        value: '${_summary!.completedOrders}',
-                      ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Hoàn tất',
+                      value: '${_summary!.completedOrders}',
+                      color: AppColors.success,
                     ),
-                    Expanded(
-                      child: _Stat(
-                        label: 'Chờ xử lý',
-                        value: '${_summary!.pendingOrders}',
-                      ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _StatCard(
+                      label: 'Chờ xử lý',
+                      value: '${_summary!.pendingOrders}',
+                      color: AppColors.warning,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            if (_orders.isEmpty && _loading)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+              if (_summary!.totalSpentVnd > 0) ...[
+                const SizedBox(height: AppSpacing.md),
+                AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.payments_outlined,
+                        color: AppColors.secondary,
+                        size: 22,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          'Tổng chi tiêu',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelMedium
+                              ?.copyWith(color: AppColors.mutedForeground),
+                        ),
+                      ),
+                      Text(
+                        '${fmt.format(_summary!.totalSpentVnd)}đ',
+                        style: Theme.of(context)
+                            .primaryTextTheme
+                            .titleSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.secondary,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              const SectionHeader(
+                title: 'Danh sách đơn',
+                compact: true,
+              ),
+            ],
+            if (_loadError != null && _orders.isEmpty)
+              ErrorState(
+                error: _loadError!,
+                title: 'Không tải được đơn hàng',
+                onRetry: () => _load(reset: true),
+              )
+            else if (_orders.isEmpty && _loading)
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.xxl),
+                child: LoadingView(message: 'Đang tải đơn hàng...'),
               )
             else if (_orders.isEmpty)
               const EmptyState(
                 icon: Icons.receipt_long_outlined,
                 title: 'Chưa có đơn hàng',
+                subtitle: 'Đơn gói dịch vụ, nạp xu hoặc mua asset sẽ hiện ở đây.',
               )
             else
-              ..._orders.map((o) => Card(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    color: AppColors.card.withValues(alpha: 0.55),
-                    child: ListTile(
-                      title: Text(o.orderCode),
-                      subtitle: Text(
-                        '${o.orderType} · ${o.status}\n${_formatDate(o.createdAt)}',
-                      ),
-                      isThreeLine: true,
-                      trailing: Text(
-                        '${fmt.format(o.totalVnd)}đ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ),
-                  )),
+              ..._orders.map(
+                (o) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: _OrderCard(order: o, fmt: fmt),
+                ),
+              ),
             if (_hasMore && _orders.isNotEmpty)
-              TextButton(
-                onPressed: _loading ? null : () => _load(),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Tải thêm'),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  child: _loading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : TextButton.icon(
+                          onPressed: () => _load(),
+                          icon: const Icon(Icons.expand_more_rounded),
+                          label: const Text('Tải thêm'),
+                        ),
+                ),
               ),
           ],
         ),
       ),
     );
   }
+}
 
-  String _formatDate(String iso) {
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.lg,
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: Theme.of(context).primaryTextTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({required this.order, required this.fmt});
+
+  final Order order;
+  final NumberFormat fmt;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _typeColor(order.orderType).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Icon(
+                  _typeIcon(order.orderType),
+                  size: 20,
+                  color: _typeColor(order.orderType),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.orderCode,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _orderTypeLabel(order.orderType),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.mutedForeground,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              _StatusBadge(status: order.status),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _formatDate(order.createdAt),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.mutedForeground,
+                      ),
+                ),
+              ),
+              Text(
+                order.totalVnd == 0
+                    ? 'Miễn phí'
+                    : '${fmt.format(order.totalVnd)}đ',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _formatDate(String iso) {
     try {
-      return DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(iso));
+      return DateFormat('dd/MM/yyyy HH:mm')
+          .format(DateTime.parse(iso).toLocal());
     } catch (_) {
       return iso;
     }
   }
+
+  static String _orderTypeLabel(String type) {
+    return switch (type) {
+      'subscription' => 'Gói dịch vụ',
+      'credit_pack' => 'Nạp xu',
+      'asset' || 'assets' => 'Mua asset',
+      _ => type,
+    };
+  }
+
+  static IconData _typeIcon(String type) {
+    return switch (type) {
+      'subscription' => Icons.workspace_premium_outlined,
+      'credit_pack' => Icons.monetization_on_outlined,
+      _ => Icons.shopping_bag_outlined,
+    };
+  }
+
+  static Color _typeColor(String type) {
+    return switch (type) {
+      'subscription' => AppColors.secondary,
+      'credit_pack' => AppColors.warning,
+      _ => AppColors.primary,
+    };
+  }
 }
 
-class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
 
-  final String label;
-  final String value;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                )),
-        Text(label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.mutedForeground,
-                )),
-      ],
+    final (label, color) = switch (status) {
+      'completed' => ('Hoàn tất', AppColors.success),
+      'pending' => ('Chờ xử lý', AppColors.warning),
+      'cancelled' || 'canceled' => ('Đã hủy', AppColors.destructive),
+      'failed' => ('Thất bại', AppColors.destructive),
+      _ => (status, AppColors.mutedForeground),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
     );
   }
 }

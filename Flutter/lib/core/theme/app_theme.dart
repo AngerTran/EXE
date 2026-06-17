@@ -86,14 +86,64 @@ abstract final class AppTheme {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.card.withValues(alpha: 0.96),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.18),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        height: 68,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return body.labelSmall?.copyWith(
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppColors.primary : AppColors.mutedForeground,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? AppColors.primary : AppColors.mutedForeground,
+            size: 22,
+          );
+        }),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.card,
+        selectedColor: AppColors.primary.withValues(alpha: 0.18),
+        disabledColor: AppColors.card.withValues(alpha: 0.5),
+        labelStyle: body.labelMedium!,
+        secondaryLabelStyle: body.labelMedium!,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        side: const BorderSide(color: AppColors.border),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
     );
 
     return base.copyWith(
       textTheme: body.apply(
         bodyColor: AppColors.foreground,
         displayColor: AppColors.foreground,
+      ).copyWith(
+        titleLarge: display.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.foreground,
+        ),
+        titleMedium: display.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: AppColors.foreground,
+        ),
+        titleSmall: display.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: AppColors.foreground,
+        ),
+        labelSmall: body.labelSmall?.copyWith(color: AppColors.mutedForeground),
       ),
-      primaryTextTheme: display,
+      primaryTextTheme: display.apply(
+        bodyColor: AppColors.foreground,
+        displayColor: AppColors.foreground,
+      ),
     );
   }
 }

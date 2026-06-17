@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
+import '../../core/utils/error_messages.dart';
 import '../../models/billing_models.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
@@ -117,7 +119,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     } catch (e) {
       setState(() {
         _loading = false;
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
       });
     }
   }
@@ -184,12 +186,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
+          ? const LoadingView(message: 'Đang tạo đơn hàng...')
           : _error != null
               ? EmptyState(
-                  icon: Icons.error_outline,
+                  icon: Icons.error_outline_rounded,
                   title: 'Không tạo được đơn',
                   subtitle: _error,
                   action: GradientCtaButton(
@@ -198,103 +198,147 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     onPressed: () => context.pop(),
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    if (_order?.isCompleted == true) ...[
-                      const Icon(Icons.check_circle,
-                          color: AppColors.success, size: 56),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Đơn đã hoàn tất',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 24),
-                      GradientCtaButton(
-                        label: 'Về trang chủ',
-                        onPressed: () => context.go('/'),
-                      ),
-                    ] else ...[
-                      _SummaryCard(
-                        kind: widget.kind,
-                        plan: _plan,
-                        pack: _pack,
-                        order: _order,
-                        fmt: fmt,
-                      ),
-                      if (_amountVnd == 0) ...[
-                        const SizedBox(height: 16),
-                        GradientCtaButton(
-                          label: 'Hoàn tất',
-                          onPressed: () => context.go('/'),
+              : _order?.isCompleted == true
+                  ? Padding(
+                      padding: const EdgeInsets.all(AppSpacing.xxl),
+                      child: AppCard(
+                        child: EmptyState(
+                          icon: Icons.check_circle_rounded,
+                          title: 'Thanh toán thành công!',
+                          subtitle: 'Đơn hàng đã được xử lý.',
+                          action: GradientCtaButton(
+                            label: 'Về trang chủ',
+                            icon: Icons.home_rounded,
+                            expand: false,
+                            onPressed: () => context.go('/'),
+                          ),
                         ),
-                      ] else if (_bank != null) ...[
-                        const SizedBox(height: 20),
-                        SectionHeader(title: 'Chuyển khoản ngân hàng'),
-                        if (_bank!.qrUrl != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: CachedNetworkImage(
-                              imageUrl: _bank!.qrUrl!,
-                              height: 220,
-                              fit: BoxFit.contain,
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.page,
+                        AppSpacing.sm,
+                        AppSpacing.page,
+                        120,
+                      ),
+                      children: [
+                        _SummaryCard(
+                          kind: widget.kind,
+                          plan: _plan,
+                          pack: _pack,
+                          order: _order,
+                          amountVnd: _amountVnd,
+                          fmt: fmt,
+                        ),
+                        if (_amountVnd == 0) ...[
+                          const SizedBox(height: AppSpacing.xl),
+                          GradientCtaButton(
+                            label: 'Hoàn tất',
+                            onPressed: () => context.go('/'),
+                          ),
+                        ] else if (_bank != null) ...[
+                          const SizedBox(height: AppSpacing.xxl),
+                          const SectionHeader(
+                            title: 'Chuyển khoản',
+                            subtitle: 'Quét QR hoặc copy thông tin bên dưới',
+                            compact: true,
+                          ),
+                          if (_bank!.qrUrl != null)
+                            AppCard(
+                              padding: const EdgeInsets.all(AppSpacing.md),
+                              child: ClipRRect(
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.md),
+                                child: CachedNetworkImage(
+                                  imageUrl: _bank!.qrUrl!,
+                                  height: 220,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: AppSpacing.md),
+                          _BankRow(
+                            label: 'Ngân hàng',
+                            value: _bank!.bankName,
+                            onCopy: () => _copy(_bank!.bankName, 'tên ngân hàng'),
+                          ),
+                          _BankRow(
+                            label: 'Số tài khoản',
+                            value: _bank!.accountNumber,
+                            onCopy: () =>
+                                _copy(_bank!.accountNumber, 'số tài khoản'),
+                          ),
+                          _BankRow(
+                            label: 'Chủ tài khoản',
+                            value: _bank!.accountHolder,
+                            onCopy: () =>
+                                _copy(_bank!.accountHolder, 'chủ tài khoản'),
+                          ),
+                          _BankRow(
+                            label: 'Số tiền',
+                            value: '${fmt.format(_amountVnd)}đ',
+                            highlight: true,
+                            onCopy: () => _copy('$_amountVnd', 'số tiền'),
+                          ),
+                          _BankRow(
+                            label: 'Nội dung CK',
+                            value: _order!.orderCode,
+                            highlight: true,
+                            onCopy: () => _copy(_order!.orderCode, 'nội dung'),
+                          ),
+                        ],
+                      ],
+                    ),
+      bottomNavigationBar: _loading ||
+              _error != null ||
+              _order?.isCompleted == true ||
+              _amountVnd == 0 ||
+              _bank == null
+          ? null
+          : Material(
+              color: AppColors.background.withValues(alpha: 0.97),
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      AppSpacing.md,
+                      AppSpacing.page,
+                      AppSpacing.md,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_submitted)
+                          Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.sm),
+                            child: Text(
+                              'Đang kiểm tra trạng thái mỗi 5 giây...',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: AppColors.mutedForeground),
                             ),
                           ),
-                        const SizedBox(height: 12),
-                        _BankRow(
-                          label: 'Ngân hàng',
-                          value: _bank!.bankName,
-                          onCopy: () => _copy(_bank!.bankName, 'tên ngân hàng'),
-                        ),
-                        _BankRow(
-                          label: 'Số tài khoản',
-                          value: _bank!.accountNumber,
-                          onCopy: () =>
-                              _copy(_bank!.accountNumber, 'số tài khoản'),
-                        ),
-                        _BankRow(
-                          label: 'Chủ tài khoản',
-                          value: _bank!.accountHolder,
-                          onCopy: () =>
-                              _copy(_bank!.accountHolder, 'chủ tài khoản'),
-                        ),
-                        _BankRow(
-                          label: 'Số tiền',
-                          value: '${fmt.format(_amountVnd)}đ',
-                          onCopy: () =>
-                              _copy('$_amountVnd', 'số tiền'),
-                        ),
-                        _BankRow(
-                          label: 'Nội dung CK',
-                          value: _order!.orderCode,
-                          onCopy: () => _copy(_order!.orderCode, 'nội dung'),
-                        ),
-                        const SizedBox(height: 20),
                         GradientCtaButton(
                           label: _submitted
                               ? 'Đang chờ xác nhận...'
                               : 'Tôi đã chuyển khoản',
+                          icon: Icons.check_circle_outline_rounded,
                           onPressed: _submitted ? null : _confirmTransfer,
                         ),
-                        if (_submitted)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Text(
-                              'Hệ thống sẽ tự kiểm tra trạng thái đơn mỗi 5 giây.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(color: AppColors.mutedForeground),
-                            ),
-                          ),
                       ],
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
+              ),
+            ),
     );
   }
 }
@@ -305,6 +349,7 @@ class _SummaryCard extends StatelessWidget {
     this.plan,
     this.pack,
     this.order,
+    required this.amountVnd,
     required this.fmt,
   });
 
@@ -312,6 +357,7 @@ class _SummaryCard extends StatelessWidget {
   final SubscriptionPlan? plan;
   final CreditPack? pack;
   final Order? order;
+  final int amountVnd;
   final NumberFormat fmt;
 
   @override
@@ -322,32 +368,84 @@ class _SummaryCard extends StatelessWidget {
       CheckoutKind.assets => 'Asset trong giỏ',
     };
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(name, style: Theme.of(context).textTheme.titleMedium),
-          if (order != null) ...[
-            const SizedBox(height: 6),
+          Text(
+            'Tóm tắt đơn',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            name,
+            style: Theme.of(context).primaryTextTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          if (kind == CheckoutKind.credits && pack != null) ...[
+            const SizedBox(height: 4),
             Text(
-              'Mã đơn: ${order!.orderCode}',
+              '${fmt.format(pack!.credits)} xu',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondary,
+                  ),
+            ),
+          ],
+          if (order != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            const Divider(color: AppColors.border),
+            const SizedBox(height: AppSpacing.sm),
+            _SummaryLine(label: 'Mã đơn', value: order!.orderCode),
+            _SummaryLine(label: 'Trạng thái', value: order!.status),
+            _SummaryLine(
+              label: 'Tổng tiền',
+              value: amountVnd == 0
+                  ? 'Miễn phí'
+                  : '${fmt.format(amountVnd)}đ',
+              highlight: true,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryLine extends StatelessWidget {
+  const _SummaryLine({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final String label;
+  final String value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.mutedForeground,
                   ),
             ),
-            Text(
-              'Trạng thái: ${order!.status}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-          if (kind == CheckoutKind.credits && pack != null)
-            Text('${fmt.format(pack!.credits)} xu'),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+                  color: highlight ? AppColors.primary : AppColors.foreground,
+                ),
+          ),
         ],
       ),
     );
@@ -359,35 +457,69 @@ class _BankRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onCopy,
+    this.highlight = false,
   });
 
   final String label;
   final String value;
   final VoidCallback onCopy;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onCopy,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: highlight
+                  ? AppColors.primary.withValues(alpha: 0.08)
+                  : AppColors.card.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: highlight
+                    ? AppColors.primary.withValues(alpha: 0.35)
+                    : AppColors.border,
+              ),
+            ),
+            child: Row(
               children: [
-                Text(label,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.mutedForeground,
-                        )),
-                Text(value, style: Theme.of(context).textTheme.bodyMedium),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.mutedForeground,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight:
+                                  highlight ? FontWeight.w700 : FontWeight.w500,
+                              color: highlight ? AppColors.primary : null,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.copy_rounded,
+                    size: 18, color: AppColors.mutedForeground),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.copy, size: 18),
-            onPressed: onCopy,
-          ),
-        ],
+        ),
       ),
     );
   }

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/app_assets.dart';
-import '../../config/app_config.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/branded_background.dart';
 import '../../widgets/common_widgets.dart';
@@ -22,6 +22,7 @@ class MainShell extends ConsumerWidget {
     final tabs = auth.isLoggedIn ? _authTabs : _guestTabs;
     final currentIndex = _indexForLocation(location, auth.isLoggedIn);
     final cartCount = cart.maybeWhen(data: (c) => c.itemCount, orElse: () => 0);
+    final activeTab = tabs[currentIndex.clamp(0, tabs.length - 1)];
 
     return Scaffold(
       appBar: AppBar(
@@ -31,7 +32,7 @@ class MainShell extends ConsumerWidget {
         title: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
               child: Image.asset(
                 AppAssets.logoIcon,
                 width: 28,
@@ -39,14 +40,32 @@ class MainShell extends ConsumerWidget {
                 fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(width: 10),
-            Text(AppConfig.appName),
+            const SizedBox(width: AppSpacing.md),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  activeTab.label,
+                  style: Theme.of(context).primaryTextTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.foreground,
+                      ),
+                ),
+                if (activeTab.route == '/')
+                  Text(
+                    'AssetBox',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.mutedForeground,
+                        ),
+                  ),
+              ],
+            ),
           ],
         ),
         actions: [
           if (auth.isLoggedIn) ...[
             IconButton(
-              icon: const Icon(Icons.bookmark_border),
+              icon: const Icon(Icons.bookmark_border_rounded),
               tooltip: 'Đã lưu',
               onPressed: () => context.push('/bookmarks'),
             ),
@@ -62,7 +81,7 @@ class MainShell extends ConsumerWidget {
           ],
           if (auth.isLoggedIn && auth.user != null)
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.only(right: AppSpacing.md),
               child: Center(
                 child: XuBadge(
                   balance: auth.user!.credits,
@@ -75,12 +94,8 @@ class MainShell extends ConsumerWidget {
       ),
       body: SiteBackground(child: child),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: AppColors.card.withValues(alpha: 0.96),
-        indicatorColor: AppColors.primary.withValues(alpha: 0.18),
-        surfaceTintColor: Colors.transparent,
-        elevation: 8,
-        height: 64,
         selectedIndex: currentIndex.clamp(0, tabs.length - 1),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (i) {
           final route = tabs[i].route;
           if (!auth.isLoggedIn && route == '/profile') {
@@ -93,7 +108,7 @@ class MainShell extends ConsumerWidget {
             .map(
               (t) => NavigationDestination(
                 icon: Icon(t.icon),
-                selectedIcon: Icon(t.selectedIcon, color: AppColors.primary),
+                selectedIcon: Icon(t.selectedIcon),
                 label: t.label,
               ),
             )
@@ -131,28 +146,28 @@ const _authTabs = [
     selectedIcon: Icons.home_rounded,
   ),
   _TabItem(
+    route: '/marketplace',
+    label: 'Chợ',
+    icon: Icons.storefront_outlined,
+    selectedIcon: Icons.storefront_rounded,
+  ),
+  _TabItem(
     route: '/ai',
     label: 'AI',
     icon: Icons.auto_awesome_outlined,
     selectedIcon: Icons.auto_awesome,
   ),
   _TabItem(
-    route: '/marketplace',
-    label: 'Chợ',
-    icon: Icons.storefront_outlined,
-    selectedIcon: Icons.storefront,
-  ),
-  _TabItem(
     route: '/library',
     label: 'Thư viện',
     icon: Icons.folder_outlined,
-    selectedIcon: Icons.folder,
+    selectedIcon: Icons.folder_rounded,
   ),
   _TabItem(
     route: '/profile',
     label: 'Tôi',
-    icon: Icons.person_outline,
-    selectedIcon: Icons.person,
+    icon: Icons.person_outline_rounded,
+    selectedIcon: Icons.person_rounded,
   ),
 ];
 
@@ -167,13 +182,7 @@ const _guestTabs = [
     route: '/marketplace',
     label: 'Chợ',
     icon: Icons.storefront_outlined,
-    selectedIcon: Icons.storefront,
-  ),
-  _TabItem(
-    route: '/pricing',
-    label: 'Gói',
-    icon: Icons.workspace_premium_outlined,
-    selectedIcon: Icons.workspace_premium,
+    selectedIcon: Icons.storefront_rounded,
   ),
   _TabItem(
     route: '/ai',
@@ -182,9 +191,15 @@ const _guestTabs = [
     selectedIcon: Icons.auto_awesome,
   ),
   _TabItem(
+    route: '/pricing',
+    label: 'Gói',
+    icon: Icons.workspace_premium_outlined,
+    selectedIcon: Icons.workspace_premium_rounded,
+  ),
+  _TabItem(
     route: '/profile',
     label: 'Đăng nhập',
-    icon: Icons.login,
-    selectedIcon: Icons.login,
+    icon: Icons.login_rounded,
+    selectedIcon: Icons.login_rounded,
   ),
 ];

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../config/app_config.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/billing_models.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/common_widgets.dart';
@@ -19,25 +19,18 @@ class ProfileScreen extends ConsumerWidget {
 
     if (!auth.isLoggedIn) {
       return SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.card.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: EmptyState(
-                icon: Icons.person_outline,
-                title: 'Hồ sơ của bạn',
-                subtitle: 'Đăng nhập để xem ví xu, gói dịch vụ và lịch sử.',
-                action: GradientCtaButton(
-                  label: 'Đăng nhập',
-                  icon: Icons.login,
-                  onPressed: () => context.push('/auth'),
-                ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: AppCard(
+            child: EmptyState(
+              icon: Icons.person_outline_rounded,
+              title: 'Hồ sơ của bạn',
+              subtitle:
+                  'Đăng nhập để xem ví xu, gói dịch vụ và lịch sử giao dịch.',
+              action: GradientCtaButton(
+                label: 'Đăng nhập',
+                icon: Icons.login_rounded,
+                onPressed: () => context.push('/auth'),
               ),
             ),
           ),
@@ -55,20 +48,10 @@ class ProfileScreen extends ConsumerWidget {
           ref.invalidate(_walletTxProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.page),
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withValues(alpha: 0.1),
-                    AppColors.secondary.withValues(alpha: 0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.border),
-              ),
+            AppCard(
+              padding: const EdgeInsets.all(AppSpacing.xl),
               child: Row(
                 children: [
                   CircleAvatar(
@@ -132,8 +115,8 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            SectionHeader(title: 'Ví xu'),
+            const SizedBox(height: AppSpacing.xl),
+            const SectionHeader(title: 'Ví xu', compact: true),
             Row(
               children: [
                 Expanded(
@@ -157,76 +140,51 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            SectionHeader(title: 'Giao dịch gần đây'),
+            const SizedBox(height: AppSpacing.xxl),
+            const SectionHeader(title: 'Giao dịch gần đây', compact: true),
             transactions.when(
               data: (txs) {
                 if (txs.isEmpty) {
-                  return Text(
-                    'Chưa có giao dịch.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.mutedForeground,
-                        ),
+                  return const EmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Chưa có giao dịch',
+                    subtitle: 'Lịch sử nạp xu và mua asset sẽ hiện ở đây.',
                   );
                 }
                 return Column(
-                  children: txs
-                      .take(10)
-                      .map(
-                        (tx) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            backgroundColor: tx.amount >= 0
-                                ? AppColors.success.withValues(alpha: 0.15)
-                                : AppColors.destructive.withValues(alpha: 0.15),
-                            child: Icon(
-                              tx.amount >= 0
-                                  ? Icons.add
-                                  : Icons.remove,
-                              color: tx.amount >= 0
-                                  ? AppColors.success
-                                  : AppColors.destructive,
-                              size: 18,
-                            ),
-                          ),
-                          title: Text(
-                            tx.description ?? tx.type,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            _formatDate(tx.createdAt),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppColors.mutedForeground),
-                          ),
-                          trailing: Text(
-                            '${tx.amount >= 0 ? '+' : ''}${tx.amount}',
-                            style: TextStyle(
-                              color: tx.amount >= 0
-                                  ? AppColors.success
-                                  : AppColors.destructive,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                  children: txs.take(10).map((tx) {
+                    return AppMenuTile(
+                      icon:
+                          tx.amount >= 0 ? Icons.add_rounded : Icons.remove_rounded,
+                      title: tx.description ?? tx.type,
+                      subtitle: _formatDate(tx.createdAt),
+                      trailing: Text(
+                        '${tx.amount >= 0 ? '+' : ''}${tx.amount}',
+                        style: TextStyle(
+                          color: tx.amount >= 0
+                              ? AppColors.success
+                              : AppColors.destructive,
+                          fontWeight: FontWeight.w700,
                         ),
-                      )
-                      .toList(),
+                      ),
+                      onTap: null,
+                    );
+                  }).toList(),
                 );
               },
-              loading: () => const LinearProgressIndicator(
-                color: AppColors.primary,
+              loading: () => const LoadingView(message: 'Đang tải giao dịch...'),
+              error: (e, _) => ErrorState(
+                error: e,
+                title: 'Không tải được giao dịch',
+                onRetry: () => ref.invalidate(_walletTxProvider),
               ),
-              error: (e, _) => Text(e.toString()),
             ),
-            const SizedBox(height: 24),
-            SectionHeader(title: 'Đơn hàng & gói'),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('Lịch sử đơn hàng'),
-              trailing: const Icon(Icons.chevron_right),
+            const SizedBox(height: AppSpacing.xxl),
+            const SectionHeader(title: 'Đơn hàng & gói', compact: true),
+            AppMenuTile(
+              icon: Icons.receipt_long_outlined,
+              title: 'Lịch sử đơn hàng',
+              subtitle: 'Xem đơn đã thanh toán',
               onTap: () => context.push('/orders'),
             ),
             ref.watch(_subscriptionHistoryProvider).when(
@@ -256,33 +214,30 @@ class ProfileScreen extends ConsumerWidget {
                   loading: () => const SizedBox.shrink(),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
-            const SizedBox(height: 16),
-            SectionHeader(title: 'Hỗ trợ & pháp lý'),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.mail_outline),
-              title: const Text('Liên hệ'),
+            const SizedBox(height: AppSpacing.lg),
+            const SectionHeader(title: 'Hỗ trợ & pháp lý', compact: true),
+            AppMenuTile(
+              icon: Icons.mail_outline_rounded,
+              title: 'Liên hệ',
               onTap: () => context.push('/contact'),
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.description_outlined),
-              title: const Text('Điều khoản'),
+            AppMenuTile(
+              icon: Icons.description_outlined,
+              title: 'Điều khoản sử dụng',
               onTap: () => context.push('/terms'),
             ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.privacy_tip_outlined),
-              title: const Text('Bảo mật'),
+            AppMenuTile(
+              icon: Icons.privacy_tip_outlined,
+              title: 'Chính sách bảo mật',
               onTap: () => context.push('/privacy'),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             GradientCtaButton(
               label: 'Xem gói dịch vụ',
               icon: Icons.workspace_premium_outlined,
               onPressed: () => context.go('/pricing'),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             OutlinedButton.icon(
               onPressed: () async {
                 await ref.read(authProvider.notifier).logout();
@@ -298,14 +253,7 @@ class ProfileScreen extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'API: ${AppConfig.apiBaseUrl}',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.muted,
-                  ),
-            ),
+            const SizedBox(height: AppSpacing.xxl),
           ],
         ),
       ),

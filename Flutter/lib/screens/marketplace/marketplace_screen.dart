@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
+import '../../core/utils/error_messages.dart';
 import '../../models/asset_models.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
@@ -23,12 +25,13 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   String? _priceType;
   String? _tag;
   String _sort = 'downloadCount';
-  String _order = 'desc';
   int _page = 1;
   final _assets = <AssetListItem>[];
   bool _loading = false;
   bool _hasMore = true;
   String? _error;
+  int _total = 0;
+  bool _filtersExpanded = false;
 
   @override
   void initState() {
@@ -49,6 +52,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
       _hasMore = true;
       _assets.clear();
       _error = null;
+      _total = 0;
     }
     if (!_hasMore) return;
 
@@ -61,23 +65,27 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
         priceType: _priceType,
         tag: _tag,
         sort: _sort,
-        order: _order,
+        order: 'desc',
         page: _page,
         pageSize: 20,
       );
       setState(() {
         _assets.addAll(res.data);
+        _total = res.total;
         _hasMore = _assets.length < res.total;
         _page++;
         _loading = false;
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _loading = false;
       });
     }
   }
+
+  bool get _hasActiveFilters =>
+      _priceType != null || _categoryId != null || _tag != null;
 
   @override
   Widget build(BuildContext context) {
@@ -86,95 +94,143 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
 
     return SafeArea(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'Tìm asset...',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _search.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _search = '');
-                                _load(reset: true);
-                              },
-                            )
-                          : null,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.sm,
+              AppSpacing.page,
+              0,
+            ),
+            child: TextField(
+              controller: _searchCtrl,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Tìm asset theo tên, thể loại...',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_search.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _search = '');
+                          _load(reset: true);
+                        },
+                      ),
+                    IconButton(
+                      icon: Badge(
+                        isLabelVisible: _hasActiveFilters,
+                        smallSize: 8,
+                        child: Icon(
+                          _filtersExpanded
+                              ? Icons.filter_list_off_rounded
+                              : Icons.tune_rounded,
+                          color: _hasActiveFilters
+                              ? AppColors.primary
+                              : AppColors.mutedForeground,
+                        ),
+                      ),
+                      tooltip: 'Bộ lọc',
+                      onPressed: () =>
+                          setState(() => _filtersExpanded = !_filtersExpanded),
                     ),
-                    onSubmitted: (v) {
-                      setState(() => _search = v.trim());
+                  ],
+                ),
+              ),
+              onSubmitted: (v) {
+                setState(() => _search = v.trim());
+                _load(reset: true);
+              },
+            ),
+          ),
+          if (_filtersExpanded) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+              child: Row(
+                children: [
+                  Text(
+                    'Giá',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.mutedForeground,
+                        ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _FilterChip(
+                            label: 'Tất cả',
+                            selected: _priceType == null,
+                            onTap: () {
+                              setState(() => _priceType = null);
+                              _load(reset: true);
+                            },
+                          ),
+                          _FilterChip(
+                            label: 'Miễn phí',
+                            selected: _priceType == 'free',
+                            onTap: () {
+                              setState(() => _priceType = 'free');
+                              _load(reset: true);
+                            },
+                          ),
+                          _FilterChip(
+                            label: 'Trả phí',
+                            selected: _priceType == 'paid',
+                            onTap: () {
+                              setState(() => _priceType = 'paid');
+                              _load(reset: true);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+              child: Row(
+                children: [
+                  Text(
+                    'Sắp xếp',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.mutedForeground,
+                        ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  _FilterChip(
+                    label: 'Phổ biến',
+                    selected: _sort == 'downloadCount',
+                    onTap: () {
+                      setState(() => _sort = 'downloadCount');
                       _load(reset: true);
                     },
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.bookmark_border),
-                  onPressed: () => context.push('/bookmarks'),
-                ),
-              ],
+                  _FilterChip(
+                    label: 'Mới nhất',
+                    selected: _sort == 'createdAt',
+                    onTap: () {
+                      setState(() => _sort = 'createdAt');
+                      _load(reset: true);
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          SizedBox(
-            height: 40,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _FilterChip(
-                  label: 'Tất cả giá',
-                  selected: _priceType == null,
-                  onTap: () {
-                    setState(() => _priceType = null);
-                    _load(reset: true);
-                  },
-                ),
-                _FilterChip(
-                  label: 'Miễn phí',
-                  selected: _priceType == 'free',
-                  onTap: () {
-                    setState(() => _priceType = 'free');
-                    _load(reset: true);
-                  },
-                ),
-                _FilterChip(
-                  label: 'Trả phí',
-                  selected: _priceType == 'paid',
-                  onTap: () {
-                    setState(() => _priceType = 'paid');
-                    _load(reset: true);
-                  },
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(Icons.sort, color: AppColors.primary),
-                  onSelected: (v) {
-                    setState(() {
-                      _sort = v == 'newest' ? 'createdAt' : 'downloadCount';
-                      _order = 'desc';
-                    });
-                    _load(reset: true);
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'popular', child: Text('Phổ biến')),
-                    PopupMenuItem(value: 'newest', child: Text('Mới nhất')),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          categories.when(
-            data: (cats) => SizedBox(
-              height: 40,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+            const SizedBox(height: AppSpacing.sm),
+            categories.when(
+              data: (cats) => _FilterRow(
+                label: 'Danh mục',
                 children: [
                   _FilterChip(
                     label: 'Tất cả',
@@ -196,34 +252,83 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                   ),
                 ],
               ),
+              loading: () => const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                child: LinearProgressIndicator(color: AppColors.primary),
+              ),
+              error: (e, _) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                child: Text(
+                  friendlyErrorMessage(e),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.destructive,
+                      ),
+                ),
+              ),
             ),
-            loading: () => const SizedBox(height: 40),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          tags.when(
-            data: (tagList) {
-              if (tagList.isEmpty) return const SizedBox.shrink();
-              return SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: tagList.take(12).map((t) => _FilterChip(
+            tags.when(
+              data: (tagList) {
+                if (tagList.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.sm),
+                  child: _FilterRow(
+                    label: 'Tags',
+                    children: tagList.take(16).map((t) {
+                      return _FilterChip(
                         label: t.name,
                         selected: _tag == t.slug,
                         onTap: () {
-                          setState(() =>
-                              _tag = _tag == t.slug ? null : t.slug);
+                          setState(() => _tag = _tag == t.slug ? null : t.slug);
                           _load(reset: true);
                         },
-                      )).toList(),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            if (_hasActiveFilters)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  AppSpacing.sm,
+                  AppSpacing.page,
+                  0,
                 ),
-              );
-            },
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 4),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _priceType = null;
+                        _categoryId = null;
+                        _tag = null;
+                      });
+                      _load(reset: true);
+                    },
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+                    label: const Text('Xóa bộ lọc'),
+                  ),
+                ),
+              ),
+          ],
+          if (_assets.isNotEmpty || _total > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.page,
+                AppSpacing.md,
+                AppSpacing.page,
+                AppSpacing.xs,
+              ),
+              child: Text(
+                '${_assets.length} / $_total asset',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.mutedForeground,
+                    ),
+              ),
+            ),
           Expanded(
             child: _error != null && _assets.isEmpty
                 ? EmptyState(
@@ -240,38 +345,53 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                     color: AppColors.primary,
                     onRefresh: () => _load(reset: true),
                     child: _assets.isEmpty && _loading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primary,
-                            ),
-                          )
-                        : GridView.builder(
-                            padding: const EdgeInsets.all(16),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.72,
-                            ),
-                            itemCount: _assets.length + (_hasMore ? 1 : 0),
-                            itemBuilder: (context, i) {
-                              if (i >= _assets.length) {
-                                _load();
-                                return const Center(
-                                  child: CircularProgressIndicator(
-                                    color: AppColors.primary,
+                        ? const AssetGridSkeleton()
+                        : _assets.isEmpty
+                            ? ListView(
+                                children: const [
+                                  SizedBox(height: 48),
+                                  EmptyState(
+                                    icon: Icons.search_off_rounded,
+                                    title: 'Không tìm thấy asset',
+                                    subtitle:
+                                        'Thử đổi từ khóa hoặc bộ lọc khác.',
                                   ),
-                                );
-                              }
-                              final asset = _assets[i];
-                              return AssetCard(
-                                asset: asset,
-                                onTap: () =>
-                                    context.push('/marketplace/${asset.id}'),
-                              );
-                            },
-                          ),
+                                ],
+                              )
+                            : GridView.builder(
+                                padding: const EdgeInsets.all(AppSpacing.page),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: AppSpacing.md,
+                                  crossAxisSpacing: AppSpacing.md,
+                                  childAspectRatio: 0.72,
+                                ),
+                                itemCount: _assets.length + (_hasMore ? 1 : 0),
+                                itemBuilder: (context, i) {
+                                  if (i >= _assets.length) {
+                                    _load();
+                                    return const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(
+                                          AppSpacing.lg,
+                                        ),
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.primary,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  final asset = _assets[i];
+                                  return AssetCard(
+                                    asset: asset,
+                                    onTap: () => context.push(
+                                      '/marketplace/${asset.id}',
+                                    ),
+                                  );
+                                },
+                              ),
                   ),
           ),
         ],
@@ -290,6 +410,43 @@ final _tagsProvider = FutureProvider<List<TagItem>>((ref) async {
   return service.fetchTags();
 });
 
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.label, required this.children});
+
+  final String label;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: SizedBox(
+              width: 64,
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.mutedForeground,
+                    ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: children),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
@@ -304,20 +461,22 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.only(right: AppSpacing.sm, bottom: AppSpacing.sm),
       child: FilterChip(
         label: Text(label),
         selected: selected,
+        showCheckmark: false,
         onSelected: (_) => onTap(),
         selectedColor: AppColors.primary.withValues(alpha: 0.2),
-        checkmarkColor: AppColors.primary,
         labelStyle: TextStyle(
           color: selected ? AppColors.primary : AppColors.mutedForeground,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          fontSize: 13,
         ),
         side: BorderSide(
           color: selected ? AppColors.primary : AppColors.border,
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
       ),
     );
   }

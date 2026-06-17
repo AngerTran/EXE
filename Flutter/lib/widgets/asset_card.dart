@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_tokens.dart';
 import '../models/asset_models.dart';
 
 class AssetCard extends StatelessWidget {
@@ -17,15 +18,18 @@ class AssetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fmt = NumberFormat.decimalPattern('vi');
+    final body = Theme.of(context).textTheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Ink(
           decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.card.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(color: AppColors.border),
           ),
           child: Column(
@@ -37,7 +41,31 @@ class AssetCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(15),
                   ),
-                  child: _Thumbnail(url: asset.thumbnailUrl),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _Thumbnail(url: asset.thumbnailUrl),
+                      if (asset.isFree)
+                        Positioned(
+                          top: AppSpacing.sm,
+                          left: AppSpacing.sm,
+                          child: _Badge(
+                            label: 'Miễn phí',
+                            color: AppColors.success,
+                          ),
+                        ),
+                      Positioned(
+                        top: AppSpacing.sm,
+                        right: AppSpacing.sm,
+                        child: _Badge(
+                          label: fmt.format(asset.downloadCount),
+                          color: AppColors.card,
+                          icon: Icons.download_rounded,
+                          foreground: AppColors.foreground,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -49,30 +77,49 @@ class AssetCard extends StatelessWidget {
                       asset.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                      style: body.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.foreground,
+                      ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       asset.categoryName,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.mutedForeground,
-                          ),
+                      style: body.bodySmall?.copyWith(
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                    if (asset.shortDescription != null &&
+                        asset.shortDescription!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        asset.shortDescription!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: body.bodySmall?.copyWith(
+                          color: AppColors.foreground.withValues(alpha: 0.85),
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    _InfoRow(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Tác giả',
+                      value: asset.uploaderName.isNotEmpty
+                          ? asset.uploaderName
+                          : 'AssetBox',
+                    ),
+                    const SizedBox(height: 4),
+                    _InfoRow(
+                      icon: Icons.star_rounded,
+                      label: 'Đánh giá',
+                      value: asset.ratingAvg.toStringAsFixed(1),
+                      iconColor: AppColors.warning,
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(
-                          Icons.star_rounded,
-                          size: 14,
-                          color: AppColors.warning,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          asset.ratingAvg.toStringAsFixed(1),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
                         const Spacer(),
                         _PriceChip(asset: asset),
                       ],
@@ -84,6 +131,91 @@ class AssetCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({
+    required this.label,
+    required this.color,
+    this.icon,
+    this.foreground = Colors.white,
+  });
+
+  final String label;
+  final Color color;
+  final IconData? icon;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: icon == null ? 0.95 : 0.88),
+        borderRadius: BorderRadius.circular(999),
+        border: icon != null ? Border.all(color: AppColors.border) : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: foreground),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.iconColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? iconColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: iconColor ?? AppColors.mutedForeground),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.mutedForeground,
+              ),
+        ),
+        const Spacer(),
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -192,7 +324,10 @@ class ChatBubble extends StatelessWidget {
           ),
           child: Text(
             content,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  height: 1.45,
+                  color: AppColors.foreground,
+                ),
           ),
         ),
         if (suggestedAssets != null && suggestedAssets!.isNotEmpty)
@@ -233,7 +368,9 @@ class ChatBubble extends StatelessWidget {
                             a.title,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.foreground,
+                                ),
                           ),
                         ),
                         const Icon(

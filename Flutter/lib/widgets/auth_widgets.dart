@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_tokens.dart';
+import 'google_icon.dart';
 
 /// Solid card behind auth fields — readable on hero background.
 class AuthFormCard extends StatelessWidget {
@@ -12,16 +14,16 @@ class AuthFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.card.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -47,7 +49,12 @@ class AuthStickyBar extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.md,
+              AppSpacing.page,
+              AppSpacing.md,
+            ),
             child: child,
           ),
         ),
@@ -71,13 +78,15 @@ class GoogleSignInButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: loading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14),
-          backgroundColor: AppColors.background.withValues(alpha: 0.6),
+          backgroundColor: AppColors.background.withValues(alpha: 0.5),
           side: const BorderSide(color: AppColors.border),
           foregroundColor: AppColors.foreground,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -89,8 +98,8 @@ class GoogleSignInButton extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             else
-              const Icon(Icons.g_mobiledata, size: 28, color: Color(0xFF4285F4)),
-            const SizedBox(width: 10),
+              const GoogleIcon(size: 20),
+            const SizedBox(width: AppSpacing.md),
             const Text(
               'Tiếp tục với Google',
               style: TextStyle(fontWeight: FontWeight.w600),
@@ -111,9 +120,9 @@ class AuthDivider extends StatelessWidget {
       children: [
         const Expanded(child: Divider(color: AppColors.border)),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Text(
-            'hoặc',
+            'hoặc email',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.mutedForeground,
                 ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../config/app_assets.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../providers/service_providers.dart';
 import '../../services/api_client.dart';
 import '../../widgets/auth_widgets.dart';
@@ -128,13 +129,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       if (err != null) {
         _showError(
-          '$err\n\nNếu trình duyệt mở localhost: thêm vn.assetbox.app://auth/callback vào Supabase Redirect URLs.',
+          '$err\n\nThêm các URL sau vào Supabase → Authentication → Redirect URLs:\n'
+          '• http://127.0.0.1:42871/auth/callback (Windows)\n'
+          '• vn.assetbox.app://auth/callback\n'
+          '• http://10.0.2.2:5180/api/v1/auth/oauth-callback',
         );
+      } else if (ref.read(authProvider).isLoggedIn) {
+        context.go('/');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Đang chuyển sang Chrome — chọn tài khoản Google như trên web',
+              'Hoàn tất đăng nhập Google trong trình duyệt — app sẽ tự quay lại',
             ),
             duration: Duration(seconds: 4),
           ),
@@ -222,8 +228,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               i == 0 ? AuthView.login : AuthView.register,
                         ),
                         indicatorColor: AppColors.primary,
+                        indicatorWeight: 3,
+                        dividerColor: Colors.transparent,
                         labelColor: AppColors.primary,
                         unselectedLabelColor: AppColors.mutedForeground,
+                        labelStyle: const TextStyle(fontWeight: FontWeight.w700),
                         tabs: const [
                           Tab(text: 'Đăng nhập'),
                           Tab(text: 'Đăng ký'),
@@ -262,7 +271,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _buildLogin(bool loading) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        AppSpacing.md,
+        AppSpacing.page,
+        AppSpacing.lg,
+      ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         PageHeading(
@@ -318,7 +332,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     onChanged: loading
                         ? null
                         : (v) => setState(() => _rememberMe = v ?? true),
-                    activeColor: AppColors.primary,
+                    fillColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return AppColors.primary;
+                      }
+                      return null;
+                    }),
                   ),
                   const Expanded(child: Text('Ghi nhớ đăng nhập')),
                   TextButton(
@@ -341,7 +360,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Widget _buildRegister(bool loading) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        AppSpacing.md,
+        AppSpacing.page,
+        AppSpacing.lg,
+      ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
         PageHeading(
@@ -407,36 +431,25 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Widget _buildForgot(bool loading) {
     if (_forgotSent) {
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xxl),
         child: AuthFormCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.mark_email_read_outlined,
-                  size: 56, color: AppColors.success),
-              const SizedBox(height: 16),
-              Text(
-                'Đã gửi email',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
+          child: EmptyState(
+            icon: Icons.mark_email_read_outlined,
+            title: 'Đã gửi email',
+            subtitle:
                 'Kiểm tra hộp thư ${_forgotEmail.text.trim()} và làm theo hướng dẫn đặt lại mật khẩu.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.mutedForeground,
-                    ),
-              ),
-            ],
           ),
         ),
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        AppSpacing.md,
+        AppSpacing.page,
+        AppSpacing.lg,
+      ),
       children: [
         PageHeading(
           title: 'Khôi phục mật khẩu',

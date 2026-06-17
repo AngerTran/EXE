@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_tokens.dart';
+import '../core/utils/error_messages.dart';
 
 class XuBadge extends StatelessWidget {
   const XuBadge({
@@ -155,63 +157,53 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final display = Theme.of(context).primaryTextTheme;
     return Padding(
-      padding: EdgeInsets.only(bottom: compact ? 8 : 12),
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 12 : 14,
-          vertical: compact ? 8 : 10,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.card.withValues(alpha: 0.82),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 4,
-              height: compact ? 22 : 28,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [AppColors.primary, AppColors.secondary],
-                ),
-                borderRadius: BorderRadius.circular(2),
+      padding: EdgeInsets.only(bottom: compact ? AppSpacing.sm : AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Container(
+            width: 3,
+            height: compact ? 20 : 24,
+            margin: const EdgeInsets.only(bottom: 2),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [AppColors.primary, AppColors.secondary],
               ),
+              borderRadius: BorderRadius.circular(2),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: (compact ? display.titleSmall : display.titleMedium)
+                      ?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.foreground,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                          letterSpacing: 0.2,
+                    subtitle!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.mutedForeground,
+                          height: 1.35,
                         ),
                   ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.mutedForeground,
-                            height: 1.35,
-                          ),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
-            if (trailing != null) trailing!,
-          ],
-        ),
+          ),
+          if (trailing != null) trailing!,
+        ],
       ),
     );
   }
@@ -329,33 +321,304 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(AppSpacing.xxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: AppColors.muted),
-            const SizedBox(height: 16),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.12),
+                    AppColors.secondary.withValues(alpha: 0.08),
+                  ],
+                ),
+                border: Border.all(
+                  color: AppColors.border,
+                ),
+              ),
+              child: Icon(icon, size: 32, color: AppColors.mutedForeground),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).primaryTextTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.foreground,
+                  ),
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 subtitle!,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.mutedForeground,
+                      height: 1.45,
                     ),
               ),
             ],
             if (action != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               action!,
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Spinner thống nhất — dùng thay CircularProgressIndicator rải rác.
+class LoadingView extends StatelessWidget {
+  const LoadingView({super.key, this.message});
+
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+          if (message != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              message!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.mutedForeground,
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class ErrorState extends StatelessWidget {
+  const ErrorState({
+    super.key,
+    required this.error,
+    this.onRetry,
+    this.title = 'Không tải được dữ liệu',
+  });
+
+  final Object error;
+  final VoidCallback? onRetry;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: Icons.cloud_off_outlined,
+      title: title,
+      subtitle: friendlyErrorMessage(error),
+      action: onRetry == null
+          ? null
+          : GradientCtaButton(
+              label: 'Thử lại',
+              expand: false,
+              onPressed: onRetry,
+            ),
+    );
+  }
+}
+
+/// Card nền thống nhất — giảm alpha chồng lớp trên background.
+class AppCard extends StatelessWidget {
+  const AppCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.margin,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final VoidCallback? onTap;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Container(
+      margin: margin,
+      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: child,
+    );
+
+    if (onTap == null) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: content,
+      ),
+    );
+  }
+}
+
+/// Hàng menu trong profile / settings.
+class AppMenuTile extends StatelessWidget {
+  const AppMenuTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = destructive ? AppColors.destructive : AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.card.withValues(alpha: 0.75),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Icon(icon, color: accent, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: ItemTitle(title: title, subtitle: subtitle),
+                ),
+                trailing ??
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.mutedForeground,
+                      size: 22,
+                    ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Skeleton grid cho marketplace / danh sách asset.
+class AssetGridSkeleton extends StatelessWidget {
+  const AssetGridSkeleton({super.key, this.count = 6});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(AppSpacing.page),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: AppSpacing.md,
+        crossAxisSpacing: AppSpacing.md,
+        childAspectRatio: 0.72,
+      ),
+      itemCount: count,
+      itemBuilder: (_, __) => _SkeletonCard(),
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.border.withValues(alpha: 0.5),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(AppRadius.lg - 1),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: 12,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: AppColors.border.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Container(
+                  height: 10,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.border.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

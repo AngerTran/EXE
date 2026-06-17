@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
 import '../../models/asset_models.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/common_widgets.dart';
@@ -23,7 +25,12 @@ class HomeScreen extends ConsumerWidget {
           await ref.read(_featuredAssetsProvider.future);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            AppSpacing.sm,
+            AppSpacing.page,
+            AppSpacing.pageBottom,
+          ),
           children: [
             _HeroSection(
               isLoggedIn: auth.isLoggedIn,
@@ -35,14 +42,18 @@ class HomeScreen extends ConsumerWidget {
                 orElse: () => null,
               ),
             ),
-            const SizedBox(height: 20),
-            _FeaturesSection(),
-            const SizedBox(height: 20),
-            _StepsSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.lg),
+            _QuickActionsRow(
+              isLoggedIn: auth.isLoggedIn,
+              onAi: () => context.go('/ai'),
+              onMarket: () => context.go('/marketplace'),
+              onPricing: () => context.go('/pricing'),
+              onAuth: () => context.push('/auth'),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
             SectionHeader(
               title: 'Asset nổi bật',
-              subtitle: 'Gợi ý từ marketplace',
+              subtitle: 'Được tải nhiều nhất',
               trailing: TextButton(
                 onPressed: () => context.go('/marketplace'),
                 child: const Text('Xem tất cả'),
@@ -54,70 +65,45 @@ class HomeScreen extends ConsumerWidget {
                   return const EmptyState(
                     icon: Icons.inventory_2_outlined,
                     title: 'Chưa có asset nổi bật',
+                    subtitle: 'Khám phá marketplace để tìm tài nguyên mới.',
                   );
                 }
                 return SizedBox(
-                  height: 220,
+                  height: 228,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: result.items.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(width: AppSpacing.md),
                     itemBuilder: (context, i) {
                       final asset = result.items[i];
                       return SizedBox(
-                        width: 180,
+                        width: 168,
                         child: _FeaturedTile(
                           title: asset.title,
                           category: asset.categoryName,
                           thumbnailUrl: asset.thumbnailUrl,
                           isFree: asset.isFree,
-                          onTap: () => context.push('/marketplace/${asset.id}'),
+                          onTap: () =>
+                              context.push('/marketplace/${asset.id}'),
                         ),
                       );
                     },
                   ),
                 );
               },
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(color: AppColors.primary),
-                ),
+              loading: () => const SizedBox(
+                height: 228,
+                child: LoadingView(message: 'Đang tải asset...'),
               ),
-              error: (e, _) => EmptyState(
-                icon: Icons.cloud_off_outlined,
+              error: (e, _) => ErrorState(
+                error: e,
                 title: 'Không tải được asset',
-                subtitle: e.toString(),
+                onRetry: () => ref.invalidate(_featuredAssetsProvider),
               ),
             ),
-            const SizedBox(height: 24),
-            SectionHeader(
-              title: 'Bắt đầu nhanh',
-              subtitle: 'Các bước phổ biến cho indie dev',
-            ),
-            _QuickAction(
-              icon: Icons.auto_awesome,
-              title: 'Hỏi AssetBox AI',
-              subtitle: 'Phân tích ý tưởng game & gợi ý asset',
-              color: AppColors.primary,
-              onTap: () => context.go('/ai'),
-            ),
-            const SizedBox(height: 10),
-            _QuickAction(
-              icon: Icons.storefront_outlined,
-              title: 'Duyệt Marketplace',
-              subtitle: 'Tìm 2D, audio, tileset và hơn thế',
-              color: AppColors.secondary,
-              onTap: () => context.go('/marketplace'),
-            ),
-            const SizedBox(height: 10),
-            _QuickAction(
-              icon: Icons.workspace_premium_outlined,
-              title: 'Xem gói dịch vụ',
-              subtitle: 'Nâng cấp xu AI & tính năng',
-              color: AppColors.warning,
-              onTap: () => context.go('/pricing'),
-            ),
+            const SizedBox(height: AppSpacing.xxl),
+            const _HowItWorksSection(),
           ],
         ),
       ),
@@ -150,70 +136,45 @@ class _HeroSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card.withValues(alpha: 0.88),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.14),
-            AppColors.secondary.withValues(alpha: 0.08),
-            AppColors.card.withValues(alpha: 0.9),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isLoggedIn ? 'Xin chào, ${userName ?? 'bạn'}!' : 'AssetBox',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            isLoggedIn ? 'Xin chào, ${userName ?? 'bạn'}!' : 'Chào mừng đến AssetBox',
+            style: Theme.of(context).primaryTextTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,
                 ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           Text(
-            'Nền tảng assets & AI hỗ trợ game developer Việt Nam.',
+            'Tìm asset game, hỏi AI và quản lý thư viện — mọi thứ trên điện thoại.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.mutedForeground,
-                  height: 1.4,
+                  height: 1.45,
                 ),
           ),
-          const SizedBox(height: 16),
-          if (assetTotal != null)
+          if (assetTotal != null) ...[
+            const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
                 _StatPill(
                   value: assetTotal! >= 1000
                       ? '${(assetTotal! / 1000).toStringAsFixed(1)}k+'
-                      : '${assetTotal!}+',
+                      : '$assetTotal+',
                   label: 'Assets',
                 ),
-                const SizedBox(width: 8),
-                const _StatPill(value: '24/7', label: 'AI'),
+                const SizedBox(width: AppSpacing.sm),
+                const _StatPill(value: '24/7', label: 'AI hỗ trợ'),
               ],
             ),
-          const SizedBox(height: 16),
-          if (isLoggedIn)
-            XuBadge(balance: credits, isUnlimited: isUnlimited)
-          else
-            GradientCtaButton(
-              label: 'Đăng nhập / Đăng ký',
-              icon: Icons.login,
-              onPressed: () => context.push('/auth'),
-            ),
+          ],
+          if (isLoggedIn) ...[
+            const SizedBox(height: AppSpacing.lg),
+            XuBadge(balance: credits, isUnlimited: isUnlimited),
+          ],
         ],
       ),
     );
@@ -229,62 +190,90 @@ class _StatPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
       ),
       child: Column(
         children: [
-          Text(value,
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
-              )),
-          Text(label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.mutedForeground,
-                  )),
+          Text(
+            value,
+            style: Theme.of(context).primaryTextTheme.titleSmall?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _FeaturesSection extends StatelessWidget {
+class _QuickActionsRow extends StatelessWidget {
+  const _QuickActionsRow({
+    required this.isLoggedIn,
+    required this.onAi,
+    required this.onMarket,
+    required this.onPricing,
+    required this.onAuth,
+  });
+
+  final bool isLoggedIn;
+  final VoidCallback onAi;
+  final VoidCallback onMarket;
+  final VoidCallback onPricing;
+  final VoidCallback onAuth;
+
   @override
   Widget build(BuildContext context) {
-    const items = [
-      (Icons.auto_awesome, 'AI phân tích', 'Gợi ý gameplay & asset'),
-      (Icons.palette_outlined, 'Kho asset', '2D, audio, tileset'),
-      (Icons.bolt, 'Đề xuất nhanh', 'Asset phù hợp trong giây'),
-      (Icons.code, 'Dễ dùng', 'Thân thiện indie dev'),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        const SectionHeader(title: 'Tính năng'),
-        ...items.map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.card.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(e.$1, color: AppColors.primary, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ItemTitle(title: e.$2, subtitle: e.$3),
-                  ),
-                ],
-              ),
-            ),
+        Expanded(
+          child: _QuickChip(
+            icon: Icons.auto_awesome,
+            label: 'AI',
+            color: AppColors.primary,
+            onTap: onAi,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickChip(
+            icon: Icons.storefront_outlined,
+            label: 'Chợ',
+            color: AppColors.secondary,
+            onTap: onMarket,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickChip(
+            icon: isLoggedIn
+                ? Icons.folder_outlined
+                : Icons.login_rounded,
+            label: isLoggedIn ? 'Thư viện' : 'Đăng nhập',
+            color: AppColors.warning,
+            onTap: isLoggedIn ? () => context.go('/library') : onAuth,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _QuickChip(
+            icon: Icons.workspace_premium_outlined,
+            label: 'Gói',
+            color: AppColors.success,
+            onTap: onPricing,
           ),
         ),
       ],
@@ -292,61 +281,159 @@ class _FeaturesSection extends StatelessWidget {
   }
 }
 
-class _StepsSection extends StatelessWidget {
+class _QuickChip extends StatelessWidget {
+  const _QuickChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.card.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HowItWorksSection extends StatefulWidget {
+  const _HowItWorksSection();
+
+  @override
+  State<_HowItWorksSection> createState() => _HowItWorksSectionState();
+}
+
+class _HowItWorksSectionState extends State<_HowItWorksSection> {
+  var _expanded = false;
+
   @override
   Widget build(BuildContext context) {
     const steps = [
-      'Mô tả ý tưởng game cho AI',
-      'Nhận phân tích & gợi ý asset',
-      'Chọn asset từ marketplace',
-      'Tải về và bắt đầu làm game',
+      (Icons.edit_note_outlined, 'Mô tả ý tưởng game cho AI'),
+      (Icons.insights_outlined, 'Nhận phân tích & gợi ý asset'),
+      (Icons.storefront_outlined, 'Chọn asset từ marketplace'),
+      (Icons.download_rounded, 'Tải về và bắt đầu làm game'),
     ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Bắt đầu trong 4 bước'),
-        ...steps.asMap().entries.map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.card.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.card.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.help_outline_rounded,
+                    color: AppColors.primary,
+                    size: 20,
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CircleAvatar(
-                        radius: 12,
-                        backgroundColor:
-                            AppColors.secondary.withValues(alpha: 0.25),
-                        child: Text(
-                          '${e.key + 1}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.secondary,
-                            fontWeight: FontWeight.w700,
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'AssetBox hoạt động thế nào?',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.foreground,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: AppColors.mutedForeground,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: AppSpacing.sm),
+          ...steps.asMap().entries.map(
+                (e) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: AppCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 14,
+                          backgroundColor:
+                              AppColors.secondary.withValues(alpha: 0.2),
+                          child: Text(
+                            '${e.key + 1}',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.secondary,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          e.value,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.foreground,
-                                  ),
+                        const SizedBox(width: AppSpacing.md),
+                        Icon(e.value.$1,
+                            size: 18, color: AppColors.mutedForeground),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            e.value.$2,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.foreground,
+                                ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
+        ],
       ],
     );
   }
@@ -373,44 +460,72 @@ class _FeaturedTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Ink(
           decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.card.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
             border: Border.all(color: AppColors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(15),
-                  ),
-                  child: thumbnailUrl != null
-                      ? Image.network(
-                          thumbnailUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) => _placeholder(),
-                        )
-                      : _placeholder(),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppRadius.lg - 1),
+                      ),
+                      child: _Thumbnail(url: thumbnailUrl),
+                    ),
+                    if (isFree)
+                      Positioned(
+                        top: AppSpacing.sm,
+                        left: AppSpacing.sm,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Free',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.foreground,
+                          ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.mutedForeground,
                           ),
@@ -422,6 +537,25 @@ class _FeaturedTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({this.url});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url == null || url!.isEmpty) return _placeholder();
+    return CachedNetworkImage(
+      imageUrl: url!,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      placeholder: (_, __) => _placeholder(),
+      errorWidget: (_, __, ___) => _placeholder(),
     );
   }
 
@@ -431,72 +565,4 @@ class _FeaturedTile extends StatelessWidget {
           child: Icon(Icons.image_outlined, color: AppColors.muted),
         ),
       );
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.82),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.mutedForeground,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.mutedForeground),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

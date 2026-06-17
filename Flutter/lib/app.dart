@@ -2,9 +2,12 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'config/app_assets.dart';
 import 'config/app_config.dart';
 import 'core/router/app_router.dart';
 import 'core/router/deep_link_state.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/app_tokens.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/service_providers.dart';
 
@@ -56,8 +59,56 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
-        home: const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+        home: Scaffold(
+          body: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.background,
+                  Color(0xFF0F172A),
+                ],
+              ),
+            ),
+            child: Builder(
+              builder: (context) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: Image.asset(
+                        AppAssets.logoIcon,
+                        width: 64,
+                        height: 64,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      AppConfig.appName,
+                      style: Theme.of(context)
+                          .primaryTextTheme
+                          .headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.xxl),
+                    const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }

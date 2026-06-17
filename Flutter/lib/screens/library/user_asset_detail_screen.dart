@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_tokens.dart';
+import '../../core/utils/error_messages.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/common_widgets.dart';
@@ -48,7 +52,7 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
       });
     } catch (e) {
       setState(() {
-        _error = e.toString();
+        _error = friendlyErrorMessage(e);
         _loading = false;
       });
     }
@@ -67,11 +71,16 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
       await file.writeAsBytes(bytes);
       await Share.shareXFiles([XFile(file.path)], text: _detail!.title);
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tải xong — chọn nơi lưu file')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(friendlyErrorMessage(e)),
             backgroundColor: AppColors.destructive,
           ),
         );
@@ -88,10 +97,16 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
         title: const Text('Xóa khỏi thư viện?'),
         content: const Text('Asset sẽ bị gỡ khỏi thư viện của bạn.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Hủy'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Xóa', style: TextStyle(color: AppColors.destructive)),
+            child: const Text(
+              'Xóa',
+              style: TextStyle(color: AppColors.destructive),
+            ),
           ),
         ],
       ),
@@ -105,7 +120,7 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(content: Text(friendlyErrorMessage(e))),
         );
       }
     }
@@ -116,74 +131,128 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Chi tiết thư viện')),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
+          ? const LoadingView(message: 'Đang tải asset...')
           : _error != null
-              ? EmptyState(
-                  icon: Icons.error_outline,
-                  title: 'Không tải được',
-                  subtitle: _error,
+              ? ErrorState(
+                  error: _error!,
+                  title: 'Không tải được asset',
+                  onRetry: _load,
                 )
               : ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    AppSpacing.sm,
+                    AppSpacing.page,
+                    110,
+                  ),
                   children: [
                     if (_detail!.thumbnailUrl != null)
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
                         child: CachedNetworkImage(
                           imageUrl: _detail!.thumbnailUrl!,
-                          height: 180,
+                          height: 200,
                           width: double.infinity,
                           fit: BoxFit.cover,
                         ),
                       ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.lg),
                     Text(
                       _detail!.title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
+                      style:
+                          Theme.of(context).primaryTextTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _detail!.categoryName,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.mutedForeground,
                           ),
                     ),
-                    Text(_detail!.categoryName,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    if (_detail!.shortDescription != null &&
+                        _detail!.shortDescription!.trim().isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      const SectionHeader(title: 'Mô tả', compact: true),
+                      Text(
+                        _detail!.shortDescription!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
                               color: AppColors.mutedForeground,
-                            )),
-                    if (_detail!.shortDescription != null) ...[
-                      const SizedBox(height: 12),
-                      Text(_detail!.shortDescription!),
-                    ],
-                    const SizedBox(height: 16),
-                    _InfoRow(
-                      label: 'Cách nhận',
-                      value: _detail!.acquiredVia,
-                    ),
-                    _InfoRow(
-                      label: 'Đã tải',
-                      value: '${_detail!.downloadCount} lần',
-                    ),
-                    if (_detail!.fileSizeBytes != null)
-                      _InfoRow(
-                        label: 'Kích thước',
-                        value: _formatBytes(_detail!.fileSizeBytes!),
+                            ),
                       ),
-                    const SizedBox(height: 20),
-                    GradientCtaButton(
-                      label: 'Tải xuống / Chia sẻ',
-                      icon: Icons.download,
-                      loading: _downloading,
-                      onPressed: _downloading ? null : _download,
+                    ],
+                    const SizedBox(height: AppSpacing.xl),
+                    AppCard(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        children: [
+                          _InfoRow(
+                            icon: Icons.card_giftcard_outlined,
+                            label: 'Cách nhận',
+                            value: _detail!.acquiredVia,
+                          ),
+                          const Divider(color: AppColors.border),
+                          _InfoRow(
+                            icon: Icons.download_done_rounded,
+                            label: 'Đã tải',
+                            value: '${_detail!.downloadCount} lần',
+                          ),
+                          if (_detail!.fileSizeBytes != null) ...[
+                            const Divider(color: AppColors.border),
+                            _InfoRow(
+                              icon: Icons.folder_zip_outlined,
+                              label: 'Kích thước',
+                              value: _formatBytes(_detail!.fileSizeBytes!),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.xl),
                     OutlinedButton.icon(
                       onPressed: _remove,
-                      icon: const Icon(Icons.delete_outline,
+                      icon: const Icon(Icons.delete_outline_rounded,
                           color: AppColors.destructive),
-                      label: const Text('Xóa khỏi thư viện',
-                          style: TextStyle(color: AppColors.destructive)),
+                      label: const Text(
+                        'Xóa khỏi thư viện',
+                        style: TextStyle(color: AppColors.destructive),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.destructive),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
                     ),
                   ],
                 ),
+      bottomNavigationBar: _detail == null || _loading || _error != null
+          ? null
+          : Material(
+              color: AppColors.background.withValues(alpha: 0.97),
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.border)),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      AppSpacing.md,
+                      AppSpacing.page,
+                      AppSpacing.md,
+                    ),
+                    child: GradientCtaButton(
+                      label: 'Tải xuống / Chia sẻ',
+                      icon: Icons.download_rounded,
+                      loading: _downloading,
+                      onPressed: _downloading ? null : _download,
+                    ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
@@ -195,25 +264,43 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.mutedForeground,
-                    )),
+          Icon(icon, size: 20, color: AppColors.primary),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.mutedForeground,
+                      ),
+                ),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
+            ),
           ),
-          Expanded(child: Text(value)),
         ],
       ),
     );

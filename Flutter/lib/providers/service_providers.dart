@@ -348,7 +348,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final oauth = await _ref.read(supabaseOAuthServiceProvider.future);
-      await oauth.startGoogleSignIn();
+      final tokens = await oauth.startGoogleSignIn();
+      if (tokens != null) {
+        await _applySession(
+          tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          rememberMe: true,
+        );
+        await oauth.signOutLocal();
+        _ref.read(cartProvider.notifier).refresh();
+        state = state.copyWith(isLoading: false);
+        return null;
+      }
       state = state.copyWith(isLoading: false);
       return null;
     } catch (e) {

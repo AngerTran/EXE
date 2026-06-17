@@ -1,6 +1,7 @@
 using Exe.Configuration;
 using Exe.DTOs.Auth;
 using Exe.Extensions;
+using Exe.Helpers;
 using Exe.Services;
 using Exe.Services.IServices;
 using Microsoft.AspNetCore.Authorization;
@@ -234,7 +235,13 @@ public class AuthController(
     {
         var feBase = (_supabase.FrontendBaseUrl ?? "http://localhost:5173").TrimEnd('/');
         var feReset = $"{feBase}/auth/reset";
-        const string appOAuth = "vn.assetbox.app://auth/callback";
+        var search = Request.QueryString.Value ?? string.Empty;
+        // OAuth Google dùng ?code= — chuyển về app (giống oauth-callback).
+        if (search.Contains("code=", StringComparison.Ordinal))
+        {
+            return Content(MobileOAuthRedirectHtml.Build(), "text/html; charset=utf-8");
+        }
+
         var html = $$"""
             <!DOCTYPE html>
             <html lang="vi">
@@ -248,25 +255,13 @@ public class AuthController(
               </style>
             </head>
             <body>
-              <p id="msg">Đang chuyển hướng…</p>
+              <p>Đang chuyển hướng…</p>
               <script>
                 (function () {
                   var feReset = {{System.Text.Json.JsonSerializer.Serialize(feReset)}};
-                  var appOAuth = {{System.Text.Json.JsonSerializer.Serialize(appOAuth)}};
                   var hash = window.location.hash || "";
                   var search = window.location.search || "";
-                  var isOAuthCode = search.indexOf("code=") >= 0;
-                  var target;
-                  var suffix;
-                  if (isOAuthCode) {
-                    target = appOAuth;
-                    suffix = search;
-                    document.getElementById("msg").textContent = "Đang quay lại AssetBox…";
-                  } else {
-                    target = feReset;
-                    suffix = hash || search;
-                  }
-                  window.location.replace(target + suffix);
+                  window.location.replace(feReset + (hash || search));
                 })();
               </script>
             </body>
@@ -281,33 +276,7 @@ public class AuthController(
     [Produces("text/html")]
     public IActionResult OAuthCallback()
     {
-        const string target = "vn.assetbox.app://auth/callback";
-        var html = $$"""
-            <!DOCTYPE html>
-            <html lang="vi">
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1" />
-              <title>Đang chuyển hướng…</title>
-              <style>
-                body { font-family: system-ui, sans-serif; background: #131b2e; color: #dae2fd; display: flex;
-                  align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-              </style>
-            </head>
-            <body>
-              <p>Đang quay lại AssetBox…</p>
-              <script>
-                (function () {
-                  var target = {{System.Text.Json.JsonSerializer.Serialize(target)}};
-                  var hash = window.location.hash || "";
-                  var search = window.location.search || "";
-                  window.location.replace(target + (search || "") + (hash || ""));
-                })();
-              </script>
-            </body>
-            </html>
-            """;
-        return Content(html, "text/html; charset=utf-8");
+        return Content(MobileOAuthRedirectHtml.Build(), "text/html; charset=utf-8");
     }
 
     [HttpPost("me/avatar/upload-url")]
