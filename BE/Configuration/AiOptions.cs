@@ -11,7 +11,11 @@ public class AiOptions
 
     public string BaseUrl { get; set; } = "https://api.openai.com/v1/";
 
+    /// Max tokens for chat replies.
     public int MaxTokens { get; set; } = 900;
+
+    /// Max tokens for game outline / blueprint (longer structured markdown).
+    public int OutlineMaxTokens { get; set; } = 2800;
 
     public double Temperature { get; set; } = 0.7;
 }

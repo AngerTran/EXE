@@ -192,14 +192,14 @@ export default function Root() {
                       )}
                     </button>
                     <div
-                      className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-card border border-border rounded-full font-mono text-sm"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-warning/10 border border-warning/40 rounded-full font-mono text-sm text-warning"
                       title={user.isUnlimited ? "Xu không giới hạn (gói Pro)" : undefined}
                     >
                       <Coins className="w-4 h-4 text-warning shrink-0" />
                       {user.isUnlimited ? (
                         <UnlimitedXuIcon size="sm" />
                       ) : (
-                        <span className="text-foreground font-medium tabular-nums">
+                        <span className="font-medium tabular-nums text-warning">
                           {formatWalletBalance(user.credits, false)}
                         </span>
                       )}
@@ -265,14 +265,16 @@ export default function Root() {
                   </button>
                   <Link
                     to="/pricing"
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-border bg-white/95 dark:bg-card/70 font-mono text-xs shrink-0 ${componentClasses.chromeSurface}`}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-full border border-warning/40 bg-warning/10 font-mono text-xs text-warning shrink-0"
                     title={user.isUnlimited ? "Xu không giới hạn" : undefined}
                   >
                     <Coins className="w-3.5 h-3.5 text-warning" />
                     {user.isUnlimited ? (
                       <UnlimitedXuIcon size="sm" />
                     ) : (
-                      <span className="tabular-nums">{formatWalletBalance(user.credits, false)}</span>
+                      <span className="tabular-nums text-warning">
+                        {formatWalletBalance(user.credits, false)}
+                      </span>
                     )}
                   </Link>
                 </>

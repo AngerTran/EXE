@@ -15,6 +15,7 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
 
     public async Task<(IReadOnlyList<Asset> Items, int Total)> ListApprovedAsync(
         AssetQueryParams query,
+        Guid? viewerUserId = null,
         CancellationToken cancellationToken = default)
     {
         var q = ApprovedAssetsQuery
@@ -48,9 +49,27 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
         }
 
         if (query.Featured)
-            q = q.OrderByDescending(a => a.DownloadCount);
+        {
+            q = viewerUserId.HasValue
+                ? ApplySecondarySort(
+                    q.OrderBy(a => db.UserAssets.Any(ua =>
+                        ua.UserId == viewerUserId.Value && ua.AssetId == a.Id)),
+                    "downloadCount",
+                    "desc")
+                : q.OrderByDescending(a => a.DownloadCount);
+        }
+        else if (viewerUserId.HasValue)
+        {
+            q = ApplySecondarySort(
+                q.OrderBy(a => db.UserAssets.Any(ua =>
+                    ua.UserId == viewerUserId.Value && ua.AssetId == a.Id)),
+                query.Sort,
+                query.Order);
+        }
         else
+        {
             q = ApplySort(q, query.Sort, query.Order);
+        }
 
         var total = await q.CountAsync(cancellationToken);
         var page = query.Featured ? 1 : query.Page < 1 ? 1 : query.Page;
@@ -224,6 +243,22 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
             "pricevnd" => desc ? q.OrderByDescending(a => a.PriceVnd) : q.OrderBy(a => a.PriceVnd),
             "title" => desc ? q.OrderByDescending(a => a.Title) : q.OrderBy(a => a.Title),
             _ => desc ? q.OrderByDescending(a => a.CreatedAt) : q.OrderBy(a => a.CreatedAt)
+        };
+    }
+
+    private static IQueryable<Asset> ApplySecondarySort(
+        IOrderedQueryable<Asset> q,
+        string sort,
+        string order)
+    {
+        var desc = string.Equals(order, "desc", StringComparison.OrdinalIgnoreCase);
+        return sort.ToLowerInvariant() switch
+        {
+            "downloadcount" => desc ? q.ThenByDescending(a => a.DownloadCount) : q.ThenBy(a => a.DownloadCount),
+            "ratingavg" => desc ? q.ThenByDescending(a => a.RatingAvg) : q.ThenBy(a => a.RatingAvg),
+            "pricevnd" => desc ? q.ThenByDescending(a => a.PriceVnd) : q.ThenBy(a => a.PriceVnd),
+            "title" => desc ? q.ThenByDescending(a => a.Title) : q.ThenBy(a => a.Title),
+            _ => desc ? q.ThenByDescending(a => a.CreatedAt) : q.ThenBy(a => a.CreatedAt)
         };
     }
 }

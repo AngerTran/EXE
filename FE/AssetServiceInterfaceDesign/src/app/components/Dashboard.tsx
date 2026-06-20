@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Send,
   Loader2,
   ShoppingBag,
   ExternalLink,
@@ -17,9 +16,9 @@ import {
   createAiSession,
   cleanupEmptyAiSessions,
   deleteAiSession,
+  ensureEmptyAiSession,
   fetchAiSession,
   fetchAiSessions,
-  getStoredAiSessionId,
   sendAiMessage,
   setStoredAiSessionId,
 } from "../../api/ai";
@@ -27,9 +26,12 @@ import type { AiMessage, AiSessionListItem, AiSuggestedAsset } from "../../api/t
 import { LOGO_ICON_SRC } from "./AppLogo";
 import { BeamPanel } from "./BeamPanel";
 import { AiChatSidebar } from "./ai/AiChatSidebar";
+import { AiChatInput } from "./ai/AiChatInput";
+import { AiEmptyState } from "./ai/AiEmptyState";
 import { AiMessageBody } from "./ai/AiMessageBody";
 import { AiNoAssetsNotice } from "./ai/AiNoAssetsNotice";
 import { AiOutlinePanel } from "./ai/AiOutlinePanel";
+import { AiTypingIndicator } from "./ai/AiTypingIndicator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 
 interface Message {
@@ -61,13 +63,6 @@ function sortMessagesChronologically(messages: Message[]): Message[] {
   });
 }
 
-const QUICK_PROMPTS = [
-  { label: "🏙️ Game Thành Phố", text: "Tôi muốn làm game thành phố" },
-  { label: "🎮 RPG 2D", text: "Assets nào cần cho game RPG 2D?" },
-  { label: "🏃 Platformer", text: "Gợi ý character sprites cho platformer" },
-  { label: "📱 Mobile UI", text: "UI elements cho mobile game" },
-] as const;
-
 export default function Dashboard() {
   const { user, isLoading: authLoading, refreshUserData } = useAuth();
   const navigate = useNavigate();
@@ -85,7 +80,6 @@ export default function Dashboard() {
   const [outlineSheetOpen, setOutlineSheetOpen] = useState(false);
   const [desktopOutlineOpen, setDesktopOutlineOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -160,48 +154,33 @@ export default function Dashboard() {
     let cancelled = false;
 
     (async () => {
-      let list = await reloadSessions();
+      const list = await reloadSessions();
       if (cancelled) return;
 
-      const stored = getStoredAiSessionId();
-      const keepId =
-        (stored && list.some((s) => s.id === stored) && stored) || list[0]?.id || null;
-
-      await cleanupEmptySessions(keepId);
-      list = await reloadSessions();
+      const targetId = await ensureEmptyAiSession(list);
       if (cancelled) return;
 
-      const pick =
-        (stored && list.some((s) => s.id === stored) && stored) || list[0]?.id || null;
-
-      if (pick) {
-        await loadSession(pick);
-      } else {
-        setSessionId(null);
-        setStoredAiSessionId(null);
-        setMessages([]);
-      }
+      await loadSession(targetId);
+      if (cancelled) return;
+      await reloadSessions();
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, loadSession, reloadSessions, cleanupEmptySessions]);
+  }, [user?.id, loadSession, reloadSessions]);
 
   const handleNewChat = async () => {
-    const hasUserMessages = messages.some((m) => m.id !== "welcome");
-    if (!hasUserMessages && sessionId) {
-      setMessages([]);
-      setSidebarOpen(false);
-      return;
-    }
     try {
-      const created = await createAiSession("Phiên chat mới");
+      await cleanupEmptyAiSessions(null);
+      const created = await createAiSession("Phiên mới");
+      await cleanupEmptyAiSessions(created.id);
       setSessionId(created.id);
       setStoredAiSessionId(created.id);
       setMessages([]);
       setSidebarOpen(false);
       await reloadSessions();
+      await loadSession(created.id);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Không tạo được chat mới");
     }
@@ -221,12 +200,8 @@ export default function Dashboard() {
       await deleteAiSession(id);
       const list = await reloadSessions();
       if (id === sessionId) {
-        if (list[0]) await loadSession(list[0].id);
-        else {
-          setSessionId(null);
-          setStoredAiSessionId(null);
-          setMessages([]);
-        }
+        const targetId = await ensureEmptyAiSession(list);
+        await loadSession(targetId);
       }
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Xóa thất bại");
@@ -237,12 +212,8 @@ export default function Dashboard() {
     await cleanupEmptySessions(sessionId);
     const refreshed = await reloadSessions();
     if (sessionId && !refreshed.some((s) => s.id === sessionId)) {
-      if (refreshed[0]) await loadSession(refreshed[0].id);
-      else {
-        setSessionId(null);
-        setStoredAiSessionId(null);
-        setMessages([]);
-      }
+      const targetId = await ensureEmptyAiSession(refreshed);
+      await loadSession(targetId);
     }
   };
 
@@ -332,59 +303,22 @@ export default function Dashboard() {
     onRefreshUser: refreshUserData,
   };
 
-  const renderInput = (variant: "empty" | "chat") => (
-    <div className="w-full max-w-2xl mx-auto">
-      <BeamPanel
-        beam={variant === "empty" ? 4.8 : 5.2}
-        className="ai-glass-input overflow-hidden"
-      >
-        <div className="flex items-end gap-2 px-4 py-3 focus-within:ring-1 focus-within:ring-primary/25 rounded-[28px] transition-shadow">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder={
-              isUnlimited || credits > 0
-                ? "Hỏi bất kỳ điều gì..."
-                : "Hết xu — vào Gói dịch vụ để nạp thêm"
-            }
-            disabled={(!isUnlimited && credits <= 0) || isLoading}
-            className="flex-1 min-h-[24px] max-h-32 resize-none bg-transparent text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 py-1"
-          />
-          <button
-            type="button"
-            onClick={() => void handleSend()}
-            disabled={!input.trim() || (!isUnlimited && credits <= 0) || isLoading}
-            className="p-2.5 rounded-full bg-primary text-primary-foreground disabled:opacity-30 shrink-0 hover:shadow-[0_0_16px_rgba(0,217,255,0.45)] hover:scale-105 active:scale-95 transition-all"
-            aria-label="Gửi"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
-      </BeamPanel>
-      {variant === "empty" && (
-        <>
-          <div className="flex flex-wrap gap-2 justify-center mt-5">
-            {QUICK_PROMPTS.map((q) => (
-              <button
-                key={q.text}
-                type="button"
-                onClick={() => setInput(q.text)}
-                className="ai-glass-chip rounded-full px-3.5 py-1.5 text-sm transition-all"
-              >
-                {q.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-center text-xs text-muted-foreground/60 mt-4">
-            1 xu / câu hỏi
-          </p>
-        </>
-      )}
-    </div>
-  );
+  const handlePromptSelect = (text: string) => {
+    setInput(text);
+  };
+
+  const inputProps = {
+    value: input,
+    onChange: setInput,
+    onSend: () => void handleSend(),
+    onKeyDown: handleKeyDown,
+    disabled: !isUnlimited && credits <= 0,
+    sending: isLoading,
+    placeholder:
+      isUnlimited || credits > 0
+        ? "Mô tả ý tưởng game của bạn..."
+        : "Hết xu — vào Gói dịch vụ để nạp thêm",
+  };
 
   const messageList = (
     <div className="w-full max-w-2xl mx-auto px-4 py-8 space-y-6">
@@ -447,17 +381,7 @@ export default function Dashboard() {
           )}
         </div>
       ))}
-      {isLoading && (
-        <div className="ai-glass-typing ai-msg-enter flex items-center gap-3 rounded-2xl px-4 py-3 w-fit">
-          <img src={LOGO_ICON_SRC} alt="" className="w-5 h-5 object-contain opacity-90" />
-          <div className="flex items-center gap-1.5">
-            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
-            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
-            <span className="ai-typing-dot w-1.5 h-1.5 rounded-full bg-primary" />
-          </div>
-          <span className="text-sm text-muted-foreground">Đang suy nghĩ...</span>
-        </div>
-      )}
+      {isLoading && <AiTypingIndicator />}
       <div ref={messagesEndRef} />
     </div>
   );
@@ -495,11 +419,9 @@ export default function Dashboard() {
           >
             <PanelLeft className="w-5 h-5" />
           </button>
-          {hasConversation && (
-            <span className="text-sm text-muted-foreground truncate min-w-0 flex-1">
-              {activeSessionTitle}
-            </span>
-          )}
+          <span className="text-sm text-muted-foreground truncate min-w-0 flex-1">
+            {activeSessionTitle}
+          </span>
           {hasConversation && (
             <button
               type="button"
@@ -534,20 +456,10 @@ export default function Dashboard() {
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
             ) : !hasConversation ? (
-              <div className="min-h-full flex flex-col items-center justify-center px-4 pb-12">
-                <div className="flex flex-col items-center mb-10 ai-msg-enter">
-                  <div className="ai-empty-logo w-14 h-14 rounded-2xl bg-primary/10 border border-primary/25 flex items-center justify-center mb-5 shadow-[0_0_32px_rgba(0,217,255,0.15)]">
-                    <img src={LOGO_ICON_SRC} alt="" className="w-9 h-9 object-contain" />
-                  </div>
-                  <h2 className="text-2xl sm:text-[30px] font-semibold text-center tracking-tight ai-empty-title">
-                    Chúng ta nên bắt đầu từ đâu?
-                  </h2>
-                  <p className="text-sm text-muted-foreground/80 mt-3 text-center max-w-sm">
-                    Mô tả ý tưởng game — AI sẽ tư vấn và gợi ý asset từ Chợ AssetBox
-                  </p>
-                </div>
+              <div className="min-h-full flex flex-col items-center justify-center px-4 pb-8 pt-6 gap-8">
+                <AiEmptyState onPromptSelect={handlePromptSelect} />
                 <div className="w-full px-2 ai-msg-enter" style={{ animationDelay: "0.12s" }}>
-                  {renderInput("empty")}
+                  <AiChatInput {...inputProps} showFootnote />
                 </div>
               </div>
             ) : (
@@ -557,7 +469,7 @@ export default function Dashboard() {
 
           {hasConversation && (
             <div className="shrink-0 px-4 pb-5 pt-2">
-              {renderInput("chat")}
+              <AiChatInput {...inputProps} />
             </div>
           )}
         </div>

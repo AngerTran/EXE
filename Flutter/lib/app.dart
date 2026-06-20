@@ -9,6 +9,7 @@ import 'core/router/deep_link_state.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_tokens.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/notification_providers.dart';
 import 'providers/service_providers.dart';
 
 class AssetBoxApp extends ConsumerStatefulWidget {
@@ -53,6 +54,10 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final router = ref.watch(routerProvider);
+
+    if (auth.isLoggedIn) {
+      ref.watch(notificationProvider);
+    }
 
     if (auth.isBootstrapping) {
       return MaterialApp(
@@ -117,6 +122,7 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
       routerConfig: router,
     );
   }

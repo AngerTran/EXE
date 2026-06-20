@@ -25,9 +25,10 @@ public partial class AssetService(
 
     public async Task<PagedResponse<AssetListItemResponse>> ListApprovedAsync(
         AssetQueryParams query,
+        Guid? viewerUserId = null,
         CancellationToken cancellationToken = default)
     {
-        var (items, total) = await assetRepository.ListApprovedAsync(query, cancellationToken);
+        var (items, total) = await assetRepository.ListApprovedAsync(query, viewerUserId, cancellationToken);
         var page = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize switch { < 1 => 20, > 100 => 100, _ => query.PageSize };
         return new PagedResponse<AssetListItemResponse>(items.Select(MapListItem).ToList(), page, pageSize, total);

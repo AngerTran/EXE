@@ -834,15 +834,10 @@ function AssetDetailDrawerContent({
             assetTitle={asset.title}
             overlay={
               <>
-                {asset.isFree && !isPurchased && (
-                  <div className="bg-success text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-                    MIỄN PHÍ
-                  </div>
-                )}
                 {isPurchased && (
-                  <div className={`${CTA_GRADIENT} px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg`}>
+                  <div className="bg-background/90 backdrop-blur-sm border border-primary/60 text-primary px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 shadow-sm">
                     <CheckCircle className="w-4 h-4" />
-                    ĐÃ SỞ HỮU
+                    Đã sở hữu
                   </div>
                 )}
               </>
@@ -1060,7 +1055,7 @@ function AssetCard({
       className={cn(
         "bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl hover:scale-105 transition-all group hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)]",
         isHighlighted && "border-primary ring-2 ring-primary/25 shadow-lg shadow-primary/15",
-        isPurchased && "border-success/30"
+        isPurchased && "border-primary/30"
       )}
     >
       <div
@@ -1078,15 +1073,10 @@ function AssetCard({
             Xem chi tiết
           </div>
         </div>
-        {asset.isFree && !isPurchased && (
-          <div className="absolute top-3 left-3 bg-success text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-            Miễn phí
-          </div>
-        )}
         {isPurchased && (
-          <div className={`absolute top-3 left-3 ${CTA_GRADIENT} px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg`}>
+          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm border border-primary/60 text-primary px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-sm">
             <CheckCircle className="w-3 h-3" />
-            ĐÃ SỞ HỮU
+            Đã sở hữu
           </div>
         )}
         <button

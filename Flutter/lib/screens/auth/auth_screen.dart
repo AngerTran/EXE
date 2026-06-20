@@ -339,7 +339,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       return null;
                     }),
                   ),
-                  const Expanded(child: Text('Ghi nhớ đăng nhập')),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: loading
+                          ? null
+                          : () => setState(() => _rememberMe = !_rememberMe),
+                      behavior: HitTestBehavior.opaque,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Ghi nhớ đăng nhập'),
+                      ),
+                    ),
+                  ),
                   TextButton(
                     onPressed: loading
                         ? null

@@ -34,7 +34,6 @@ class AssetService {
 
     return _client.get(
       '/assets?$query',
-      auth: false,
       parser: (d) => PagedResponse.fromJson(
         d as Map<String, dynamic>,
         AssetListItem.fromJson,

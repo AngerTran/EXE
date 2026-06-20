@@ -361,7 +361,7 @@ public class AiAdvisorService(
                 Search = term,
                 Page = 1,
                 PageSize = 6
-            }, cancellationToken);
+            }, viewerUserId: null, cancellationToken);
 
             foreach (var asset in items)
             {

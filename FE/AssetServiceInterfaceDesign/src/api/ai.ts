@@ -7,6 +7,30 @@ import type {
   SendAiMessageResult,
 } from "./types/ai";
 
+export function isEmptyAiSession(s: AiSessionListItem): boolean {
+  return (s.messageCount ?? 0) === 0;
+}
+
+/** ChatGPT-style: reuse latest empty session or create one; never resume chats with messages. */
+export async function ensureEmptyAiSession(
+  sessions: AiSessionListItem[]
+): Promise<string> {
+  const empty = [...sessions]
+    .filter(isEmptyAiSession)
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+
+  const targetId =
+    empty.length > 0
+      ? empty[0].id
+      : (await createAiSession("Phiên mới")).id;
+
+  await cleanupEmptyAiSessions(targetId);
+  return targetId;
+}
+
 export async function fetchAiSessions(): Promise<AiSessionListItem[]> {
   return apiRequest<AiSessionListItem[]>("/ai/sessions");
 }

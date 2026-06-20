@@ -18,6 +18,7 @@ import '../../screens/auth/reset_password_screen.dart';
 import '../../screens/commerce/cart_screen.dart';
 
 import '../../screens/commerce/checkout_screen.dart';
+import '../../screens/commerce/checkout_waiting_screen.dart';
 
 import '../../screens/commerce/orders_screen.dart';
 
@@ -42,6 +43,8 @@ import '../../screens/pricing/pricing_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
 
 import '../../screens/profile/profile_screen.dart';
+
+import '../../screens/profile/purchase_history_screen.dart';
 
 import '../../screens/static/contact_screen.dart';
 
@@ -118,6 +121,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: 'edit',
 
                 builder: (_, __) => const EditProfileScreen(),
+
+              ),
+
+              GoRoute(
+
+                path: 'purchases',
+
+                builder: (_, __) => const PurchaseHistoryScreen(),
 
               ),
 
@@ -248,6 +259,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/checkout/assets',
 
         builder: (_, __) => const CheckoutScreen.assets(),
+
+      ),
+
+      GoRoute(
+
+        parentNavigatorKey: rootNavigatorKey,
+
+        path: '/checkout/waiting/:orderId',
+
+        builder: (context, state) => CheckoutWaitingScreen(
+          orderId: state.pathParameters['orderId']!,
+          orderCode: state.uri.queryParameters['orderCode'] ?? '',
+          itemLabel: state.uri.queryParameters['label'] ?? 'Đơn hàng',
+        ),
 
       ),
 

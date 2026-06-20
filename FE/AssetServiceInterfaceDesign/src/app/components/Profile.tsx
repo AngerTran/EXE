@@ -342,7 +342,7 @@ export default function Profile() {
               label: "Xu trong ví",
               icon: <Coins className="w-5 h-5 text-warning" />,
               value: user.isUnlimited ? (
-                <UnlimitedXuIcon size="md" />
+                <UnlimitedXuIcon size="lg" />
               ) : (
                 <span className="text-2xl font-bold font-mono tabular-nums">
                   {formatWalletBalance(user.credits, false)}

@@ -116,6 +116,7 @@ public class LlmChatService(IHttpClientFactory httpClientFactory, IOptions<AiOpt
             return await CompleteWithSystemAsync(
                 AiReplyHelpers.BuildOutlineSystemPrompt(),
                 userContent,
+                cfg.OutlineMaxTokens,
                 cancellationToken)
                 ?? AiReplyHelpers.BuildOutlineFallback(sessionTitle, messages);
         }
@@ -158,6 +159,7 @@ public class LlmChatService(IHttpClientFactory httpClientFactory, IOptions<AiOpt
             return await CompleteWithSystemAsync(
                 AiReplyHelpers.BuildRefineOutlineSystemPrompt(),
                 userContent,
+                cfg.OutlineMaxTokens,
                 cancellationToken)
                 ?? currentOutline;
         }
@@ -170,6 +172,7 @@ public class LlmChatService(IHttpClientFactory httpClientFactory, IOptions<AiOpt
     private async Task<string?> CompleteWithSystemAsync(
         string systemPrompt,
         string userContent,
+        int? maxTokens,
         CancellationToken cancellationToken)
     {
         var cfg = options.Value;
@@ -185,7 +188,7 @@ public class LlmChatService(IHttpClientFactory httpClientFactory, IOptions<AiOpt
                 new { role = "system", content = systemPrompt },
                 new { role = "user", content = userContent },
             },
-            max_tokens = cfg.MaxTokens,
+            max_tokens = maxTokens ?? cfg.MaxTokens,
             temperature = Math.Min(cfg.Temperature, 0.5),
         };
 
@@ -199,12 +202,22 @@ public class LlmChatService(IHttpClientFactory httpClientFactory, IOptions<AiOpt
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-        var text = doc.RootElement
-            .GetProperty("choices")[0]
+        var choice = doc.RootElement.GetProperty("choices")[0];
+        var text = choice
             .GetProperty("message")
             .GetProperty("content")
             .GetString();
 
-        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        text = text.Trim();
+        if (choice.TryGetProperty("finish_reason", out var finish) &&
+            finish.GetString() == "length")
+        {
+            text += "\n\n---\n*Outline có thể chưa đủ do giới hạn độ dài — hãy bấm tạo lại hoặc dùng chat để bổ sung.*";
+        }
+
+        return text;
     }
 }

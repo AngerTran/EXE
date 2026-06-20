@@ -24,7 +24,8 @@ public class AssetsController(IAssetService assetService) : ControllerBase
         [FromQuery] AssetQueryParams query,
         CancellationToken cancellationToken)
     {
-        var result = await assetService.ListApprovedAsync(query, cancellationToken);
+        var viewerUserId = User.GetUserId();
+        var result = await assetService.ListApprovedAsync(query, viewerUserId, cancellationToken);
         return Ok(result);
     }
 

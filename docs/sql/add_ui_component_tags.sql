@@ -29,7 +29,14 @@ BEGIN
       ('Button', 'button'),
       ('Gamepad', 'gamepad'),
       ('Control', 'control'),
-      ('Interface', 'interface')
+      ('Interface', 'interface'),
+      ('Health Bar', 'health-bar'),
+      ('Scroll Bar', 'scroll-bar'),
+      ('Progress Bar', 'progress-bar'),
+      ('HUD', 'hud'),
+      ('Slider', 'slider'),
+      ('Status Bar', 'status-bar'),
+      ('Gauge', 'gauge')
     ) AS t(name, slug)
   LOOP
     IF EXISTS (SELECT 1 FROM public.tags WHERE slug = tag_rec.slug) THEN

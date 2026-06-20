@@ -26,9 +26,9 @@ class XuBadge extends StatelessWidget {
         vertical: compact ? 4 : 6,
       ),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
+        color: AppColors.warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -36,13 +36,13 @@ class XuBadge extends StatelessWidget {
           Icon(
             Icons.monetization_on_outlined,
             size: compact ? 14 : 16,
-            color: AppColors.primary,
+            color: AppColors.warning,
           ),
           const SizedBox(width: 4),
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.primary,
+                  color: AppColors.warning,
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
@@ -76,6 +76,8 @@ class GradientCtaButton extends StatelessWidget {
       child: InkWell(
         onTap: loading || onPressed == null ? null : onPressed,
         borderRadius: BorderRadius.circular(12),
+        splashColor: AppColors.primaryForeground.withValues(alpha: 0.18),
+        highlightColor: AppColors.primaryForeground.withValues(alpha: 0.1),
         child: Ink(
           decoration: BoxDecoration(
             gradient: onPressed == null || loading

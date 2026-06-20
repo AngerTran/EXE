@@ -87,10 +87,98 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
   bool get _hasActiveFilters =>
       _priceType != null || _categoryId != null || _tag != null;
 
+  Future<void> _toggleBookmark(String assetId, bool isBookmarked) async {
+    if (!ref.read(authProvider).isLoggedIn) {
+      context.push('/auth');
+      return;
+    }
+    try {
+      final svc = await ref.read(bookmarksServiceProvider.future);
+      if (isBookmarked) {
+        await svc.removeBookmark(assetId);
+      } else {
+        await svc.addBookmark(assetId);
+      }
+      ref.invalidate(bookmarkIdsProvider);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(e)),
+          backgroundColor: AppColors.destructive,
+        ),
+      );
+    }
+  }
+
+  Future<void> _addToCart(AssetListItem asset) async {
+    if (!ref.read(authProvider).isLoggedIn) {
+      context.push('/auth');
+      return;
+    }
+    final err = await ref.read(cartProvider.notifier).addItem(asset.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(err ?? 'Đã thêm vào giỏ hàng'),
+        backgroundColor: err != null ? AppColors.destructive : AppColors.card,
+      ),
+    );
+  }
+
+  Future<void> _buyNow(AssetListItem asset, {required bool isInCart}) async {
+    if (!ref.read(authProvider).isLoggedIn) {
+      context.push('/auth');
+      return;
+    }
+    if (!isInCart) {
+      final err = await ref.read(cartProvider.notifier).addItem(asset.id);
+      if (err != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(err),
+            backgroundColor: AppColors.destructive,
+          ),
+        );
+        return;
+      }
+    }
+    if (!mounted) return;
+    context.push('/checkout/assets');
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = ref.watch(_categoriesProvider);
     final tags = ref.watch(_tagsProvider);
+    final cart = ref.watch(cartProvider);
+    final bookmarks = ref.watch(bookmarkIdsProvider);
+    final userAssets = ref.watch(userAssetsListProvider);
+
+    final cartAssetIds = cart.maybeWhen(
+      data: (c) => c.items.map((i) => i.assetId).toSet(),
+      orElse: () => <String>{},
+    );
+    final purchasedIds = userAssets.maybeWhen(
+      data: (items) => items.map((a) => a.assetId).toSet(),
+      orElse: () => <String>{},
+    );
+    final bookmarkIds = bookmarks.maybeWhen(
+      data: (ids) => ids,
+      orElse: () => <String>{},
+    );
+
+    ref.listen(userAssetsListProvider, (previous, next) {
+      final prevLen = previous?.asData?.value.length;
+      final nextLen = next.asData?.value.length;
+      if (prevLen != null &&
+          nextLen != null &&
+          nextLen != prevLen &&
+          !_loading) {
+        _load(reset: true);
+      }
+    });
 
     return SafeArea(
       child: Column(
@@ -103,48 +191,132 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
               AppSpacing.page,
               0,
             ),
-            child: TextField(
-              controller: _searchCtrl,
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Tìm asset theo tên, thể loại...',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_search.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.clear_rounded),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _search = '');
-                          _load(reset: true);
-                        },
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.card.withValues(alpha: 0.88),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(
+                  color: _hasActiveFilters
+                      ? AppColors.primary.withValues(alpha: 0.35)
+                      : AppColors.border,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                textInputAction: TextInputAction.search,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.foreground,
+                    ),
+                decoration: InputDecoration(
+                  hintText: 'Tìm asset theo tên, thể loại...',
+                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.muted,
                       ),
-                    IconButton(
-                      icon: Badge(
-                        isLabelVisible: _hasActiveFilters,
-                        smallSize: 8,
-                        child: Icon(
-                          _filtersExpanded
-                              ? Icons.filter_list_off_rounded
-                              : Icons.tune_rounded,
-                          color: _hasActiveFilters
-                              ? AppColors.primary
-                              : AppColors.mutedForeground,
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: AppColors.primary,
+                  ),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_search.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 20),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _search = '');
+                            _load(reset: true);
+                          },
+                        ),
+                      IconButton(
+                        icon: Badge(
+                          isLabelVisible: _hasActiveFilters,
+                          smallSize: 8,
+                          backgroundColor: AppColors.primary,
+                          child: Icon(
+                            _filtersExpanded
+                                ? Icons.filter_list_off_rounded
+                                : Icons.tune_rounded,
+                            color: _hasActiveFilters
+                                ? AppColors.primary
+                                : AppColors.mutedForeground,
+                          ),
+                        ),
+                        tooltip: 'Bộ lọc',
+                        onPressed: () => setState(
+                          () => _filtersExpanded = !_filtersExpanded,
                         ),
                       ),
-                      tooltip: 'Bộ lọc',
-                      onPressed: () =>
-                          setState(() => _filtersExpanded = !_filtersExpanded),
-                    ),
-                  ],
+                    ],
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
+                onSubmitted: (v) {
+                  setState(() => _search = v.trim());
+                  _load(reset: true);
+                },
               ),
-              onSubmitted: (v) {
-                setState(() => _search = v.trim());
-                _load(reset: true);
-              },
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+              children: [
+                _FilterChip(
+                  label: 'Phổ biến',
+                  selected: _sort == 'downloadCount' && _priceType == null,
+                  onTap: () {
+                    setState(() {
+                      _sort = 'downloadCount';
+                      _priceType = null;
+                    });
+                    _load(reset: true);
+                  },
+                ),
+                _FilterChip(
+                  label: 'Miễn phí',
+                  selected: _priceType == 'free',
+                  onTap: () {
+                    setState(() => _priceType = 'free');
+                    _load(reset: true);
+                  },
+                ),
+                _FilterChip(
+                  label: 'Mới nhất',
+                  selected: _sort == 'createdAt',
+                  onTap: () {
+                    setState(() => _sort = 'createdAt');
+                    _load(reset: true);
+                  },
+                ),
+                if (_hasActiveFilters)
+                  _FilterChip(
+                    label: 'Xóa lọc',
+                    selected: false,
+                    icon: Icons.filter_alt_off_outlined,
+                    onTap: () {
+                      setState(() {
+                        _priceType = null;
+                        _categoryId = null;
+                        _tag = null;
+                      });
+                      _load(reset: true);
+                    },
+                  ),
+              ],
             ),
           ),
           if (_filtersExpanded) ...[
@@ -322,11 +494,39 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 AppSpacing.page,
                 AppSpacing.xs,
               ),
-              child: Text(
-                '${_assets.length} / $_total asset',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.mutedForeground,
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
                     ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                      ),
+                    ),
+                    child: Text(
+                      '${_assets.length} / $_total asset',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_loading)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                ],
               ),
             ),
           Expanded(
@@ -384,11 +584,35 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                     );
                                   }
                                   final asset = _assets[i];
+                                  final isBookmarked =
+                                      bookmarkIds.contains(asset.id);
+                                  final isInCart =
+                                      cartAssetIds.contains(asset.id);
+                                  final isPurchased =
+                                      purchasedIds.contains(asset.id);
                                   return AssetCard(
                                     asset: asset,
+                                    marketplaceStyle: true,
+                                    isBookmarked: isBookmarked,
+                                    isInCart: isInCart,
+                                    isPurchased: isPurchased,
                                     onTap: () => context.push(
                                       '/marketplace/${asset.id}',
                                     ),
+                                    onToggleBookmark: () => _toggleBookmark(
+                                      asset.id,
+                                      isBookmarked,
+                                    ),
+                                    onAddToCart: () => _addToCart(asset),
+                                    onBuyNow: () => _buyNow(
+                                      asset,
+                                      isInCart: isInCart,
+                                    ),
+                                    onViewOwned: isPurchased
+                                        ? () => context.push(
+                                              '/library/${asset.id}',
+                                            )
+                                        : null,
                                   );
                                 },
                               ),
@@ -452,17 +676,26 @@ class _FilterChip extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.icon,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.sm, bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: FilterChip(
+        avatar: icon != null
+            ? Icon(
+                icon,
+                size: 16,
+                color: selected ? AppColors.primary : AppColors.mutedForeground,
+              )
+            : null,
         label: Text(label),
         selected: selected,
         showCheckmark: false,
@@ -471,12 +704,13 @@ class _FilterChip extends StatelessWidget {
         labelStyle: TextStyle(
           color: selected ? AppColors.primary : AppColors.mutedForeground,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          fontSize: 13,
+          fontSize: 12,
         ),
         side: BorderSide(
           color: selected ? AppColors.primary : AppColors.border,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 2),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }

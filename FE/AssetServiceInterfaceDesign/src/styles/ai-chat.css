@@ -296,3 +296,72 @@
   border-color: rgba(0, 143, 168, 0.35);
   box-shadow: 0 4px 16px rgba(0, 143, 168, 0.12);
 }
+
+@keyframes ai-empty-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes ai-empty-ring-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-empty-glow {
+  background: radial-gradient(
+    circle,
+    rgba(0, 217, 255, 0.22) 0%,
+    rgba(168, 85, 247, 0.12) 45%,
+    transparent 70%
+  );
+  animation: ai-empty-pulse 3.2s ease-in-out infinite;
+}
+
+.ai-empty-ring {
+  background: conic-gradient(
+    from 0deg,
+    rgba(0, 217, 255, 0.75),
+    rgba(168, 85, 247, 0.55),
+    transparent 35%,
+    rgba(0, 217, 255, 0.75)
+  );
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  animation: ai-empty-ring-spin 4s linear infinite;
+}
+
+.ai-prompt-chip {
+  border: 1px solid rgba(0, 217, 255, 0.28);
+  background: rgba(11, 19, 38, 0.45);
+  backdrop-filter: blur(8px);
+  color: #f8f9fa;
+  max-width: 100%;
+}
+
+:root:not(.dark) .ai-prompt-chip {
+  border-color: rgba(0, 143, 168, 0.32);
+  background: var(--ai-surface);
+  color: var(--ai-surface-text);
+}
+
+:root:not(.dark) .ai-prompt-chip:hover {
+  background: #c5d0df;
+  border-color: rgba(0, 143, 168, 0.45);
+}
+
+.ai-input-shell:focus-within {
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(0, 217, 255, 0.35);
+}

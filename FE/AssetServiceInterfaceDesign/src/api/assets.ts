@@ -37,7 +37,7 @@ function buildQuery(params: AssetQuery): string {
 }
 
 export async function fetchAssets(params: AssetQuery = {}): Promise<PagedResponse<AssetListItem>> {
-  return apiRequest<PagedResponse<AssetListItem>>(`/assets${buildQuery(params)}`, { auth: false });
+  return apiRequest<PagedResponse<AssetListItem>>(`/assets${buildQuery(params)}`);
 }
 
 export async function fetchAssetById(id: string): Promise<AssetDetail> {

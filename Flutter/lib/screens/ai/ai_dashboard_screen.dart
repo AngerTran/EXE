@@ -11,6 +11,8 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/utils/error_messages.dart';
 import '../../models/ai_models.dart';
 import '../../providers/service_providers.dart';
+import '../../services/ai_service.dart';
+import '../../widgets/ai_chat_widgets.dart';
 import '../../widgets/asset_card.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -63,24 +65,8 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
     setState(() => _loading = true);
     try {
       final ai = await ref.read(aiServiceProvider.future);
-      var sessions = await ai.fetchSessions();
-
-      final active = sessions.where((s) => s.messageCount > 0).toList();
-      final empty = sessions.where((s) => s.messageCount == 0).toList();
-
-      String targetId;
-      if (active.isNotEmpty) {
-        targetId = active.first.id;
-        await ai.cleanupEmptySessions(keepId: targetId);
-      } else if (empty.isNotEmpty) {
-        targetId = empty.first.id;
-        await ai.cleanupEmptySessions(keepId: targetId);
-      } else {
-        final created = await ai.createSession(title: 'AssetBox AI Chat');
-        targetId = created.id;
-      }
-
-      sessions = await ai.fetchSessions();
+      final targetId = await _ensureEmptyChatSession(ai);
+      final sessions = await ai.fetchSessions();
       final detail = await ai.fetchSession(targetId);
       setState(() {
         _sessions = sessions;
@@ -91,6 +77,21 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
       setState(() => _loading = false);
       _showSnack(friendlyErrorMessage(e));
     }
+  }
+
+  /// ChatGPT-style: open a blank chat on tab entry — reuse the latest empty
+  /// session or create one; never resume a session that already has messages.
+  Future<String> _ensureEmptyChatSession(AiService ai) async {
+    final sessions = await ai.fetchSessions();
+    final empty = sessions.where((s) => s.messageCount == 0).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    final targetId = empty.isNotEmpty
+        ? empty.first.id
+        : (await ai.createSession(title: 'Phiên mới')).id;
+
+    await ai.cleanupEmptySessions(keepId: targetId);
+    return targetId;
   }
 
   Future<void> _send() async {
@@ -152,10 +153,9 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
   Future<void> _newSession() async {
     try {
       final ai = await ref.read(aiServiceProvider.future);
-      if (_session != null) {
-        await ai.cleanupEmptySessions(keepId: _session!.id);
-      }
+      await ai.cleanupEmptySessions();
       final created = await ai.createSession(title: 'Phiên mới');
+      await ai.cleanupEmptySessions(keepId: created.id);
       final sessions = await ai.fetchSessions();
       final detail = await ai.fetchSession(created.id);
       setState(() {
@@ -276,72 +276,86 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
       ),
       builder: (ctx) => DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.65,
+        initialChildSize: 0.72,
+        minChildSize: 0.45,
         maxChildSize: 0.92,
-        builder: (_, scroll) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.page,
-            AppSpacing.md,
-            AppSpacing.page,
-            AppSpacing.page,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Game Outline',
-                      style: Theme.of(ctx).primaryTextTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
+        builder: (_, scroll) {
+          final bottomInset = MediaQuery.paddingOf(ctx).bottom + 72;
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              AppSpacing.md,
+              AppSpacing.page,
+              0,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  TextButton.icon(
-                    onPressed: _exportLoading
-                        ? null
-                        : () async {
-                            Navigator.pop(ctx);
-                            await _exportOutline();
-                          },
-                    icon: _exportLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.share_outlined, size: 18),
-                    label: const Text('Chia sẻ file'),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Game Outline',
+                        style: Theme.of(ctx).primaryTextTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: _exportLoading
+                          ? null
+                          : () async {
+                              Navigator.pop(ctx);
+                              await _exportOutline();
+                            },
+                      icon: _exportLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.share_outlined, size: 18),
+                      label: const Text('Chia sẻ file'),
+                    ),
+                  ],
+                ),
+                if (_outline!.length > 800)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(
+                      'Vuốt lên để xem toàn bộ outline',
+                      style: Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                            color: AppColors.mutedForeground,
+                          ),
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scroll,
-                  child: Text(
-                    _outline!,
-                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                          height: 1.55,
-                          color: AppColors.foreground,
-                        ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: scroll,
+                    padding: EdgeInsets.only(bottom: bottomInset),
+                    child: Text(
+                      _outline!,
+                      style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                            height: 1.55,
+                            color: AppColors.foreground,
+                          ),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -508,78 +522,34 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.sm,
-              AppSpacing.sm,
-              AppSpacing.page,
-              AppSpacing.sm,
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.menu_rounded),
-                  tooltip: 'Phiên chat',
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                ),
-                Expanded(
-                  child: Text(
-                    _session?.title ?? 'Đang tải...',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.foreground,
-                        ),
-                  ),
-                ),
-                if (_outlineLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                IconButton(
-                  tooltip: 'Tạo game outline',
-                  onPressed: _session == null || _outlineLoading
-                      ? null
-                      : _generateOutline,
-                  icon: const Icon(Icons.article_outlined),
-                ),
-                IconButton(
-                  tooltip: 'Xuất / chia sẻ outline',
-                  onPressed: _session == null || _exportLoading
-                      ? null
-                      : () {
-                          if (_outline != null) {
-                            _showOutlineSheet();
-                          } else {
-                            _exportOutline();
-                          }
-                        },
-                  icon: _exportLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.ios_share_rounded),
-                ),
-              ],
-            ),
+          AiSessionToolbar(
+            title: _session?.title ?? 'Đang tải...',
+            outlineLoading: _outlineLoading,
+            exportLoading: _exportLoading,
+            onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+            onGenerateOutline:
+                _session == null || _outlineLoading ? null : _generateOutline,
+            onExport: _session == null || _exportLoading
+                ? null
+                : () {
+                    if (_outline != null) {
+                      _showOutlineSheet();
+                    } else {
+                      _exportOutline();
+                    }
+                  },
           ),
           Expanded(
             child: _loading
                 ? const LoadingView(message: 'Đang tải phiên chat...')
                 : (_session?.messages.isEmpty ?? true)
-                    ? EmptyState(
-                        icon: Icons.auto_awesome,
-                        title: 'Bắt đầu trò chuyện',
-                        subtitle:
-                            'Mô tả ý tưởng game — AI sẽ phân tích và gợi ý asset.',
+                    ? AiEmptyState(
+                        onPromptTap: (prompt) {
+                          _inputCtrl.text = prompt;
+                          _inputCtrl.selection = TextSelection.collapsed(
+                            offset: prompt.length,
+                          );
+                        },
                       )
                     : ListView.builder(
                         controller: _scrollCtrl,
@@ -592,23 +562,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                         itemBuilder: (context, i) {
                           if (_sending &&
                               i == (_session?.messages.length ?? 0)) {
-                            return const Padding(
-                              padding: EdgeInsets.all(AppSpacing.lg),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                  SizedBox(width: AppSpacing.md),
-                                  Text('AI đang trả lời...'),
-                                ],
-                              ),
-                            );
+                            return const AiTypingIndicator();
                           }
                           final msg = _session!.messages[i];
                           final suggestions = msg.suggestedAssets
@@ -638,58 +592,10 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
                         },
                       ),
           ),
-          Container(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.sm + MediaQuery.paddingOf(context).bottom,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.background.withValues(alpha: 0.96),
-              border: const Border(top: BorderSide(color: AppColors.border)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _inputCtrl,
-                    minLines: 1,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _send(),
-                    decoration: InputDecoration(
-                      hintText: 'Mô tả ý tưởng game của bạn...',
-                      filled: true,
-                      fillColor: AppColors.card,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,
-                        vertical: AppSpacing.md,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.lg),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.lg),
-                        borderSide: const BorderSide(color: AppColors.border),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                IconButton.filled(
-                  onPressed: _sending ? null : _send,
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.primaryForeground,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  icon: const Icon(Icons.send_rounded),
-                ),
-              ],
-            ),
+          AiChatInputBar(
+            controller: _inputCtrl,
+            sending: _sending,
+            onSend: _send,
           ),
         ],
       ),

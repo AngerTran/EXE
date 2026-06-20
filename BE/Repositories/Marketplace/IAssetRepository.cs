@@ -8,6 +8,7 @@ public interface IAssetRepository
 {
     Task<(IReadOnlyList<Asset> Items, int Total)> ListApprovedAsync(
         AssetQueryParams query,
+        Guid? viewerUserId = null,
         CancellationToken cancellationToken = default);
 
     Task<Asset?> GetApprovedByIdAsync(Guid id, CancellationToken cancellationToken = default);

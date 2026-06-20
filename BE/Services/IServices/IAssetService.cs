@@ -6,7 +6,10 @@ namespace Exe.Services.IServices;
 
 public interface IAssetService
 {
-    Task<PagedResponse<AssetListItemResponse>> ListApprovedAsync(AssetQueryParams query, CancellationToken cancellationToken = default);
+    Task<PagedResponse<AssetListItemResponse>> ListApprovedAsync(
+        AssetQueryParams query,
+        Guid? viewerUserId = null,
+        CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> GetApprovedByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> GetApprovedBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse> CreateAsync(Guid userId, CreateAssetRequest request, CancellationToken cancellationToken = default);

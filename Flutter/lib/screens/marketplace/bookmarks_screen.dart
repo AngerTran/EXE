@@ -15,6 +15,17 @@ class BookmarksScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bookmarks = ref.watch(_bookmarksProvider);
     final auth = ref.watch(authProvider);
+    final bookmarkIds = ref.watch(bookmarkIdsProvider);
+    final userAssets = ref.watch(userAssetsListProvider);
+
+    final purchasedIds = userAssets.maybeWhen(
+      data: (items) => items.map((a) => a.assetId).toSet(),
+      orElse: () => <String>{},
+    );
+    final savedIds = bookmarkIds.maybeWhen(
+      data: (ids) => ids,
+      orElse: () => <String>{},
+    );
 
     if (!auth.isLoggedIn) {
       return Scaffold(
@@ -70,7 +81,19 @@ class BookmarksScreen extends ConsumerWidget {
                 final asset = items[i];
                 return AssetCard(
                   asset: asset,
+                  marketplaceStyle: true,
+                  isBookmarked: savedIds.contains(asset.id),
+                  isPurchased: purchasedIds.contains(asset.id),
                   onTap: () => context.push('/marketplace/${asset.id}'),
+                  onToggleBookmark: () async {
+                    try {
+                      final svc =
+                          await ref.read(bookmarksServiceProvider.future);
+                      await svc.removeBookmark(asset.id);
+                      ref.invalidate(bookmarkIdsProvider);
+                      ref.invalidate(_bookmarksProvider);
+                    } catch (_) {}
+                  },
                 );
               },
             ),

@@ -251,7 +251,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                                 ?.copyWith(
                                   color: asset.isFree
                                       ? AppColors.success
-                                      : AppColors.primary,
+                                      : AppColors.warning,
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
@@ -262,12 +262,12 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
+                          color: AppColors.warning.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                         child: const Icon(
                           Icons.monetization_on_outlined,
-                          color: AppColors.primary,
+                          color: AppColors.warning,
                         ),
                       ),
                   ],

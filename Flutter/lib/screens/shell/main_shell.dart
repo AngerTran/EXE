@@ -8,6 +8,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/branded_background.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/notification_panel.dart';
 
 class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.child});
@@ -64,6 +65,7 @@ class MainShell extends ConsumerWidget {
         ),
         actions: [
           if (auth.isLoggedIn) ...[
+            const NotificationBellButton(),
             IconButton(
               icon: const Icon(Icons.bookmark_border_rounded),
               tooltip: 'Đã lưu',
