@@ -20,7 +20,41 @@ Chỉnh `appsettings.json` (mẫu: `appsettings.Development.example.json`):
 | `ConnectionStrings:DefaultConnection` | Project Settings → Database |
 | `Supabase:Url` | Project Settings → API → Project URL |
 | `Supabase:AnonKey` | Project Settings → API → Publishable key |
+| `Supabase:ServiceRoleKey` | Project Settings → API → Secret key *(xem bên dưới — không commit)* |
+| `Ai:ApiKey` | OpenAI API key *(xem bên dưới — không commit)* |
 | `Supabase:JwtSecret` | *(Tuỳ chọn)* Legacy HS256 — BE tự verify qua JWKS (ECC) |
+
+### Secret keys (local dev)
+
+`ServiceRoleKey` và `Ai:ApiKey` **để trống** trong `appsettings.json` (GitHub chặn push secret). Lưu trên máy dev bằng User Secrets:
+
+```powershell
+cd BE
+dotnet user-secrets set "Supabase:ServiceRoleKey" "YOUR_SUPABASE_SECRET_KEY"
+dotnet user-secrets set "Ai:ApiKey" "YOUR_OPENAI_API_KEY"
+```
+
+- **ServiceRoleKey** — upload/tải asset, signed URL Supabase Storage.
+- **Ai:ApiKey** — AI chat & game outline (OpenAI).
+
+### Deploy (Railway, Render, VPS, …)
+
+Set **biến môi trường** trên hosting (ASP.NET Core tự map `__` → `:`):
+
+| Biến môi trường | Chức năng |
+|-----------------|-----------|
+| `Supabase__ServiceRoleKey` | Tải asset, upload file |
+| `OPENAI_API_KEY` hoặc `Ai__ApiKey` | AI chat |
+
+Ví dụ thêm URL production (tuỳ host):
+
+| Biến môi trường | Ví dụ |
+|-----------------|-------|
+| `Supabase__FrontendBaseUrl` | `https://your-fe.vercel.app` |
+| `Cors__AllowedOrigins__0` | `https://your-fe.vercel.app` |
+| `Payment__FeReturnUrl` | `https://your-fe.vercel.app/checkout/return` |
+
+Sau khi set env, restart/redeploy BE — không cần sửa `appsettings.json` trên server.
 
 ## API §4.1 Auth & Profile
 
