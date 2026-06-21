@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj": {}
+    "D:\\PRMCLASS\\EXE\\BE\\scripts\\EnsureStorageBuckets\\EnsureStorageBuckets.csproj": {}
   },
   "projects": {
-    "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj": {
+    "D:\\PRMCLASS\\EXE\\BE\\scripts\\EnsureStorageBuckets\\EnsureStorageBuckets.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj",
-        "projectName": "SetupNewUserTrigger",
-        "projectPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj",
+        "projectUniqueName": "D:\\PRMCLASS\\EXE\\BE\\scripts\\EnsureStorageBuckets\\EnsureStorageBuckets.csproj",
+        "projectName": "EnsureStorageBuckets",
+        "projectPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\EnsureStorageBuckets\\EnsureStorageBuckets.csproj",
         "packagesPath": "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\0cb0b5be061a2e8a3887401bb8541572\\nuget",
-        "outputPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\obj\\",
+        "outputPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\EnsureStorageBuckets\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -57,9 +57,9 @@
               "target": "Package",
               "version": "[10.0.0, )"
             },
-            "Npgsql": {
+            "Microsoft.Extensions.Configuration.UserSecrets": {
               "target": "Package",
-              "version": "[10.0.1, )"
+              "version": "[10.0.0, )"
             }
           },
           "imports": [

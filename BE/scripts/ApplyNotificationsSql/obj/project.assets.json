@@ -582,11 +582,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj",
-      "projectName": "SetupNewUserTrigger",
-      "projectPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\SetupNewUserTrigger.csproj",
+      "projectUniqueName": "D:\\PRMCLASS\\EXE\\BE\\scripts\\ApplyNotificationsSql\\ApplyNotificationsSql.csproj",
+      "projectName": "ApplyNotificationsSql",
+      "projectPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\ApplyNotificationsSql\\ApplyNotificationsSql.csproj",
       "packagesPath": "C:\\Users\\tamgi\\AppData\\Local\\Temp\\cursor-sandbox-cache\\0cb0b5be061a2e8a3887401bb8541572\\nuget",
-      "outputPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\SetupNewUserTrigger\\obj\\",
+      "outputPath": "D:\\PRMCLASS\\EXE\\BE\\scripts\\ApplyNotificationsSql\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
