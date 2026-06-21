@@ -80,7 +80,7 @@ class HomeScreen extends ConsumerWidget {
                     scrollDirection: Axis.horizontal,
                     clipBehavior: Clip.none,
                     itemCount: result.items.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (_, _) =>
                         const SizedBox(width: AppSpacing.md),
                     itemBuilder: (context, i) {
                       final asset = result.items[i];
@@ -1043,8 +1043,8 @@ class _Thumbnail extends StatelessWidget {
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,
-      placeholder: (_, __) => _placeholder(),
-      errorWidget: (_, __, ___) => _placeholder(),
+      placeholder: (_, _) => _placeholder(),
+      errorWidget: (_, _, _) => _placeholder(),
     );
   }
 

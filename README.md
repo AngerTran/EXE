@@ -22,3 +22,15 @@ Xem **[docs/README.md](docs/README.md)** — mục lục đầy đủ.
 npm run dev          # BE :5180 + FE :5173
 cd Flutter && flutter run   # Mobile app
 ```
+
+## Deploy (bài tập / production)
+
+Xem **[docs/DEPLOY.md](docs/DEPLOY.md)** — SQL, BE (Render/Docker), FE (Vercel), Supabase redirect.
+
+Chuẩn bị Supabase trên máy dev:
+
+```powershell
+cd BE/scripts/SetupNewUserTrigger; dotnet run
+cd ../ApplyNotificationsSql; dotnet run
+cd ../EnsureStorageBuckets; dotnet run
+```

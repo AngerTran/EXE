@@ -37,7 +37,7 @@ class OrdersService {
 
   Future<Order> createAssetOrder({List<String>? assetIds}) => _client.post(
         '/orders/assets',
-        data: {if (assetIds != null) 'assetIds': assetIds},
+        data: {'assetIds': ?assetIds},
         parser: (d) => Order.fromJson(d as Map<String, dynamic>),
       );
 

@@ -171,7 +171,7 @@ class _NotificationPanelBody extends ConsumerWidget {
                         AppSpacing.xxl,
                       ),
                       itemCount: state.items.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (context, index) {
                         final item = state.items[index];

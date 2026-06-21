@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "concurrently -k -n BE,FE -c cyan,magenta \"npm run dev:be\" \"npm run dev:fe\"",
     "dev:be": "dotnet run --project BE --no-launch-profile --urls http://localhost:5180",
-    "dev:fe": "npm run dev --prefix FE/AssetServiceInterfaceDesign"
+    "dev:fe": "npm run dev --prefix FE/AssetServiceInterfaceDesign",
+    "predeploy:supabase": "dotnet run --project BE/scripts/SetupNewUserTrigger && dotnet run --project BE/scripts/ApplyNotificationsSql && dotnet run --project BE/scripts/EnsureStorageBuckets",
+    "build:fe": "npm run build --prefix FE/AssetServiceInterfaceDesign"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

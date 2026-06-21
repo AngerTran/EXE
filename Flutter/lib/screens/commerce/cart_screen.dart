@@ -95,7 +95,7 @@ class CartScreen extends ConsumerWidget {
                 child: ListView.separated(
                   padding: const EdgeInsets.all(AppSpacing.page),
                   itemCount: data.items.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                       const SizedBox(height: AppSpacing.md),
                   itemBuilder: (context, i) {
                     final item = data.items[i];

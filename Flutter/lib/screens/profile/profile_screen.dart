@@ -91,7 +91,7 @@ class ProfileScreen extends ConsumerWidget {
                 );
               },
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
             const SizedBox(height: AppSpacing.xl),
             _QuickActionsGrid(

@@ -253,7 +253,7 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
             }).ToListAsync(cancellationToken);
 
         var subscriptionStats = subscriptionRows
-            .Select(x => (x.Category, x.ItemName, x.PlanSlug?.ToString().ToLowerInvariant(), x.Count, x.RevenueVnd))
+            .Select(x => (x.Category, x.ItemName, (string?)x.PlanSlug?.ToString().ToLowerInvariant(), x.Count, x.RevenueVnd))
             .ToList();
 
         var creditStats = await (
@@ -272,7 +272,7 @@ public class AdminRepository(AppDbContext db) : IAdminRepository
             }).ToListAsync(cancellationToken);
 
         return subscriptionStats
-            .Concat(creditStats.Select(x => (x.Category, x.ItemName, x.PlanSlug, x.Count, x.RevenueVnd)))
+            .Concat(creditStats.Select(x => (x.Category, x.ItemName, (string?)x.PlanSlug, x.Count, x.RevenueVnd)))
             .OrderByDescending(x => x.Count)
             .ToList();
     }

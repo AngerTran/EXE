@@ -129,7 +129,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                           ? CachedNetworkImage(
                               imageUrl: asset.thumbnailUrl!,
                               fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
+                              placeholder: (_, _) => Container(
                                 color: AppColors.border,
                               ),
                             )
@@ -331,7 +331,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: items.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (_, _) =>
                               const SizedBox(width: AppSpacing.md),
                           itemBuilder: (context, i) {
                             final a = items[i];
@@ -349,7 +349,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                   );
                 },
                 loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
               ),
             ],
           );
@@ -676,7 +676,7 @@ class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
         padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
         child: LinearProgressIndicator(color: AppColors.primary),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }

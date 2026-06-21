@@ -459,7 +459,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                 );
               },
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
             ),
             if (_hasActiveFilters)
               Padding(

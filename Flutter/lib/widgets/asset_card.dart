@@ -440,7 +440,6 @@ class _MarketplaceButton extends StatelessWidget {
     this.icon,
     this.primary = false,
     this.compact = false,
-    this.enabled = true,
     this.onPressed,
   });
 
@@ -448,12 +447,11 @@ class _MarketplaceButton extends StatelessWidget {
   final IconData? icon;
   final bool primary;
   final bool compact;
-  final bool enabled;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final active = enabled && onPressed != null;
+    final active = onPressed != null;
     final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontSize: compact ? 10 : 11,
@@ -722,14 +720,12 @@ class _InfoRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.iconColor,
-    this.valueColor,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color? iconColor;
-  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -752,7 +748,7 @@ class _InfoRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.end,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: valueColor ?? AppColors.foreground,
+                  color: AppColors.foreground,
                   fontWeight: FontWeight.w600,
                   fontSize: 11,
                 ),
@@ -782,8 +778,8 @@ class _Thumbnail extends StatelessWidget {
       imageUrl: url!,
       fit: BoxFit.cover,
       width: double.infinity,
-      placeholder: (_, __) => Container(color: AppColors.border),
-      errorWidget: (_, __, ___) => Container(
+      placeholder: (_, _) => Container(color: AppColors.border),
+      errorWidget: (_, _, _) => Container(
         color: AppColors.border,
         child: const Icon(Icons.broken_image_outlined, color: AppColors.muted),
       ),

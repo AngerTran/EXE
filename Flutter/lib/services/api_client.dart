@@ -137,7 +137,7 @@ class ApiClient {
       );
 
       if (response.statusCode == 204 || response.data == null) {
-        return (parser?.call(null) ?? null) as T;
+        return parser?.call(null) as T;
       }
 
       final body = response.data;

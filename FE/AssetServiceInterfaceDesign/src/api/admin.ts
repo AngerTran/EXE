@@ -207,8 +207,15 @@ export async function fetchAdminAnalyticsRevenue(
   return apiRequest<AdminAnalyticsRevenue>(`/admin/analytics/revenue${q ? `?${q}` : ""}`);
 }
 
-export async function fetchAdminAnalyticsUsers(): Promise<AdminAnalyticsUsers> {
-  return apiRequest<AdminAnalyticsUsers>("/admin/analytics/users");
+export async function fetchAdminAnalyticsUsers(
+  from?: string,
+  to?: string
+): Promise<AdminAnalyticsUsers> {
+  const params = new URLSearchParams();
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const q = params.toString();
+  return apiRequest<AdminAnalyticsUsers>(`/admin/analytics/users${q ? `?${q}` : ""}`);
 }
 
 export async function fetchAdminAnalyticsAssets(): Promise<AdminAnalyticsAssets> {

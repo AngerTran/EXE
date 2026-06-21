@@ -204,7 +204,7 @@ class SectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -567,7 +567,7 @@ class AssetGridSkeleton extends StatelessWidget {
         childAspectRatio: 0.72,
       ),
       itemCount: count,
-      itemBuilder: (_, __) => _SkeletonCard(),
+      itemBuilder: (_, _) => _SkeletonCard(),
     );
   }
 }

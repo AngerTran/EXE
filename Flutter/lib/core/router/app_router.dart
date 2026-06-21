@@ -80,15 +80,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         routes: [
 
-          GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+          GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
 
-          GoRoute(path: '/ai', builder: (_, __) => const AiDashboardScreen()),
+          GoRoute(path: '/ai', builder: (_, _) => const AiDashboardScreen()),
 
           GoRoute(
 
             path: '/marketplace',
 
-            builder: (_, __) => const MarketplaceScreen(),
+            builder: (_, _) => const MarketplaceScreen(),
 
           ),
 
@@ -96,7 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
             path: '/library',
 
-            builder: (_, __) => const MyAssetsScreen(),
+            builder: (_, _) => const MyAssetsScreen(),
 
           ),
 
@@ -104,7 +104,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
             path: '/pricing',
 
-            builder: (_, __) => const PricingScreen(),
+            builder: (_, _) => const PricingScreen(),
 
           ),
 
@@ -112,7 +112,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
             path: '/profile',
 
-            builder: (_, __) => const ProfileScreen(),
+            builder: (_, _) => const ProfileScreen(),
 
             routes: [
 
@@ -120,7 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
                 path: 'edit',
 
-                builder: (_, __) => const EditProfileScreen(),
+                builder: (_, _) => const EditProfileScreen(),
 
               ),
 
@@ -128,7 +128,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
                 path: 'purchases',
 
-                builder: (_, __) => const PurchaseHistoryScreen(),
+                builder: (_, _) => const PurchaseHistoryScreen(),
 
               ),
 
@@ -170,14 +170,14 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/auth',
 
-        builder: (_, __) => const AuthScreen(),
+        builder: (_, _) => const AuthScreen(),
 
       ),
 
       GoRoute(
         parentNavigatorKey: rootNavigatorKey,
         path: '/auth/callback',
-        builder: (_, __) => const AuthCallbackScreen(),
+        builder: (_, _) => const AuthCallbackScreen(),
       ),
 
       GoRoute(
@@ -200,7 +200,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/cart',
 
-        builder: (_, __) => const CartScreen(),
+        builder: (_, _) => const CartScreen(),
 
       ),
 
@@ -210,7 +210,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/orders',
 
-        builder: (_, __) => const OrdersScreen(),
+        builder: (_, _) => const OrdersScreen(),
 
       ),
 
@@ -220,7 +220,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/bookmarks',
 
-        builder: (_, __) => const BookmarksScreen(),
+        builder: (_, _) => const BookmarksScreen(),
 
       ),
 
@@ -258,7 +258,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/checkout/assets',
 
-        builder: (_, __) => const CheckoutScreen.assets(),
+        builder: (_, _) => const CheckoutScreen.assets(),
 
       ),
 
@@ -282,7 +282,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/contact',
 
-        builder: (_, __) => const ContactScreen(),
+        builder: (_, _) => const ContactScreen(),
 
       ),
 
@@ -292,7 +292,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/terms',
 
-        builder: (_, __) => const TermsScreen(),
+        builder: (_, _) => const TermsScreen(),
 
       ),
 
@@ -302,7 +302,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
         path: '/privacy',
 
-        builder: (_, __) => const PrivacyScreen(),
+        builder: (_, _) => const PrivacyScreen(),
 
       ),
 
@@ -369,7 +369,7 @@ class _AuthListenable extends ChangeNotifier {
 
   _AuthListenable(this.ref) {
 
-    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(authProvider, (_, _) => notifyListeners());
 
   }
 

@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: exe-api
+    runtime: docker
+    dockerfilePath: ./BE/Dockerfile
+    dockerContext: ./BE
+    plan: free
+    healthCheckPath: /swagger/index.html
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:8080
+      - key: Supabase__ServiceRoleKey
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: Supabase__FrontendBaseUrl
+        sync: false
+      - key: Supabase__PasswordResetRedirectUrl
+        sync: false
+      - key: Payment__FeReturnUrl
+        sync: false
+      - key: Cors__AllowedOrigins__0
+        sync: false

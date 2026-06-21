@@ -16,7 +16,7 @@ class AiService {
 
   Future<AiSessionDetail> createSession({String? title}) => _client.post(
         '/ai/sessions',
-        data: {if (title != null) 'title': title},
+        data: {'title': ?title},
         parser: (d) => AiSessionDetail.fromJson(d as Map<String, dynamic>),
       );
 

@@ -128,7 +128,7 @@ class _ContactScreenState extends ConsumerState<ContactScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: _consultType,
+                  initialValue: _consultType,
                   decoration: const InputDecoration(labelText: 'Loại tư vấn'),
                   items: const [
                     DropdownMenuItem(value: 'basic', child: Text('Cơ bản')),

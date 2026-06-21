@@ -8,7 +8,6 @@ using Exe.Repositories.Wallet;
 namespace Exe.Services;
 
 public class OrderFulfillmentService(
-    IOrderRepository orderRepository,
     IUserAssetRepository userAssetRepository,
     ISubscriptionRepository subscriptionRepository,
     IWalletRepository walletRepository,

@@ -14,6 +14,7 @@ Mục lục tài liệu chính. **Mọi thay đổi Flutter/mobile** cần cập
 | [FE_BE_API_BACKLOG.md](./FE_BE_API_BACKLOG.md) | Backlog API FE ↔ BE (web) |
 | [FE_BE_AUTH_TEST.md](./FE_BE_AUTH_TEST.md) | Hướng dẫn test auth |
 | [ASSET_STORAGE_4_6.md](./ASSET_STORAGE_4_6.md) | Asset storage Supabase |
+| [DEPLOY.md](./DEPLOY.md) | **Deploy BE + FE** (Render, Vercel, env, Supabase) |
 
 ## Mobile / Flutter
 

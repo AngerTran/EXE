@@ -18,11 +18,11 @@ enum CheckoutKind { subscription, credits, assets }
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen._({
-    Key? key,
+    super.key,
     required this.kind,
     this.planSlug,
     this.packId,
-  }) : super(key: key);
+  });
 
   const CheckoutScreen.subscription({
     Key? key,

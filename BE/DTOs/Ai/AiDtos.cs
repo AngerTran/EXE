@@ -31,7 +31,7 @@ public record AiMessageResponse(
     int XuCharged,
     DateTime CreatedAt,
     IReadOnlyList<AiSuggestedAssetResponse>? SuggestedAssets,
-    /// <summary>found | not_found | null (null = không tìm asset cho tin nhắn này)</summary>
+    // found | not_found | null (null = không tìm asset cho tin nhắn này)
     string? AssetSuggestionStatus = null);
 
 public record AiSessionDetailResponse(

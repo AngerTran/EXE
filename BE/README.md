@@ -56,6 +56,16 @@ Ví dụ thêm URL production (tuỳ host):
 
 Sau khi set env, restart/redeploy BE — không cần sửa `appsettings.json` trên server.
 
+### Chuẩn bị Supabase (chạy 1 lần trước deploy)
+
+```powershell
+npm run predeploy:supabase
+```
+
+Hoặc từng script trong `BE/scripts/`: `SetupNewUserTrigger`, `ApplyNotificationsSql`, `EnsureStorageBuckets`.
+
+Hướng dẫn deploy đầy đủ: [docs/DEPLOY.md](../docs/DEPLOY.md)
+
 ## API §4.1 Auth & Profile
 
 Base path: `/api/v1/auth`

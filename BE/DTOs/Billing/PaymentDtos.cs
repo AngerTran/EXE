@@ -22,7 +22,7 @@ public record CreatePaymentResponse(
     long AmountVnd,
     string Method,
     string Status,
-    /// <summary>Trang FE sau khi user hoàn tất bước thanh toán.</summary>
+    // Trang FE sau khi user hoàn tất bước thanh toán.
     string? RedirectUrl,
-    /// <summary>URL điều hướng nội bộ (chuyển khoản).</summary>
+    // URL điều hướng nội bộ (chuyển khoản).
     string? PayUrl);
