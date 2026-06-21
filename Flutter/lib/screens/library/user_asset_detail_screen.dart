@@ -13,6 +13,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../core/utils/error_messages.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
+import '../../widgets/asset_reviews_section.dart';
 import '../../widgets/common_widgets.dart';
 
 class UserAssetDetailScreen extends ConsumerStatefulWidget {
@@ -209,6 +210,8 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
                         ],
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AssetReviewsSection(assetId: widget.assetId),
                     const SizedBox(height: AppSpacing.xl),
                     OutlinedButton.icon(
                       onPressed: _remove,

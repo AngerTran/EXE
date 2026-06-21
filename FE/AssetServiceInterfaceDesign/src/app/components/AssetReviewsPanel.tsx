@@ -215,17 +215,18 @@ export function AssetReviewsPanel({
               <BeamPanel
                 key={review.id}
                 beam={3.4}
-                className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-primary/30 rounded-xl p-4 space-y-3"
+                className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-primary/30 rounded-xl p-5 space-y-4"
               >
                 <StarRating value={editRating} onChange={setEditRating} />
                 <Textarea
                   value={editComment}
                   onChange={(e) => setEditComment(e.target.value)}
                   placeholder="Nhận xét của bạn..."
-                  rows={3}
+                  rows={4}
                   maxLength={2000}
+                  className="min-h-[100px] bg-background/80"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 pt-3 border-t border-border/50">
                   <Button size="sm" variant="gradient" onClick={handleUpdate} disabled={submitting}>
                     Lưu
                   </Button>
@@ -242,29 +243,40 @@ export function AssetReviewsPanel({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-foreground">{review.userName}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-foreground">{review.userName}</p>
+                      {review.isOwn && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30">
+                          Của bạn
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">{formatReviewDate(review.createdAt)}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-end gap-2 shrink-0">
                     <StarRating value={review.rating} readonly size="sm" />
                     {review.isOwn && (
                       <div className="flex gap-1">
-                        <button
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 gap-1"
                           onClick={() => startEdit(review)}
-                          className="text-muted-foreground hover:text-primary p-1"
-                          aria-label="Sửa đánh giá"
                         >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
+                          <Pencil className="w-3.5 h-3.5" />
+                          Sửa
+                        </Button>
+                        <Button
                           type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 gap-1 text-destructive hover:text-destructive"
                           onClick={() => handleDelete(review.id)}
-                          className="text-muted-foreground hover:text-destructive p-1"
-                          aria-label="Xóa đánh giá"
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Xóa
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -279,19 +291,48 @@ export function AssetReviewsPanel({
       )}
 
       {canReview && (
-        <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-4 space-y-3" beam={3.6}>
-          <p className="text-sm font-medium text-foreground">Viết đánh giá của bạn</p>
-          <StarRating value={rating} onChange={setRating} />
-          <Textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Chia sẻ trải nghiệm với asset này..."
-            rows={3}
-            maxLength={2000}
-          />
-          <Button variant="gradient" onClick={handleSubmit} disabled={submitting || rating < 1}>
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gửi đánh giá"}
-          </Button>
+        <BeamPanel
+          className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-xl p-5"
+          beam={3.6}
+        >
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-foreground">Viết đánh giá của bạn</p>
+              <StarRating value={rating} onChange={setRating} />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor={`review-comment-${assetId}`}
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Nhận xét (tuỳ chọn)
+              </label>
+              <Textarea
+                id={`review-comment-${assetId}`}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Chia sẻ trải nghiệm với asset này..."
+                rows={4}
+                maxLength={2000}
+                className="min-h-[108px] bg-background/80 px-4 py-3 leading-relaxed"
+              />
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 pt-4 border-t border-border/50 sm:flex-row sm:items-center sm:justify-end">
+              <p className="text-xs text-muted-foreground sm:mr-auto">
+                {comment.length}/2000 ký tự
+              </p>
+              <Button
+                variant="gradient"
+                className="w-full sm:w-auto sm:min-w-[148px]"
+                onClick={handleSubmit}
+                disabled={submitting || rating < 1}
+              >
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gửi đánh giá"}
+              </Button>
+            </div>
+          </div>
         </BeamPanel>
       )}
 

@@ -36,6 +36,7 @@ import { fetchUserAssets, downloadUserAssetFile, removeUserAssetFromLibrary } fr
 import { XuPrice } from "./XuPrice";
 import { mapUserAssetToUi, type PurchasedAssetUi } from "../../api/mappers";
 import { ApiError } from "../../api/client";
+import { AssetReviewsPanel } from "./AssetReviewsPanel";
 import { componentClasses } from "../../constants/theme";
 
 const CTA = componentClasses.ctaGradient;
@@ -552,6 +553,12 @@ export default function MyAssets() {
                     </span>
                   </div>
                 </div>
+
+                <AssetReviewsPanel
+                  assetId={viewingAsset.id}
+                  isPurchased
+                  isFree={viewingAsset.price === 0}
+                />
 
                 {viewingAsset.isDelisted && (
                   <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">

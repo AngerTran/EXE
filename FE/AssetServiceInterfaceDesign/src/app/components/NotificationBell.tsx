@@ -302,10 +302,9 @@ export function NotificationBell({ adminPendingOrders = 0 }: NotificationBellPro
               asChild
               onClick={() => setOpen(false)}
             >
-              <Link to="/pricing">
+              <Link to="/pricing" className="justify-center gap-2">
                 <CreditCard className="w-4 h-4" />
                 Xem gói dịch vụ
-                <ArrowRight className="w-4 h-4 ml-auto" />
               </Link>
             </Button>
           )}

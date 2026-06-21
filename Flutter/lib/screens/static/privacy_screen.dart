@@ -19,7 +19,7 @@ class PrivacyScreen extends StatelessWidget {
                 ),
           ),
           Text(
-            'Cập nhật: 24/03/2026',
+            'Cập nhật: 06/06/2026',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.mutedForeground,
                 ),
@@ -60,22 +60,30 @@ class _Section {
 const _sections = [
   _Section(
     '1. Dữ liệu thu thập',
-    'Chúng tôi thu thập email, tên hiển thị, lịch sử giao dịch, phiên AI và asset đã mua để vận hành dịch vụ.',
+    'Email, tên hiển thị, avatar (Supabase Auth / Google OAuth), gói subscription, số dư xu, đơn hàng chuyển khoản, phiên & tin nhắn AI, asset đã mua/đăng, đánh giá, form liên hệ và thông báo. Không lưu số thẻ.',
   ),
   _Section(
     '2. Mục đích sử dụng',
-    'Dữ liệu dùng để xác thực tài khoản, xử lý thanh toán, cung cấp AI và hỗ trợ khách hàng.',
+    'Vận hành marketplace, ví xu, AI advisor, xử lý đơn chuyển khoản, kiểm duyệt, hỗ trợ khách hàng và thống kê nội bộ. Không dùng chat để huấn luyện mô hình AI riêng.',
   ),
   _Section(
-    '3. Lưu trữ & bảo mật',
-    'Dữ liệu lưu trên hạ tầng Supabase và máy chủ AssetBox với mã hóa truyền tải HTTPS. Mật khẩu được hash, không lưu dạng plain text.',
+    '3. Bảo mật',
+    'Truyền tải HTTPS. Mật khẩu do Supabase quản lý. Token đăng nhập lưu trên thiết bị. Dữ liệu và file lưu trên Supabase.',
   ),
   _Section(
-    '4. Chia sẻ với bên thứ ba',
-    'Chúng tôi dùng Supabase (auth), Google (đăng nhập OAuth) và ngân hàng (xác nhận chuyển khoản). Không bán dữ liệu cá nhân.',
+    '4. Bên thứ ba',
+    'Supabase (DB, auth, storage), Google (OAuth), OpenAI (xử lý AI), nhà cung cấp hosting (API/frontend). Không bán dữ liệu cá nhân.',
   ),
   _Section(
-    '5. Quyền của bạn',
-    'Bạn có thể yêu cầu xóa tài khoản, xuất dữ liệu hoặc chỉnh sửa thông tin qua email support@assetbox.vn.',
+    '5. Cookie & lưu trữ cục bộ',
+    'Token phiên và tùy chọn giao diện. Không dùng Google Analytics hay cookie quảng cáo tại thời điểm cập nhật này.',
+  ),
+  _Section(
+    '6. Quyền của bạn',
+    'Chỉnh sửa hồ sơ trong Cài đặt. Yêu cầu xóa tài khoản hoặc truy cập dữ liệu qua support@assetbox.vn hoặc privacy@assetbox.vn.',
+  ),
+  _Section(
+    '7. Liên hệ',
+    'privacy@assetbox.vn hoặc support@assetbox.vn; form Liên hệ trong app.',
   ),
 ];

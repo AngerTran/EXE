@@ -144,11 +144,17 @@ class PricingScreen extends ConsumerWidget {
                   children: items.map((pack) {
                     final canBuy =
                         auth.isLoggedIn && hasPaidSubscription(auth.user?.subscription);
+                    final recommended = items.every(
+                          (p) =>
+                              (p.discountPercent ?? 0) <= (pack.discountPercent ?? 0),
+                        ) &&
+                        (pack.discountPercent ?? 0) > 0;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.md),
                       child: _CreditPackCard(
                         pack: pack,
                         fmt: fmt,
+                        recommended: recommended,
                         onTap: canBuy
                             ? () => context.push('/checkout/credits/${pack.id}')
                             : auth.isLoggedIn
@@ -451,12 +457,14 @@ class _CreditPackCard extends StatelessWidget {
     required this.fmt,
     required this.onTap,
     required this.subtitle,
+    this.recommended = false,
   });
 
   final CreditPack pack;
   final NumberFormat fmt;
   final VoidCallback onTap;
   final String subtitle;
+  final bool recommended;
 
   @override
   Widget build(BuildContext context) {
@@ -464,83 +472,158 @@ class _CreditPackCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Ink(
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColors.card.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: AppColors.border),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.card.withValues(alpha: 0.95),
+                AppColors.primary.withValues(alpha: 0.06),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: recommended
+                  ? AppColors.primary.withValues(alpha: 0.55)
+                  : AppColors.border,
+              width: recommended ? 1.5 : 1,
+            ),
+            boxShadow: recommended
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
+              if (recommended)
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.secondary],
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'TIẾT KIỆM NHẤT',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.primaryForeground,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 10,
+                            letterSpacing: 0.6,
+                          ),
+                    ),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.monetization_on_outlined,
-                  color: AppColors.success,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.warning.withValues(alpha: 0.22),
+                          AppColors.warning.withValues(alpha: 0.08),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        color: AppColors.warning.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.monetization_on_rounded,
+                      color: AppColors.warning,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${fmt.format(pack.priceVnd)}đ',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.foreground,
-                              ),
-                        ),
-                        if (pack.discountPercent != null &&
-                            pack.discountPercent! > 0) ...[
-                          const SizedBox(width: AppSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '-${pack.discountPercent}%',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.warning,
-                                    fontWeight: FontWeight.w700,
+                        Row(
+                          children: [
+                            Text(
+                              '${fmt.format(pack.priceVnd)}đ',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.foreground,
                                   ),
                             ),
-                          ),
-                        ],
+                            if (pack.discountPercent != null &&
+                                pack.discountPercent! > 0) ...[
+                              const SizedBox(width: AppSpacing.sm),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warning.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: AppColors.warning.withValues(alpha: 0.45),
+                                  ),
+                                ),
+                                child: Text(
+                                  '-${pack.discountPercent}%',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: AppColors.warning,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${fmt.format(pack.credits)} xu',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                        Text(
+                          '${formatUnitPricePer100(pack)} / 100 xu',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.mutedForeground,
+                                fontFamily: 'monospace',
+                              ),
+                        ),
                       ],
                     ),
-                    Text(
-                      '${fmt.format(pack.credits)} xu · ${formatUnitPricePer100(pack)} / 100 xu',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.mutedForeground,
-                          ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.primary,
-                          ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.mutedForeground,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ],
           ),

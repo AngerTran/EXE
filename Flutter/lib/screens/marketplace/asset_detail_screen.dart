@@ -8,8 +8,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../core/utils/error_messages.dart';
 import '../../models/asset_models.dart';
-import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
+import '../../widgets/asset_reviews_section.dart';
 import '../../widgets/common_widgets.dart';
 
 class AssetDetailScreen extends ConsumerStatefulWidget {
@@ -315,7 +315,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                 ),
               ],
               const SizedBox(height: AppSpacing.xl),
-              _ReviewsSection(assetId: asset.id),
+              AssetReviewsSection(assetId: asset.id),
               related.when(
                 data: (items) {
                   if (items.isEmpty) return const SizedBox.shrink();
@@ -485,202 +485,6 @@ class _RelatedTile extends StatelessWidget {
   }
 }
 
-class _ReviewsSection extends ConsumerStatefulWidget {
-  const _ReviewsSection({required this.assetId});
-
-  final String assetId;
-
-  @override
-  ConsumerState<_ReviewsSection> createState() => _ReviewsSectionState();
-}
-
-class _ReviewsSectionState extends ConsumerState<_ReviewsSection> {
-  final _comment = TextEditingController();
-  int _rating = 5;
-
-  @override
-  void dispose() {
-    _comment.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!ref.read(authProvider).isLoggedIn) {
-      context.push('/auth');
-      return;
-    }
-    try {
-      final svc = await ref.read(reviewsServiceProvider.future);
-      await svc.createReview(
-        widget.assetId,
-        _rating,
-        comment: _comment.text,
-      );
-      _comment.clear();
-      ref.invalidate(_reviewsProvider(widget.assetId));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã gửi đánh giá')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyErrorMessage(e)),
-            backgroundColor: AppColors.destructive,
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reviews = ref.watch(_reviewsProvider(widget.assetId));
-
-    return reviews.when(
-      data: (items) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Đánh giá',
-            subtitle: items.isEmpty ? 'Chưa có đánh giá' : '${items.length} đánh giá',
-            compact: true,
-          ),
-          ...items.take(5).map(
-                (r) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: AppCard(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor:
-                              AppColors.primary.withValues(alpha: 0.15),
-                          child: Text(
-                            r.userName.isNotEmpty
-                                ? r.userName[0].toUpperCase()
-                                : '?',
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      r.userName,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  ...List.generate(
-                                    5,
-                                    (i) => Icon(
-                                      i < r.rating
-                                          ? Icons.star_rounded
-                                          : Icons.star_border_rounded,
-                                      size: 14,
-                                      color: AppColors.warning,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (r.comment != null &&
-                                  r.comment!.trim().isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  r.comment!,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                        color: AppColors.mutedForeground,
-                                        height: 1.4,
-                                      ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          if (ref.watch(authProvider).isLoggedIn) ...[
-            const SizedBox(height: AppSpacing.md),
-            AppCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Viết đánh giá của bạn',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: List.generate(
-                      5,
-                      (i) => IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: Icon(
-                          i < _rating
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          color: AppColors.warning,
-                          size: 28,
-                        ),
-                        onPressed: () => setState(() => _rating = i + 1),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextField(
-                    controller: _comment,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText: 'Chia sẻ trải nghiệm với asset này...',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  GradientCtaButton(
-                    label: 'Gửi đánh giá',
-                    expand: false,
-                    onPressed: _submit,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: LinearProgressIndicator(color: AppColors.primary),
-      ),
-      error: (_, _) => const SizedBox.shrink(),
-    );
-  }
-}
-
 final _assetDetailProvider =
     FutureProvider.family<AssetDetail, String>((ref, id) async {
   final service = await ref.watch(assetServiceProvider.future);
@@ -696,12 +500,6 @@ final _relatedProvider =
     pageSize: 6,
   );
   return res.data.where((a) => a.id != id).take(5).toList();
-});
-
-final _reviewsProvider =
-    FutureProvider.family<List<ReviewItem>, String>((ref, assetId) async {
-  final svc = await ref.watch(reviewsServiceProvider.future);
-  return svc.fetchAssetReviews(assetId);
 });
 
 class _MetaChip extends StatelessWidget {

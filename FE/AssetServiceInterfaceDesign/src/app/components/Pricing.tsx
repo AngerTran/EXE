@@ -154,54 +154,73 @@ function CreditPackCard({
   pack,
   selected,
   onSelect,
+  recommended,
 }: {
   pack: CreditPack;
   selected: boolean;
   onSelect: () => void;
+  recommended?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        "flex-1 min-w-0 text-left rounded-xl border-2 p-4 sm:p-5 transition-all",
-        "bg-card/60 hover:bg-card/80",
+        "relative flex-1 min-w-0 text-left rounded-2xl border p-5 sm:p-6 transition-all duration-200",
+        "bg-card/50 backdrop-blur-sm hover:-translate-y-0.5",
         selected
-          ? "border-success shadow-[0_0_20px_rgba(16,185,129,0.25)] ring-1 ring-success/30"
-          : "border-border hover:border-border/80"
+          ? "border-primary/70 bg-gradient-to-br from-primary/12 via-card/90 to-secondary/10 shadow-[0_8px_32px_rgba(0,217,255,0.18)] ring-1 ring-primary/25"
+          : "border-border/80 hover:border-primary/35 hover:bg-card/70"
       )}
     >
-      <div className="flex items-start gap-3">
-        <span
+      {recommended && (
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 rounded-full bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-md whitespace-nowrap">
+          Tiết kiệm nhất
+        </span>
+      )}
+
+      <div className="flex flex-col items-center text-center gap-3 pt-1">
+        <div
           className={cn(
-            "mt-1 w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center",
-            selected ? "border-success" : "border-muted-foreground/50"
+            "w-12 h-12 rounded-xl flex items-center justify-center",
+            selected
+              ? "bg-gradient-to-br from-warning/25 to-warning/10 ring-1 ring-warning/40"
+              : "bg-muted/40"
           )}
         >
-          {selected && <span className="w-2.5 h-2.5 rounded-full bg-success" />}
-        </span>
+          <Coins
+            className={cn("w-6 h-6", selected ? "text-warning" : "text-muted-foreground")}
+          />
+        </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-baseline gap-2 mb-1">
+        <div>
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-1">
             <span className="text-2xl sm:text-3xl font-bold text-foreground font-mono tracking-tight">
               {formatPackPrice(pack)}
             </span>
             {pack.discountPercent != null && pack.discountPercent > 0 && (
-              <span className="text-[11px] font-bold px-2 py-0.5 rounded border border-warning/50 text-warning bg-warning/10">
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full border border-warning/50 text-warning bg-warning/10">
                 -{pack.discountPercent}%
               </span>
             )}
           </div>
-          <p className="text-sm text-muted-foreground leading-snug">
-            <span className="text-foreground font-medium">
-              {pack.credits.toLocaleString("vi-VN")} xu
-            </span>
-            <span className="mx-1">·</span>
-            <span className="font-mono text-xs">
-              ({formatUnitPricePer100(pack)} / 100 xu)
-            </span>
+          <p className="text-base font-semibold text-foreground">
+            {pack.credits.toLocaleString("vi-VN")} xu
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 font-mono">
+            {formatUnitPricePer100(pack)} / 100 xu
           </p>
         </div>
+
+        <span
+          className={cn(
+            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+            selected ? "border-primary bg-primary/10" : "border-muted-foreground/40"
+          )}
+          aria-hidden
+        >
+          {selected && <span className="w-2.5 h-2.5 rounded-full bg-primary" />}
+        </span>
       </div>
     </button>
   );
@@ -215,6 +234,10 @@ function CreditPackSection({ packs }: { packs: CreditPack[] }) {
 
   const isSubscriber = hasPaidSubscription(user?.subscription);
   const selectedPack = activePacks.find((p) => p.id === selectedPackId) ?? activePacks[0];
+  const recommendedId =
+    [...activePacks].sort(
+      (a, b) => (b.discountPercent ?? 0) - (a.discountPercent ?? 0)
+    )[0]?.id ?? activePacks[1]?.id;
 
   const handleBuy = () => {
     if (!user) {
@@ -234,60 +257,68 @@ function CreditPackSection({ packs }: { packs: CreditPack[] }) {
 
   return (
     <section className="mt-16 max-w-6xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2 flex-wrap">
-          <Coins className="w-6 h-6 text-success" />
-          Hoặc mua thêm xu
-          <span className="text-sm font-normal text-muted-foreground">
-            (Chỉ dành cho người đăng ký gói trả phí)
+      <div className="mb-8 text-center sm:text-left">
+        <div className="inline-flex items-center justify-center sm:justify-start gap-3 mb-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-warning/20 to-primary/15 ring-1 ring-warning/30">
+            <Coins className="w-5 h-5 text-warning" />
           </span>
-        </h2>
-        <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-          Mua thêm xu một lần khi hết lượt chat AI — không thay thế gói tháng, cộng trực tiếp vào
-          ví sau khi chuyển khoản được xác nhận.
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Hoặc mua thêm xu
+          </h2>
+        </div>
+        <p className="text-sm text-muted-foreground max-w-2xl mx-auto sm:mx-0">
+          Mua thêm xu một lần khi hết lượt chat AI —{" "}
+          <span className="text-foreground/90">chỉ dành cho gói STUDENT hoặc PRO</span>.
+          Cộng trực tiếp vào ví sau khi chuyển khoản được xác nhận.
         </p>
       </div>
 
-      <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 sm:p-6" beam={4.4}>
-        <div className="flex flex-col lg:flex-row gap-3 mb-6">
+      <BeamPanel
+        className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-5 sm:p-8"
+        beam={4.4}
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           {activePacks.map((pack) => (
             <CreditPackCard
               key={pack.id}
               pack={pack}
               selected={selectedPackId === pack.id}
+              recommended={pack.id === recommendedId}
               onSelect={() => setSelectedPackId(pack.id)}
             />
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-        <button
-          type="button"
-          onClick={handleBuy}
-          className="bg-gradient-to-r from-success to-emerald-600 hover:from-success/90 hover:to-emerald-600/90 text-white font-bold py-3.5 px-8 rounded-full transition-all hover:scale-[1.02] shadow-lg shadow-success/20"
-        >
-          {user
-            ? isSubscriber
-              ? `Mua ${selectedPack!.credits.toLocaleString("vi-VN")} xu — ${formatPackPrice(selectedPack!)}`
-              : "Nâng cấp gói để mua thêm xu"
-            : "Đăng nhập để mua xu"}
-        </button>
-        {!user && (
-          <p className="text-sm text-muted-foreground">Đăng nhập và có gói STUDENT/PRO để sử dụng.</p>
-        )}
-        {user && !isSubscriber && (
-          <p className="text-sm text-muted-foreground">
-            Bạn đang dùng gói Miễn phí —{" "}
-            <button
-              type="button"
-              className="text-primary hover:underline font-medium"
-              onClick={() => navigate("/checkout?package=student")}
-            >
-              nâng cấp STUDENT
-            </button>{" "}
-            để mở khóa mua thêm xu.
-          </p>
-        )}
+        <div className="flex flex-col items-center gap-4 pt-2 border-t border-border/60">
+          <button
+            type="button"
+            onClick={handleBuy}
+            className="w-full sm:w-auto min-w-[280px] bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-primary-foreground font-bold py-3.5 px-10 rounded-full transition-all hover:scale-[1.02] shadow-[0_8px_28px_rgba(0,217,255,0.25)]"
+          >
+            {user
+              ? isSubscriber
+                ? `Mua ${selectedPack!.credits.toLocaleString("vi-VN")} xu — ${formatPackPrice(selectedPack!)}`
+                : "Nâng cấp gói để mua thêm xu"
+              : "Đăng nhập để mua xu"}
+          </button>
+          {!user && (
+            <p className="text-sm text-muted-foreground text-center">
+              Đăng nhập và có gói STUDENT/PRO để sử dụng.
+            </p>
+          )}
+          {user && !isSubscriber && (
+            <p className="text-sm text-muted-foreground text-center max-w-md">
+              Bạn đang dùng gói Miễn phí —{" "}
+              <button
+                type="button"
+                className="text-primary hover:underline font-medium"
+                onClick={() => navigate("/checkout?package=student")}
+              >
+                nâng cấp STUDENT
+              </button>{" "}
+              để mở khóa mua thêm xu.
+            </p>
+          )}
         </div>
       </BeamPanel>
     </section>

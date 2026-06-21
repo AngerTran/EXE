@@ -19,7 +19,7 @@ class TermsScreen extends StatelessWidget {
                 ),
           ),
           Text(
-            'Cập nhật: 24/03/2026',
+            'Cập nhật: 06/06/2026',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.mutedForeground,
                 ),
@@ -60,22 +60,34 @@ class _Section {
 const _sections = [
   _Section(
     '1. Chấp nhận điều khoản',
-    'Bằng việc sử dụng AssetBox, bạn đồng ý tuân theo các điều khoản này. Nếu không đồng ý, vui lòng không sử dụng dịch vụ.',
+    'Bằng việc sử dụng AssetBox (web hoặc app), bạn đồng ý các điều khoản này. Nếu không đồng ý, vui lòng ngừng sử dụng dịch vụ.',
   ),
   _Section(
     '2. Dịch vụ',
-    'AssetBox cung cấp AssetBox AI (tư vấn AI), Chợ Assets (tài nguyên game miễn phí/trả phí), và dịch vụ tư vấn chuyên gia cho gói INDIE/PRO.',
+    'AssetBox cung cấp: AI advisor (chat & outline game), marketplace asset (miễn phí/trả phí bằng xu), thư viện cá nhân, đánh giá, đăng tải asset (kiểm duyệt), gói subscription, gói nạp xu, thông báo trong app và form liên hệ hỗ trợ.',
   ),
   _Section(
-    '3. Hệ thống xu & gói dịch vụ',
-    'Mỗi tin nhắn AI tiêu tốn xu theo chính sách hiện hành. Gói subscription cấp xu hàng tháng hoặc không giới hạn tùy gói. Asset trả phí được mua bằng VND qua chuyển khoản.',
+    '3. Hệ thống xu',
+    'Mỗi tin nhắn AI tiêu tốn 1 xu (trừ gói không giới hạn). Tài khoản mới được tặng 100 xu. Asset trả phí mua bằng xu trong ví. Xu không quy đổi tiền mặt và không chuyển nhượng.',
   ),
   _Section(
-    '4. Quyền sở hữu trí tuệ',
-    'Asset trên marketplace thuộc quyền sở hữu người đăng tải. Bạn nhận license theo mô tả từng asset. Không được phân phối lại nếu license không cho phép.',
+    '4. Gói & thanh toán',
+    'Gói FREE, STUDENT và PRO — chi tiết tại Bảng giá. Subscription và gói nạp xu thanh toán bằng chuyển khoản; đơn được admin xác nhận thủ công. Không thu thập thẻ tín dụng. Không hoàn tiền gói đã kích hoạt, trừ lỗi hệ thống.',
   ),
   _Section(
-    '5. Giới hạn trách nhiệm',
-    'AssetBox không chịu trách nhiệm cho thiệt hại gián tiếp phát sinh từ việc sử dụng asset hoặc tư vấn AI. Dịch vụ được cung cấp "nguyên trạng".',
+    '5. Bản quyền',
+    'Asset thuộc người đăng tải; bạn nhận license theo mô tả từng asset. Không phân phối lại nếu license không cho phép. Gợi ý AI mang tính tham khảo. Nội dung đăng tải phải hợp pháp.',
+  ),
+  _Section(
+    '6. Trách nhiệm người dùng',
+    'Dùng dịch vụ hợp pháp; không spam AI, gian lận thanh toán hay vi phạm bản quyền. Bảo mật tài khoản. Đánh giá trung thực.',
+  ),
+  _Section(
+    '7. Giới hạn trách nhiệm',
+    'Dịch vụ cung cấp "nguyên trạng". AssetBox không chịu trách nhiệm thiệt hại gián tiếp từ asset, gợi ý AI hoặc gián đoạn dịch vụ. Có thể đình chỉ tài khoản vi phạm.',
+  ),
+  _Section(
+    '8. Liên hệ',
+    'Email: support@assetbox.vn hoặc form Liên hệ trong app.',
   ),
 ];
