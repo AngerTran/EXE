@@ -31,7 +31,8 @@ class _AuthCallbackScreenState extends ConsumerState<AuthCallbackScreen> {
     if (_handled) return;
     _handled = true;
 
-    final uri = takeOAuthCallbackUri(ref);
+    final uri = await waitForOAuthCallbackUri(ref);
+    if (!mounted) return;
     if (uri == null) {
       setState(() => _error = 'Không nhận được mã đăng nhập Google — thử lại.');
       return;

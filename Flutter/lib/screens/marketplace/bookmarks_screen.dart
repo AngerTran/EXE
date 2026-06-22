@@ -74,7 +74,7 @@ class BookmarksScreen extends ConsumerWidget {
                 crossAxisCount: 2,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
-                childAspectRatio: 0.72,
+                childAspectRatio: kAssetGridAspectRatio,
               ),
               itemCount: items.length,
               itemBuilder: (context, i) {

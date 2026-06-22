@@ -31,9 +31,12 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
   Future<void> _initDeepLinks() async {
     try {
       final initial = await _appLinks.getInitialLink();
-      if (initial != null) {
+      if (initial != null && isAppDeepLink(initial)) {
+        stashDeepLinkUri(ref, initial);
+        if (mounted) setState(() {});
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _handleDeepLink(initial);
+          final route = deepLinkRouteFor(initial);
+          if (route != null) ref.read(routerProvider).go(route);
         });
       }
       _appLinks.uriLinkStream.listen(_handleDeepLink);
@@ -59,7 +62,8 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
       ref.watch(notificationProvider);
     }
 
-    if (auth.isBootstrapping) {
+    final pendingOAuth = ref.watch(deepLinkOAuthUriProvider);
+    if (auth.isBootstrapping && pendingOAuth == null) {
       return MaterialApp(
         title: AppConfig.appName,
         debugShowCheckedModeBanner: false,

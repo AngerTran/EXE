@@ -1,7 +1,9 @@
-**/.vs
-**/bin
-**/obj
-**/_build_out
-**/scripts
-*.user
-*.suo
+bin/
+obj/
+_build_out/
+scripts/
+**/.vs/
+**/*.user
+**/*.suo
+appsettings.Development.json
+appsettings.Development.example.json

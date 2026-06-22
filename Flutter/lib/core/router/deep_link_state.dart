@@ -42,3 +42,16 @@ Uri? takeOAuthCallbackUri(WidgetRef ref) {
   }
   return null;
 }
+
+/// Chờ URI OAuth (deep link có thể đến sau khi màn callback mount).
+Future<Uri?> waitForOAuthCallbackUri(WidgetRef ref) async {
+  for (var i = 0; i < 30; i++) {
+    final pending = ref.read(deepLinkOAuthUriProvider);
+    if (pending != null) {
+      ref.read(deepLinkOAuthUriProvider.notifier).state = null;
+      return pending;
+    }
+    await Future<void>.delayed(Duration(milliseconds: 50 + i * 25));
+  }
+  return null;
+}

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_tokens.dart';
 import '../core/utils/error_messages.dart';
+import 'asset_card.dart';
 
 class XuBadge extends StatelessWidget {
   const XuBadge({
@@ -564,7 +565,7 @@ class AssetGridSkeleton extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: AppSpacing.md,
         crossAxisSpacing: AppSpacing.md,
-        childAspectRatio: 0.72,
+        childAspectRatio: kAssetGridAspectRatio,
       ),
       itemCount: count,
       itemBuilder: (_, _) => _SkeletonCard(),

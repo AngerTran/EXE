@@ -6,6 +6,9 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_tokens.dart';
 import '../models/asset_models.dart';
 
+/// Tỉ lệ ô lưới marketplace — thấp hơn = card cao hơn (tránh overflow).
+const double kAssetGridAspectRatio = 0.58;
+
 class AssetCard extends StatelessWidget {
   const AssetCard({
     super.key,

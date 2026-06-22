@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../config/app_assets.dart';
+import '../../config/auth_deep_links.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
 import '../../providers/service_providers.dart';
@@ -129,10 +130,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       if (err != null) {
         _showError(
-          '$err\n\nThêm các URL sau vào Supabase → Authentication → Redirect URLs:\n'
-          '• http://127.0.0.1:42871/auth/callback (Windows)\n'
-          '• vn.assetbox.app://auth/callback\n'
-          '• http://10.0.2.2:5180/api/v1/auth/oauth-callback',
+          '$err\n\nXem docs/FLUTTER_GOOGLE_OAUTH.md — Redirect URLs Supabase:\n'
+          '${AuthDeepLinks.supabaseRedirectUrls.map((u) => '• $u').join('\n')}',
         );
       } else if (ref.read(authProvider).isLoggedIn) {
         context.go('/');

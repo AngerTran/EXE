@@ -565,7 +565,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                   crossAxisCount: 2,
                                   mainAxisSpacing: AppSpacing.md,
                                   crossAxisSpacing: AppSpacing.md,
-                                  childAspectRatio: 0.72,
+                                  childAspectRatio: kAssetGridAspectRatio,
                                 ),
                                 itemCount: _assets.length + (_hasMore ? 1 : 0),
                                 itemBuilder: (context, i) {

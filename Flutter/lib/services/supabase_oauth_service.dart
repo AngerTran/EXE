@@ -31,7 +31,8 @@ class SupabaseOAuthService {
         authOptions: FlutterAuthClientOptions(
           authFlowType: AuthFlowType.pkce,
           autoRefreshToken: false,
-          detectSessionInUri: Platform.isLinux || Platform.isMacOS,
+          // Mirror FE detectSessionInUrl: false — chỉ exchange code tại /auth/callback.
+          detectSessionInUri: false,
           localStorage: SharedPreferencesLocalStorage(
             persistSessionKey: AuthStorage.supabaseSession,
           ),
@@ -150,7 +151,9 @@ class SupabaseOAuthService {
       final launched = await client.auth.signInWithOAuth(
         OAuthProvider.google,
         redirectTo: redirectTo,
-        authScreenLaunchMode: LaunchMode.inAppBrowserView,
+        authScreenLaunchMode: Platform.isAndroid || Platform.isIOS
+            ? LaunchMode.externalApplication
+            : LaunchMode.inAppBrowserView,
         queryParams: const {'prompt': 'select_account'},
       );
       if (!launched) {

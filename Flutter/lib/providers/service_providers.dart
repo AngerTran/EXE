@@ -380,6 +380,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       await oauth.signOutLocal();
       _ref.read(cartProvider.notifier).refresh();
+      state = state.copyWith(isLoading: false, clearError: true);
       return null;
     } catch (e) {
       final client = await _ref.read(apiClientProvider.future);
