@@ -5,8 +5,16 @@ using Exe.Extensions;
 using Exe.Repositories;
 using Exe.Services;
 using Exe.Services.IServices;
+using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Options;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Render/Docker: tắt reload appsettings — tránh lỗi inotify limit (exit 139).
+foreach (var source in builder.Configuration.Sources.OfType<JsonConfigurationSource>())
+{
+    source.ReloadOnChange = false;
+}
 
 builder.Services.Configure<SupabaseOptions>(
     builder.Configuration.GetSection(SupabaseOptions.SectionName));
