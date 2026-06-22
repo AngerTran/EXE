@@ -7,6 +7,7 @@ using Exe.Services;
 using Exe.Services.IServices;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.Options;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,8 +40,7 @@ var supabase = builder.Configuration
     .GetSection(SupabaseOptions.SectionName)
     .Get<SupabaseOptions>() ?? new SupabaseOptions();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
+var connectionString = ResolveConnectionString(builder.Configuration, builder.Environment);
 
 builder.Services.AddSupabaseDatabase(connectionString);
 builder.Services.AddRepositories();
@@ -126,3 +126,101 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string ResolveConnectionString(IConfiguration configuration, IWebHostEnvironment environment)
+{
+    var candidates = new List<string?>();
+
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+        candidates.Add(databaseUrl.Trim());
+
+    var configured = configuration.GetConnectionString("DefaultConnection");
+    if (!string.IsNullOrWhiteSpace(configured))
+        candidates.Add(configured.Trim());
+
+    foreach (var candidate in candidates)
+    {
+        if (TryNormalizeConnectionString(candidate, out var normalized))
+            return normalized;
+    }
+
+    // Env trên Render có thể chỉ là hostname — đọc lại appsettings.json trong image.
+    var appSettingsPath = Path.Combine(environment.ContentRootPath, "appsettings.json");
+    if (File.Exists(appSettingsPath))
+    {
+        var fromFile = new ConfigurationBuilder()
+            .AddJsonFile(appSettingsPath, optional: false, reloadOnChange: false)
+            .Build()
+            .GetConnectionString("DefaultConnection");
+        if (TryNormalizeConnectionString(fromFile, out var fileCs))
+            return fileCs;
+    }
+
+    throw new InvalidOperationException(
+        "ConnectionStrings:DefaultConnection is missing or invalid. " +
+        "On Render set ConnectionStrings__DefaultConnection to the full Npgsql string, e.g. " +
+        "Host=...;Port=5432;Database=postgres;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true. " +
+        "Do not use hostname only.");
+}
+
+static bool TryNormalizeConnectionString(string? raw, out string connectionString)
+{
+    connectionString = string.Empty;
+    if (string.IsNullOrWhiteSpace(raw))
+        return false;
+
+    var value = raw.Trim();
+
+    if (value.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        if (TryConvertPostgresUri(value, out connectionString))
+            return true;
+        return false;
+    }
+
+    if (!value.Contains('=', StringComparison.Ordinal))
+        return false;
+
+    try
+    {
+        _ = new NpgsqlConnectionStringBuilder(value);
+        connectionString = value;
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+static bool TryConvertPostgresUri(string uri, out string connectionString)
+{
+    connectionString = string.Empty;
+    try
+    {
+        var parsed = new Uri(uri);
+        if (parsed.Host.Length == 0)
+            return false;
+
+        var userInfo = parsed.UserInfo.Split(':', 2);
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = parsed.Host,
+            Port = parsed.Port > 0 ? parsed.Port : 5432,
+            Database = parsed.AbsolutePath.TrimStart('/'),
+            Username = Uri.UnescapeDataString(userInfo[0]),
+            SslMode = SslMode.Require,
+        };
+        if (userInfo.Length > 1)
+            builder.Password = Uri.UnescapeDataString(userInfo[1]);
+
+        connectionString = builder.ConnectionString;
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
