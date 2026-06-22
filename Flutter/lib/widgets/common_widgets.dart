@@ -378,9 +378,9 @@ class EmptyState extends StatelessWidget {
 
 /// Spinner thống nhất — dùng thay CircularProgressIndicator rải rác.
 class LoadingView extends StatelessWidget {
-  const LoadingView({super.key, this.message});
+  const LoadingView({super.key, this.message = 'Đang tải...'});
 
-  final String? message;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -396,10 +396,10 @@ class LoadingView extends StatelessWidget {
               color: AppColors.primary,
             ),
           ),
-          if (message != null) ...[
+          if (message.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
-              message!,
+              message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.mutedForeground,
                   ),

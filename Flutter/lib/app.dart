@@ -113,6 +113,13 @@ class _AssetBoxAppState extends ConsumerState<AssetBoxApp> {
                         color: AppColors.primary,
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Đang tải...',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.mutedForeground,
+                          ),
+                    ),
                   ],
                 ),
               ),

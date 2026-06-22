@@ -131,7 +131,7 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Chi tiết thư viện')),
       body: _loading
-          ? const LoadingView(message: 'Đang tải asset...')
+          ? const LoadingView()
           : _error != null
               ? ErrorState(
                   error: _error!,

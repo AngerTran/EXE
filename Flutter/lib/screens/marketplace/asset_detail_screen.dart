@@ -354,7 +354,7 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
             ],
           );
         },
-        loading: () => const LoadingView(message: 'Đang tải asset...'),
+        loading: () => const LoadingView(),
         error: (e, _) => ErrorState(
           error: e,
           title: 'Không tải được asset',

@@ -190,7 +190,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             else if (_orders.isEmpty && _loading)
               const Padding(
                 padding: EdgeInsets.all(AppSpacing.xxl),
-                child: LoadingView(message: 'Đang tải đơn hàng...'),
+                child: const LoadingView(),
               )
             else if (_orders.isEmpty)
               const EmptyState(

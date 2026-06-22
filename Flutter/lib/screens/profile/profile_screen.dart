@@ -159,7 +159,7 @@ class ProfileScreen extends ConsumerWidget {
                 );
               },
               loading: () =>
-                  const LoadingView(message: 'Đang tải lịch sử mua...'),
+                  const LoadingView(),
               error: (e, _) => ErrorState(
                 error: e,
                 title: 'Không tải được lịch sử mua',

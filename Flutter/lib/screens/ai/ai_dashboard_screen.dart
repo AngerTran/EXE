@@ -541,7 +541,7 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
           ),
           Expanded(
             child: _loading
-                ? const LoadingView(message: 'Đang tải phiên chat...')
+                ? const LoadingView()
                 : (_session?.messages.isEmpty ?? true)
                     ? AiEmptyState(
                         onPromptTap: (prompt) {

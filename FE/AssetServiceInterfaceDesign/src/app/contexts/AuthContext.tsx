@@ -63,7 +63,7 @@ function authErrorMessage(error: unknown, fallback: string): string {
       return "Tài khoản đã bị khóa";
     }
     if (error.code === "configuration_error") {
-      return "BE chưa cấu hình Supabase — kiểm tra appsettings";
+      return "Hệ thống chưa được cấu hình đầy đủ. Vui lòng thử lại sau.";
     }
     if (error.code === "profile_not_found") {
       return "Tài khoản Google chưa có profile — chạy trigger handle_new_user trên Supabase hoặc liên hệ admin";

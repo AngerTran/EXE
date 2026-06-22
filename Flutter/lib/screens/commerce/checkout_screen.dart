@@ -164,7 +164,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       ),
       body: SiteBackground(
         child: _loading
-            ? const LoadingView(message: 'Đang tạo đơn hàng...')
+            ? const LoadingView()
             : _error != null
                 ? Padding(
                     padding: const EdgeInsets.all(AppSpacing.xxl),

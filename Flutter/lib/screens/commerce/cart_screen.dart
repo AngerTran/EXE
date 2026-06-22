@@ -63,7 +63,7 @@ class CartScreen extends ConsumerWidget {
         ],
       ),
       body: cart.when(
-        loading: () => const LoadingView(message: 'Đang tải giỏ hàng...'),
+        loading: () => const LoadingView(),
         error: (e, _) => ErrorState(
           error: e,
           title: 'Không tải được giỏ',

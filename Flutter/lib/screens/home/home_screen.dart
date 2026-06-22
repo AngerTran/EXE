@@ -99,7 +99,7 @@ class HomeScreen extends ConsumerWidget {
               },
               loading: () => const SizedBox(
                 height: 248,
-                child: LoadingView(message: 'Đang tải asset...'),
+                child: const LoadingView(),
               ),
               error: (e, _) => ErrorState(
                 error: e,

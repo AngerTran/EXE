@@ -9,7 +9,7 @@ String friendlyErrorMessage(Object error) {
       case DioExceptionType.receiveTimeout:
         return 'Kết nối quá lâu. Kiểm tra mạng và thử lại.';
       case DioExceptionType.connectionError:
-        return 'Không kết nối được máy chủ. Hãy chắc backend đang chạy.';
+        return 'Không thể kết nối. Vui lòng thử lại.';
       case DioExceptionType.badResponse:
         final code = error.response?.statusCode;
         if (code == 401) return 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.';
@@ -25,7 +25,7 @@ String friendlyErrorMessage(Object error) {
   if (msg.contains('Connection failed') ||
       msg.contains('SocketException') ||
       msg.contains('Failed host lookup')) {
-    return 'Không kết nối được máy chủ. Kiểm tra mạng hoặc backend.';
+    return 'Không thể kết nối. Vui lòng thử lại.';
   }
   return 'Đã xảy ra lỗi. Vui lòng thử lại.';
 }

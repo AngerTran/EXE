@@ -26,8 +26,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground text-sm">Đang tải...</p>
       </div>
     );
   }

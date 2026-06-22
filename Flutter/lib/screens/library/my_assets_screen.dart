@@ -218,7 +218,7 @@ class MyAssetsScreen extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const LoadingView(message: 'Đang tải thư viện...'),
+        loading: () => const LoadingView(),
         error: (e, _) => ErrorState(
           error: e,
           title: 'Không tải được thư viện',

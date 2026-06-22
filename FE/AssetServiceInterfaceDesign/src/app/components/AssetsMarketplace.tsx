@@ -496,8 +496,9 @@ export default function AssetsMarketplace() {
         )}
 
         {loading && viewMode === "all" ? (
-          <div className="flex justify-center py-20">
+          <div className="flex flex-col items-center justify-center gap-3 py-20">
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <p className="text-muted-foreground text-sm">Đang tải...</p>
           </div>
         ) : viewMode === "saved" && !user ? null : (
         <>

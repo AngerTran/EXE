@@ -1,3 +1,4 @@
+import '../core/utils/error_messages.dart';
 import '../models/common_models.dart';
 
 String authErrorMessage(Object error, [String fallback = 'Đã xảy ra lỗi']) {
@@ -12,7 +13,7 @@ String authErrorMessage(Object error, [String fallback = 'Đã xảy ra lỗi'])
       case 'account_banned':
         return 'Tài khoản đã bị khóa';
       case 'configuration_error':
-        return 'BE chưa cấu hình Supabase — kiểm tra appsettings';
+        return 'Hệ thống chưa được cấu hình đầy đủ. Vui lòng thử lại sau.';
       case 'profile_not_found':
         return 'Tài khoản Google chưa có profile — chạy trigger handle_new_user trên Supabase hoặc liên hệ admin';
       case 'validation_error':
@@ -21,5 +22,5 @@ String authErrorMessage(Object error, [String fallback = 'Đã xảy ra lỗi'])
         return error.message.isNotEmpty ? error.message : fallback;
     }
   }
-  return error.toString().replaceFirst('Exception: ', '');
+  return friendlyErrorMessage(error);
 }

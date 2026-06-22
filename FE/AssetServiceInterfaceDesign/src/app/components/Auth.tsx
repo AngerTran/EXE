@@ -150,7 +150,7 @@ export default function Auth() {
         }
       }
     } catch {
-      setError("Không kết nối được BE — chạy API tại http://localhost:5180");
+      setError("Không thể kết nối. Vui lòng thử lại.");
     } finally {
       if (!didSucceed) setLoading(false);
     }
@@ -170,14 +170,13 @@ export default function Auth() {
       await forgotPassword(email);
       setSuccess(true);
       toast.success("Đã gửi email đặt lại mật khẩu", {
-        description:
-          "Kiểm tra hộp thư. Link qua BE (5180) rồi về localhost:5173 — thêm redirect URL BE trong Supabase nếu cần.",
+        description: "Kiểm tra hộp thư và làm theo hướng dẫn trong email.",
       });
     } catch (err) {
       setError(
         err instanceof ApiError
           ? err.message
-          : "Không gửi được email — kiểm tra BE và cấu hình Supabase Auth"
+          : "Không gửi được email. Vui lòng thử lại."
       );
     } finally {
       setLoading(false);

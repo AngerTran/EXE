@@ -473,7 +473,7 @@ export default function AdminDashboard() {
         setMarketplaceAssets(approved.map(toAssetData));
         setAssets([...pending, ...approved].map(toAssetData));
       } catch {
-        toast.error("Không tải được dữ liệu admin — kiểm tra BE và quyền admin");
+        toast.error("Không tải được dữ liệu admin. Vui lòng thử lại.");
       } finally {
         if (!cancelled) setDashboardLoading(false);
       }
@@ -783,7 +783,7 @@ function OverviewTab({
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-muted-foreground">Đang tải thống kê từ BE...</p>
+        <p className="text-muted-foreground">Đang tải...</p>
       </div>
     );
   }
