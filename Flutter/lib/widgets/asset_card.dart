@@ -5,9 +5,10 @@ import 'package:intl/intl.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_tokens.dart';
 import '../models/asset_models.dart';
+import 'marketplace_price_tag.dart';
 
-/// Tỉ lệ ô lưới marketplace — thấp hơn = card cao hơn (tránh overflow).
-const double kAssetGridAspectRatio = 0.58;
+/// Tỉ lệ ô lưới marketplace — khớp chiều cao nội dung thẻ (ảnh 16:9 + meta + nút).
+const double kAssetGridAspectRatio = 0.72;
 
 class AssetCard extends StatelessWidget {
   const AssetCard({
@@ -71,6 +72,8 @@ class AssetCard extends StatelessWidget {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize:
+                marketplaceStyle ? MainAxisSize.min : MainAxisSize.max,
             children: [
               AspectRatio(
                 aspectRatio: marketplaceStyle ? 16 / 9 : 16 / 10,
@@ -131,20 +134,18 @@ class AssetCard extends StatelessWidget {
                 ),
               ),
               if (marketplaceStyle)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                    child: _MarketplaceBody(
-                      asset: asset,
-                      fmt: fmt,
-                      body: body,
-                      showActions: _showActions,
-                      isInCart: isInCart,
-                      isPurchased: isPurchased,
-                      onAddToCart: onAddToCart,
-                      onBuyNow: onBuyNow,
-                      onViewOwned: onViewOwned,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: _MarketplaceBody(
+                    asset: asset,
+                    fmt: fmt,
+                    body: body,
+                    showActions: _showActions,
+                    isInCart: isInCart,
+                    isPurchased: isPurchased,
+                    onAddToCart: onAddToCart,
+                    onBuyNow: onBuyNow,
+                    onViewOwned: onViewOwned,
                   ),
                 )
               else
@@ -235,18 +236,19 @@ class _MarketplaceBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 5),
-        _PriceTag(
+        MarketplacePriceTag(
           isFree: asset.isFree,
           label: asset.isFree
               ? 'Miễn phí'
               : '${fmt.format(asset.displayPrice)} xu',
         ),
-        const Spacer(),
         if (showActions && isPurchased) ...[
+          const SizedBox(height: 8),
           const Divider(height: 1, color: AppColors.border),
           const SizedBox(height: 6),
           _OwnedFooter(onTap: onViewOwned),
         ] else if (showActions && !isPurchased) ...[
+          const SizedBox(height: 8),
           const Divider(height: 1, color: AppColors.border),
           const SizedBox(height: 6),
           _MarketplaceActions(
@@ -677,42 +679,6 @@ class _InlineMeta extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _PriceTag extends StatelessWidget {
-  const _PriceTag({required this.isFree, required this.label});
-
-  final bool isFree;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isFree ? AppColors.success : AppColors.warning;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.sell_outlined, size: 11, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 10,
-                ),
-          ),
-        ],
-      ),
     );
   }
 }

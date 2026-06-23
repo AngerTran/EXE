@@ -590,7 +590,9 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                       cartAssetIds.contains(asset.id);
                                   final isPurchased =
                                       purchasedIds.contains(asset.id);
-                                  return AssetCard(
+                                  return Align(
+                                    alignment: Alignment.topCenter,
+                                    child: AssetCard(
                                     asset: asset,
                                     marketplaceStyle: true,
                                     isBookmarked: isBookmarked,
@@ -613,6 +615,7 @@ class _MarketplaceScreenState extends ConsumerState<MarketplaceScreen> {
                                               '/library/${asset.id}',
                                             )
                                         : null,
+                                    ),
                                   );
                                 },
                               ),

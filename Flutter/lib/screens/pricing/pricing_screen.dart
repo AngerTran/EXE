@@ -116,7 +116,7 @@ class PricingScreen extends ConsumerWidget {
               ),
               loading: () => const Padding(
                 padding: EdgeInsets.all(AppSpacing.xxl),
-                child: const LoadingView(),
+                child: LoadingView(),
               ),
               error: (e, _) => ErrorState(
                 error: e,

@@ -11,10 +11,10 @@ import '../../core/utils/error_messages.dart';
 import '../../models/billing_models.dart';
 import '../../models/commerce_models.dart';
 import '../../providers/service_providers.dart';
+import 'checkout_kind.dart';
 import '../../widgets/branded_background.dart';
+import '../../widgets/checkout_success_view.dart';
 import '../../widgets/common_widgets.dart';
-
-enum CheckoutKind { subscription, credits, assets }
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen._({
@@ -148,6 +148,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.decimalPattern('vi');
+    final isSuccess = !_loading && _error == null && _order?.isCompleted == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -160,7 +161,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         elevation: 0,
         scrolledUnderElevation: 2,
         shadowColor: AppColors.border,
-        title: _CheckoutBackTitle(title: _screenTitle),
+        title: isSuccess
+            ? Text(
+                'Hoàn tất',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              )
+            : _CheckoutBackTitle(title: _screenTitle),
       ),
       body: SiteBackground(
         child: _loading
@@ -181,57 +189,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ),
                     ),
                   )
-                : _order?.isCompleted == true
-                    ? Padding(
-                        padding: const EdgeInsets.all(AppSpacing.page),
-                        child: AppCard(
-                          padding: const EdgeInsets.all(AppSpacing.xxl),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: AppColors.success.withValues(alpha: 0.15),
-                                  border: Border.all(
-                                    color: AppColors.success.withValues(alpha: 0.35),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 40,
-                                  color: AppColors.success,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                              Text(
-                                'Thanh toán thành công!',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                'Đơn hàng đã được xử lý.',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: AppColors.mutedForeground),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.xl),
-                              GradientCtaButton(
-                                label: 'Về trang chủ',
-                                icon: Icons.home_rounded,
-                                onPressed: () => context.go('/'),
-                              ),
-                            ],
-                          ),
-                        ),
+                : isSuccess
+                    ? CheckoutSuccessView(
+                        kind: widget.kind,
+                        itemLabel: _itemLabel,
+                        order: _order,
+                        amountVnd: _amountVnd,
+                        fmt: fmt,
                       )
                     : ListView(
                         padding: EdgeInsets.fromLTRB(

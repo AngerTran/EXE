@@ -11,6 +11,7 @@ import '../../core/theme/app_tokens.dart';
 import '../../models/asset_models.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/common_widgets.dart';
+import '../../widgets/marketplace_price_tag.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -99,7 +100,7 @@ class HomeScreen extends ConsumerWidget {
               },
               loading: () => const SizedBox(
                 height: 248,
-                child: const LoadingView(),
+                child: LoadingView(),
               ),
               error: (e, _) => ErrorState(
                 error: e,
@@ -919,29 +920,6 @@ class _FeaturedTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (asset.isFree)
-                  Positioned(
-                    top: AppSpacing.sm,
-                    left: AppSpacing.sm,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Miễn phí',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 10,
-                            ),
-                      ),
-                    ),
-                  ),
                 Positioned(
                   top: AppSpacing.sm,
                   right: AppSpacing.sm,
@@ -1017,6 +995,13 @@ class _FeaturedTile extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+                      MarketplacePriceTag(
+                        isFree: asset.isFree,
+                        label: asset.isFree
+                            ? 'Miễn phí'
+                            : '${fmt.format(asset.displayPrice)} xu',
                       ),
                     ],
                   ),

@@ -9,7 +9,9 @@ import '../../core/theme/app_tokens.dart';
 import '../../providers/notification_providers.dart';
 import '../../providers/service_providers.dart';
 import '../../widgets/branded_background.dart';
+import '../../widgets/checkout_success_view.dart';
 import '../../widgets/common_widgets.dart';
+import 'checkout_kind.dart';
 
 class CheckoutWaitingScreen extends ConsumerStatefulWidget {
   const CheckoutWaitingScreen({
@@ -91,119 +93,176 @@ class _CheckoutWaitingScreenState extends ConsumerState<CheckoutWaitingScreen> {
   Widget build(BuildContext context) {
     final body = Theme.of(context).textTheme;
 
+    if (_completed) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hoàn tất'),
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          backgroundColor: AppColors.background.withValues(alpha: 0.98),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
+        body: SiteBackground(
+          child: CheckoutSuccessView(
+            kind: CheckoutKind.subscription,
+            itemLabel: widget.itemLabel,
+            orderCode: widget.orderCode,
+            subtitle:
+                '${widget.itemLabel} đã được kích hoạt. Số xu trên tài khoản đã được cập nhật.',
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_completed ? 'Thanh toán thành công' : 'Đang chờ xác nhận'),
+        title: const Text('Đang chờ xác nhận'),
         centerTitle: false,
         backgroundColor: AppColors.background.withValues(alpha: 0.98),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
       ),
       body: SiteBackground(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.page),
-            child: AppCard(
-              padding: const EdgeInsets.all(AppSpacing.xxl),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: (_completed ? AppColors.success : AppColors.warning)
-                          .withValues(alpha: 0.15),
-                      border: Border.all(
-                        color: (_completed ? AppColors.success : AppColors.warning)
-                            .withValues(alpha: 0.35),
-                      ),
-                    ),
-                    child: Icon(
-                      _completed
-                          ? Icons.check_circle_rounded
-                          : Icons.schedule_rounded,
-                      size: 40,
-                      color:
-                          _completed ? AppColors.success : AppColors.warning,
-                    ),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                    vertical: AppSpacing.lg,
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    _completed ? 'Thanh toán thành công!' : 'Đang chờ xác nhận',
-                    style: body.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Mã đơn: ${widget.orderCode}',
-                    style: body.labelMedium?.copyWith(
-                      color: AppColors.mutedForeground,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    _completed
-                        ? '${widget.itemLabel} đã được kích hoạt. Số xu trên tài khoản đã được cập nhật.'
-                        : 'Bạn đã báo chuyển khoản cho ${widget.itemLabel}.',
-                    style: body.bodyMedium?.copyWith(
-                      color: AppColors.mutedForeground,
-                      height: 1.45,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (!_completed) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      'Sau khi hệ thống đối soát thành công, gói và xu sẽ được kích hoạt tự động. Thường mất từ vài phút đến 24 giờ.',
-                      style: body.bodySmall?.copyWith(
-                        color: AppColors.mutedForeground,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary.withValues(alpha: 0.85),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: AppSpacing.xl),
+                      Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.warning.withValues(alpha: 0.12),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.4),
+                            width: 2,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Đang kiểm tra trạng thái mỗi 5 giây...',
-                          style: body.labelSmall?.copyWith(
-                            color: AppColors.mutedForeground,
-                          ),
+                        child: const Icon(
+                          Icons.schedule_rounded,
+                          size: 48,
+                          color: AppColors.warning,
                         ),
-                      ],
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Đang chờ xác nhận',
+                        style: body.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        'Bạn đã báo chuyển khoản cho ${widget.itemLabel}.',
+                        style: body.bodyMedium?.copyWith(
+                          color: AppColors.mutedForeground,
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      AppCard(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Mã đơn',
+                              style: body.labelSmall?.copyWith(
+                                color: AppColors.mutedForeground,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.orderCode,
+                              style: body.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            const Divider(height: 1, color: AppColors.border),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              'Sau khi hệ thống đối soát thành công, gói và xu sẽ được kích hoạt tự động. Thường mất từ vài phút đến 24 giờ.',
+                              style: body.bodySmall?.copyWith(
+                                color: AppColors.mutedForeground,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color:
+                                        AppColors.primary.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Đang kiểm tra trạng thái mỗi 5 giây...',
+                                  style: body.labelSmall?.copyWith(
+                                    color: AppColors.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  AppSpacing.sm,
+                  AppSpacing.page,
+                  AppSpacing.pageBottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GradientCtaButton(
+                      label: 'Xem đơn hàng',
+                      icon: Icons.receipt_long_outlined,
+                      onPressed: () => context.go('/orders'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton.icon(
+                      onPressed: () => context.go('/'),
+                      icon: const Icon(Icons.home_rounded, size: 18),
+                      label: const Text('Về trang chủ'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.foreground,
+                        side: const BorderSide(color: AppColors.border),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                        ),
+                      ),
                     ),
                   ],
-                  const SizedBox(height: AppSpacing.xl),
-                  GradientCtaButton(
-                    label: 'Xem đơn hàng',
-                    icon: Icons.receipt_long_outlined,
-                    onPressed: () => context.go('/orders'),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  GradientCtaButton(
-                    label: 'Về trang chủ',
-                    icon: Icons.home_rounded,
-                    onPressed: () => context.go('/'),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

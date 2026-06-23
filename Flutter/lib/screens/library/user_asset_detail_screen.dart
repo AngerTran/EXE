@@ -196,8 +196,8 @@ class _UserAssetDetailScreenState extends ConsumerState<UserAssetDetailScreen> {
                           const Divider(color: AppColors.border),
                           _InfoRow(
                             icon: Icons.download_done_rounded,
-                            label: 'Đã tải',
-                            value: '${_detail!.downloadCount} lần',
+                            label: 'Lượt tải',
+                            value: '${_detail!.downloadCount} lượt tải',
                           ),
                           if (_detail!.fileSizeBytes != null) ...[
                             const Divider(color: AppColors.border),

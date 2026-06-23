@@ -5,6 +5,7 @@ import { fetchAssets } from "../../api/assets";
 import { mapAssetListItem } from "../../api/mappers";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { BorderBeam } from "./BorderBeam";
+import { XuPrice } from "./XuPrice";
 
 const PIXEL_HERO = [
   "transparent", "transparent", "#fbbf24", "#fbbf24", "transparent",
@@ -80,6 +81,8 @@ type SuggestedAsset = {
   title: string;
   category: string;
   match: number;
+  price?: number;
+  isFree?: boolean;
   thumbnailUrl?: string | null;
   badgeClass: string;
   hoverBorder: string;
@@ -181,6 +184,8 @@ export default function Home() {
                 title: mapped.title,
                 category: mapped.category,
                 match: ratingToMatch(mapped.rating),
+                price: mapped.price,
+                isFree: mapped.isFree,
                 thumbnailUrl: mapped.thumbnailUrl,
                 ...style,
               };
@@ -390,9 +395,17 @@ export default function Home() {
                               <p className="truncate text-[11px] font-semibold text-foreground group-hover:text-primary transition-colors">
                                 {asset.title}
                               </p>
-                              <p className="text-[10px] font-mono text-success">
-                                {asset.match}% phù hợp
-                              </p>
+                              {asset.id != null ? (
+                                asset.isFree ? (
+                                  <p className="text-[10px] font-semibold text-success">Miễn phí</p>
+                                ) : (
+                                  <XuPrice amount={asset.price ?? 0} size="sm" />
+                                )
+                              ) : (
+                                <p className="text-[10px] font-mono text-success">
+                                  {asset.match}% phù hợp
+                                </p>
+                              )}
                             </div>
                           </Link>
                         );

@@ -76,7 +76,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
 
     if (!auth.isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Đơn hàng')),
+        appBar: _ordersAppBar(context),
         body: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
           child: AppCard(
@@ -97,7 +97,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Đơn hàng')),
+      appBar: _ordersAppBar(context),
       body: RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
@@ -190,7 +190,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
             else if (_orders.isEmpty && _loading)
               const Padding(
                 padding: EdgeInsets.all(AppSpacing.xxl),
-                child: const LoadingView(),
+                child: LoadingView(),
               )
             else if (_orders.isEmpty)
               const EmptyState(
@@ -421,4 +421,47 @@ class _StatusBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+PreferredSizeWidget _ordersAppBar(BuildContext context) {
+  void onBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
+  }
+
+  return AppBar(
+    automaticallyImplyLeading: false,
+    leadingWidth: 0,
+    titleSpacing: AppSpacing.page,
+    centerTitle: false,
+    title: Tooltip(
+      message: 'Quay lại',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onBack,
+          borderRadius: BorderRadius.circular(8),
+          splashColor: AppColors.primary.withValues(alpha: 0.12),
+          highlightColor: AppColors.primary.withValues(alpha: 0.08),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: AppSpacing.sm,
+              horizontal: AppSpacing.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.arrow_back_rounded),
+                const SizedBox(width: AppSpacing.xs),
+                const Text('Đơn hàng'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

@@ -142,31 +142,6 @@ class _AssetDetailScreenState extends ConsumerState<AssetDetailScreen> {
                               ),
                             ),
                     ),
-                    if (asset.isFree)
-                      Positioned(
-                        top: AppSpacing.md,
-                        left: AppSpacing.md,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.success,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'MIỄN PHÍ',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

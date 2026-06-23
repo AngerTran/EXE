@@ -79,7 +79,9 @@ class BookmarksScreen extends ConsumerWidget {
               itemCount: items.length,
               itemBuilder: (context, i) {
                 final asset = items[i];
-                return AssetCard(
+                return Align(
+                  alignment: Alignment.topCenter,
+                  child: AssetCard(
                   asset: asset,
                   marketplaceStyle: true,
                   isBookmarked: savedIds.contains(asset.id),
@@ -94,6 +96,7 @@ class BookmarksScreen extends ConsumerWidget {
                       ref.invalidate(_bookmarksProvider);
                     } catch (_) {}
                   },
+                  ),
                 );
               },
             ),

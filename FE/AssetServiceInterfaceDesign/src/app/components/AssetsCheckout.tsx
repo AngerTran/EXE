@@ -27,6 +27,11 @@ import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { formatWalletBalance } from "../../utils/helpers";
 import { XuPrice } from "./XuPrice";
 
+function marketplaceThumbnailSrc(asset: MarketplaceAsset): string {
+  if (asset.thumbnailUrl) return asset.thumbnailUrl;
+  return `https://source.unsplash.com/200x200/?${encodeURIComponent(asset.preview)}`;
+}
+
 export default function AssetsCheckout() {
   const [searchParams] = useSearchParams();
   const assetIdsParam = searchParams.get("assets") || "";
@@ -222,10 +227,7 @@ export default function AssetsCheckout() {
                     title={asset.title}
                   >
                     <ImageWithFallback
-                      src={
-                        asset.thumbnailUrl ||
-                        `https://source.unsplash.com/200x200/?${encodeURIComponent(asset.preview)}`
-                      }
+                      src={marketplaceThumbnailSrc(asset)}
                       alt={asset.title}
                       className="h-full w-full object-cover"
                     />
@@ -419,12 +421,10 @@ export default function AssetsCheckout() {
                   >
                     <div className="w-14 h-14 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg overflow-hidden shrink-0">
                       <ImageWithFallback
-                        src={`https://source.unsplash.com/200x200/?${encodeURIComponent(
-                          asset.preview
-                        )}`}
-                        alt={asset.title}
-                        className="w-full h-full object-cover"
-                      />
+                      src={marketplaceThumbnailSrc(asset)}
+                      alt={asset.title}
+                      className="w-full h-full object-cover"
+                    />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="text-sm font-semibold text-foreground truncate">
