@@ -542,6 +542,13 @@ export default function AdminDashboard() {
     }
   }, [activeTab]);
 
+  const completedSubscriptionOrders =
+    ordersAnalytics?.byType.find((t) => t.orderType === "subscription")?.count ??
+    orders.filter((o) => o.status === "completed" && o.orderType === "subscription").length;
+  const completedCreditPackOrders =
+    ordersAnalytics?.byType.find((t) => t.orderType === "credit_pack")?.count ??
+    orders.filter((o) => o.status === "completed" && o.orderType === "credit_pack").length;
+
   const stats = [
     {
       label: "Tổng người dùng",
@@ -573,7 +580,7 @@ export default function AdminDashboard() {
       icon: <DollarSign className="w-6 h-6" />,
       color: "from-warning to-warning/80",
       change: `${formatVndShort(revenueAnalytics?.totalRevenueVnd ?? 0)} / 7 ngày`,
-      detail: `${overview?.totalDownloads ?? 0} lượt tải asset`,
+      detail: `${completedSubscriptionOrders} gói dịch vụ · ${completedCreditPackOrders} nạp xu`,
     },
   ];
 
