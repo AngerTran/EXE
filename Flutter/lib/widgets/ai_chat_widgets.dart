@@ -453,7 +453,7 @@ class _AiChatInputBarState extends State<AiChatInputBar> {
                 borderRadius: BorderRadius.circular(AppRadius.lg),
               ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: TextField(
@@ -475,6 +475,7 @@ class _AiChatInputBarState extends State<AiChatInputBar> {
                             .bodyMedium
                             ?.copyWith(color: AppColors.muted),
                         filled: false,
+                        isDense: true,
                         border: InputBorder.none,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.lg,
@@ -484,10 +485,7 @@ class _AiChatInputBarState extends State<AiChatInputBar> {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.only(
-                      right: AppSpacing.sm,
-                      bottom: AppSpacing.sm,
-                    ),
+                    padding: const EdgeInsets.only(right: AppSpacing.sm),
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
@@ -531,10 +529,12 @@ class _AiChatInputBarState extends State<AiChatInputBar> {
                                     ),
                                   ),
                                 )
-                              : const Icon(
-                                  Icons.send_rounded,
-                                  color: AppColors.primaryForeground,
-                                  size: 20,
+                              : const Center(
+                                  child: Icon(
+                                    Icons.send_rounded,
+                                    color: AppColors.primaryForeground,
+                                    size: 20,
+                                  ),
                                 ),
                         ),
                       ),

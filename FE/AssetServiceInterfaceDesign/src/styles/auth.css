@@ -452,6 +452,7 @@ html:not(.dark) .auth-beam-path--trail {
   transition: all 0.15s ease;
   position: relative;
   flex-shrink: 0;
+  vertical-align: middle;
 }
 
 .auth-checkbox:checked {
@@ -463,13 +464,14 @@ html:not(.dark) .auth-beam-path--trail {
 .auth-checkbox:checked::after {
   content: "";
   position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  inset: 0;
+  margin: auto;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: none;
+  transform: none;
+  background: center / contain no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E");
 }
 
 .auth-checkbox:focus-visible {

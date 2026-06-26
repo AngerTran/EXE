@@ -416,7 +416,7 @@ export default function Auth() {
               )}
 
               {isLogin && !isForgot && (
-                <label className="flex items-center gap-2.5 cursor-pointer select-none py-0.5">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={rememberMe}
