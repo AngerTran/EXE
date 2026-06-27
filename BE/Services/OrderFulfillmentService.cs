@@ -1,9 +1,13 @@
+using Exe.Configuration;
 using Exe.Models;
 using Exe.Models.Entities;
 using Exe.Repositories;
 using Exe.Repositories.Billing;
 using Exe.Repositories.Commerce;
+using Exe.Repositories.Marketplace;
+using Exe.Repositories.Seller;
 using Exe.Repositories.Wallet;
+using Microsoft.Extensions.Options;
 
 namespace Exe.Services;
 
@@ -11,8 +15,13 @@ public class OrderFulfillmentService(
     IUserAssetRepository userAssetRepository,
     ISubscriptionRepository subscriptionRepository,
     IWalletRepository walletRepository,
-    IUnitOfWork unitOfWork)
+    IAssetRepository assetRepository,
+    ISellerEarningRepository sellerEarningRepository,
+    IUnitOfWork unitOfWork,
+    IOptions<SellerOptions> sellerOptions)
 {
+    private readonly SellerOptions _sellerOptions = sellerOptions.Value;
+
     public async Task FulfillOrderAsync(Order order, CancellationToken cancellationToken = default)
     {
         if (order.Status == OrderStatus.Completed)
@@ -41,22 +50,85 @@ public class OrderFulfillmentService(
 
         foreach (var item in order.Items.Where(i => i.AssetId.HasValue))
         {
-            if (await userAssetRepository.ExistsAsync(order.UserId, item.AssetId!.Value, cancellationToken))
+            var assetId = item.AssetId!.Value;
+
+            if (await userAssetRepository.ExistsAsync(order.UserId, assetId, cancellationToken))
                 continue;
 
             newAssets.Add(new UserAsset
             {
                 Id = Guid.NewGuid(),
                 UserId = order.UserId,
-                AssetId = item.AssetId!.Value,
+                AssetId = assetId,
                 OrderId = order.Id,
                 AcquiredVia = "purchase",
                 AcquiredAt = now
             });
+
+            await CreditSellerForAssetSaleAsync(order, item, assetId, now, cancellationToken);
         }
 
         if (newAssets.Count > 0)
             userAssetRepository.AddRange(newAssets);
+    }
+
+    private async Task CreditSellerForAssetSaleAsync(
+        Order order,
+        OrderItem item,
+        Guid assetId,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var grossXu = (int)item.LineTotal;
+        if (grossXu <= 0)
+            return;
+
+        if (await sellerEarningRepository.ExistsForOrderAssetAsync(order.Id, assetId, cancellationToken))
+            return;
+
+        var asset = await assetRepository.GetApprovedByIdAsync(assetId, cancellationToken);
+        if (asset is null)
+            return;
+
+        var sellerId = asset.UploaderId;
+        if (sellerId == order.UserId)
+            return;
+
+        var feePercent = Math.Clamp(_sellerOptions.PlatformFeePercent, 0, 100);
+        var platformFeeXu = (int)Math.Round(grossXu * feePercent / 100.0, MidpointRounding.AwayFromZero);
+        var netXu = grossXu - platformFeeXu;
+        if (netXu <= 0)
+            return;
+
+        var sellerWallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(sellerId, cancellationToken);
+
+        sellerWallet.Balance += netXu;
+        sellerWallet.UpdatedAt = now;
+        unitOfWork.AddWalletTransaction(new WalletTransaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = sellerWallet.Id,
+            Type = WalletTxType.SellerSale,
+            Amount = netXu,
+            BalanceAfter = sellerWallet.Balance,
+            Description = $"Seller sale {order.OrderCode} — {asset.Title}",
+            ReferenceType = "order",
+            ReferenceId = order.Id,
+            CreatedAt = now
+        });
+
+        sellerEarningRepository.Add(new SellerEarning
+        {
+            Id = Guid.NewGuid(),
+            SellerId = sellerId,
+            OrderId = order.Id,
+            AssetId = assetId,
+            GrossXu = grossXu,
+            PlatformFeeXu = platformFeeXu,
+            NetXu = netXu,
+            Status = SellerEarningStatus.Available,
+            CreatedAt = now
+        });
     }
 
     private async Task FulfillSubscriptionOrderAsync(Order order, CancellationToken cancellationToken)
@@ -89,24 +161,21 @@ public class OrderFulfillmentService(
 
         if (planItem.Plan.CreditsMonthly.GetValueOrDefault() > 0)
         {
-            var wallet = await walletRepository.GetByUserIdForUpdateAsync(order.UserId, cancellationToken);
-            if (wallet is not null)
+            var wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(order.UserId, cancellationToken);
+            wallet.Balance += planItem.Plan.CreditsMonthly!.Value;
+            wallet.UpdatedAt = DateTime.UtcNow;
+            unitOfWork.AddWalletTransaction(new WalletTransaction
             {
-                wallet.Balance += planItem.Plan.CreditsMonthly!.Value;
-                wallet.UpdatedAt = DateTime.UtcNow;
-                unitOfWork.AddWalletTransaction(new WalletTransaction
-                {
-                    Id = Guid.NewGuid(),
-                    WalletId = wallet.Id,
-                    Type = WalletTxType.SubscriptionGrant,
-                    Amount = planItem.Plan.CreditsMonthly.Value,
-                    BalanceAfter = wallet.Balance,
-                    Description = $"Subscription credits for {planItem.Plan.Name}",
-                    ReferenceType = "subscription",
-                    ReferenceId = newSub.Id,
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
+                Id = Guid.NewGuid(),
+                WalletId = wallet.Id,
+                Type = WalletTxType.SubscriptionGrant,
+                Amount = planItem.Plan.CreditsMonthly.Value,
+                BalanceAfter = wallet.Balance,
+                Description = $"Subscription credits for {planItem.Plan.Name}",
+                ReferenceType = "subscription",
+                ReferenceId = newSub.Id,
+                CreatedAt = DateTime.UtcNow
+            });
         }
     }
 
@@ -115,9 +184,7 @@ public class OrderFulfillmentService(
         if (order.TotalXu <= 0)
             return;
 
-        var wallet = await walletRepository.GetByUserIdForUpdateAsync(order.UserId, cancellationToken);
-        if (wallet is null)
-            return;
+        var wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(order.UserId, cancellationToken);
 
         var now = DateTime.UtcNow;
         wallet.Balance += order.TotalXu;

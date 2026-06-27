@@ -51,6 +51,8 @@ public partial class AssetService(
         CreateAssetRequest request,
         CancellationToken cancellationToken = default)
     {
+        await RoleAuthorization.EnsureSellerOrAdminAsync(profileRepository, userId, cancellationToken);
+
         var category = await categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken)
             ?? throw new ArgumentException("Invalid category.");
 
@@ -120,10 +122,31 @@ public partial class AssetService(
         if (asset is null || asset.UploaderId != userId)
             return null;
 
-        if (asset.Status is not (AssetStatus.Draft or AssetStatus.PendingReview))
-            throw new InvalidOperationException("Only draft or pending assets can be updated.");
+        if (asset.Status is not (AssetStatus.Draft or AssetStatus.PendingReview or AssetStatus.Rejected))
+            throw new InvalidOperationException("Only draft, pending or rejected assets can be updated.");
+
+        if (asset.Status == AssetStatus.Rejected)
+        {
+            asset.Status = AssetStatus.PendingReview;
+            asset.RejectionReason = null;
+            asset.SubmittedAt = DateTime.UtcNow;
+        }
 
         return await ApplyUpdateAsync(asset, request, cancellationToken);
+    }
+
+    public async Task<AssetDetailResponse?> GetMyAssetByIdAsync(
+        Guid userId,
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        await RoleAuthorization.EnsureSellerOrAdminAsync(profileRepository, userId, cancellationToken);
+
+        var asset = await assetRepository.GetWithDetailsByIdAsync(assetId, cancellationToken);
+        if (asset is null || asset.DeletedAt is not null || asset.UploaderId != userId)
+            return null;
+
+        return MapDetail(asset);
     }
 
     private async Task<AssetDetailResponse?> ApplyUpdateAsync(
@@ -267,6 +290,8 @@ public partial class AssetService(
         PagedQuery query,
         CancellationToken cancellationToken = default)
     {
+        await RoleAuthorization.EnsureSellerOrAdminAsync(profileRepository, userId, cancellationToken);
+
         var (items, total) = await assetRepository.ListByUploaderAsync(
             userId,
             query.Skip,
@@ -347,11 +372,8 @@ public partial class AssetService(
             total);
     }
 
-    private async Task EnsureAdminAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        if (await profileRepository.GetRoleAsync(userId, cancellationToken) != UserRole.Admin)
-            throw new ForbiddenException("Admin access required.");
-    }
+    private async Task EnsureAdminAsync(Guid userId, CancellationToken cancellationToken) =>
+        await RoleAuthorization.EnsureAdminAsync(profileRepository, userId, cancellationToken);
 
     private async Task<string> GenerateUniqueSlugAsync(string title, Guid? excludeId, CancellationToken cancellationToken)
     {
@@ -391,6 +413,7 @@ public partial class AssetService(
             a.CategoryId,
             a.Category?.Name ?? "",
             a.Uploader?.Name ?? "",
+            a.Uploader?.Username ?? "",
             a.PriceType.ToString().ToLowerInvariant(),
             a.PriceVnd,
             a.PriceXu,
@@ -400,7 +423,8 @@ public partial class AssetService(
             a.DownloadCount,
             a.ThumbnailUrl,
             a.AssetTags.Select(at => at.Tag?.Name ?? "").Where(n => n.Length > 0).ToList(),
-            a.PriceType == PriceType.Free);
+            a.PriceType == PriceType.Free,
+            a.Status.ToString().ToLowerInvariant());
 
     private AssetDetailResponse MapDetail(Asset a) =>
         new(
@@ -413,6 +437,7 @@ public partial class AssetService(
             a.Category?.Name ?? "",
             a.UploaderId,
             a.Uploader?.Name ?? "",
+            a.Uploader?.Username ?? "",
             a.ArtStyle?.ToString().ToLowerInvariant(),
             a.PriceType.ToString().ToLowerInvariant(),
             a.PriceVnd,

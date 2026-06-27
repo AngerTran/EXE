@@ -31,6 +31,9 @@ public static class DependencyInjection
                 npgsql.MapEnum<AiMessageRole>("ai_message_role");
                 npgsql.MapEnum<NotificationLevel>("notification_level");
                 npgsql.MapEnum<NotificationCategory>("notification_category");
+                npgsql.MapEnum<SellerStatus>("seller_status");
+                npgsql.MapEnum<SellerApplicationStatus>("seller_application_status");
+                npgsql.MapEnum<SellerEarningStatus>("seller_earning_status");
             }).UseSnakeCaseNamingConvention());
 
         return services;

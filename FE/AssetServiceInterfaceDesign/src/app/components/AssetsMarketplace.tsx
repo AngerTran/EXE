@@ -22,7 +22,7 @@ import { Button } from "./ui/button";
 import { cn } from "./ui/utils";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { BeamPanel } from "./BeamPanel";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams, Link } from "react-router";
 import { useAuth } from "../contexts/AuthContext";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { ClientPagination } from "./ui/ClientPagination";
@@ -38,6 +38,25 @@ import { AssetReviewsPanel } from "./AssetReviewsPanel";
 import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import type { CategoryItem } from "../../api/types/marketplace";
 import type { CartItem } from "../../api/types/commerce";
+
+function AuthorLink({
+  name,
+  username,
+  className,
+}: {
+  name: string;
+  username?: string;
+  className?: string;
+}) {
+  if (username) {
+    return (
+      <Link to={`/creator/${username}`} className={`text-primary hover:underline ${className ?? ""}`}>
+        {name}
+      </Link>
+    );
+  }
+  return <span className={className}>{name}</span>;
+}
 import { componentClasses } from "../../constants/theme";
 import { UnlimitedXuIcon } from "./UnlimitedXuIcon";
 import { XuPrice } from "./XuPrice";
@@ -800,7 +819,7 @@ function AssetDetailDrawerContent({
               {asset.title}
             </SheetTitle>
             <SheetDescription className="text-muted-foreground">
-              by {asset.author}
+              by <AuthorLink name={asset.author} username={detail?.authorUsername ?? asset.authorUsername} />
             </SheetDescription>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1124,7 +1143,7 @@ function AssetCard({
               Tác giả
             </span>
             <span className="font-medium text-foreground truncate max-w-[55%] text-right">
-              {asset.author}
+              <AuthorLink name={asset.author} username={asset.authorUsername} />
             </span>
           </div>
           <div className="flex items-center justify-between text-muted-foreground">

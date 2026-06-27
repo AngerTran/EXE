@@ -25,6 +25,7 @@ public class BookmarkService(
                 a.CategoryId,
                 a.Category.Name,
                 a.Uploader.Name,
+                a.Uploader.Username,
                 a.PriceType.ToString().ToLowerInvariant(),
                 a.PriceVnd,
                 a.PriceXu,
@@ -34,7 +35,8 @@ public class BookmarkService(
                 a.DownloadCount,
                 a.ThumbnailUrl,
                 a.AssetTags.Select(at => at.Tag.Name).ToList(),
-                a.PriceType == Models.PriceType.Free);
+                a.PriceType == Models.PriceType.Free,
+                a.Status.ToString().ToLowerInvariant());
         }).ToList();
         return new BookmarkListResponse(data);
     }

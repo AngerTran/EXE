@@ -10,6 +10,7 @@ import type { PagedResponse } from "./types/common";
 export interface AssetQuery {
   search?: string;
   categoryId?: string;
+  uploaderId?: string;
   priceType?: string;
   tag?: string;
   featured?: boolean;
@@ -24,6 +25,7 @@ function buildQuery(params: AssetQuery): string {
   const q = new URLSearchParams();
   if (params.search) q.set("search", params.search);
   if (params.categoryId) q.set("categoryId", params.categoryId);
+  if (params.uploaderId) q.set("uploaderId", params.uploaderId);
   if (params.priceType) q.set("priceType", params.priceType);
   if (params.tag) q.set("tag", params.tag);
   if (params.featured) q.set("featured", "true");
@@ -70,6 +72,42 @@ export async function rejectAsset(id: string, reason: string): Promise<AssetDeta
 
 export async function deleteAsset(id: string): Promise<void> {
   return apiRequest<void>(`/assets/${id}`, { method: "DELETE" });
+}
+
+export interface UpdateAssetBody {
+  title?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  categoryId?: string;
+  tagIds?: string[];
+  priceType?: "free" | "paid";
+  priceVnd?: number;
+  priceXu?: number;
+  license?: string;
+  engineUnity?: boolean;
+  engineUnreal?: boolean;
+  engineGodot?: boolean;
+  featureRigged?: boolean;
+  featureAnimated?: boolean;
+  featurePbr?: boolean;
+  featureVrReady?: boolean;
+  version?: string;
+  unityVersion?: string;
+  polygonCount?: string;
+  textureResolution?: string;
+  thumbnailUrl?: string | null;
+  artStyle?: string;
+}
+
+export async function updateAsset(id: string, body: UpdateAssetBody): Promise<AssetDetail> {
+  return apiRequest<AssetDetail>(`/assets/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function fetchMyAssetById(id: string): Promise<AssetDetail> {
+  return apiRequest<AssetDetail>(`/seller/assets/${id}`);
 }
 
 export async function getAssetUploadUrl(

@@ -1,6 +1,6 @@
 /** Types khớp BE DTOs §4.1 (camelCase JSON). */
 
-export type UserRole = "customer" | "admin";
+export type UserRole = "customer" | "seller" | "admin";
 
 export type SubscriptionPlan = "free" | "student" | "indie" | "pro";
 

@@ -25,6 +25,9 @@ public static class NpgsqlEnumSetup
         builder.MapEnum<AiMessageRole>("ai_message_role");
         builder.MapEnum<NotificationLevel>("notification_level");
         builder.MapEnum<NotificationCategory>("notification_category");
+        builder.MapEnum<SellerStatus>("seller_status");
+        builder.MapEnum<SellerApplicationStatus>("seller_application_status");
+        builder.MapEnum<SellerEarningStatus>("seller_earning_status");
 
         return builder.Build();
     }

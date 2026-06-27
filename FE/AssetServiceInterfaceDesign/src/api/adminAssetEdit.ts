@@ -53,7 +53,7 @@ export function mapAssetDetailToEditRecord(detail: AssetDetail): AssetRecord {
     thumbnailPreview: detail.thumbnailUrl ?? undefined,
     previewImages: getAssetPreviewImages(detail.images),
     artStyle: normalizeArtStyleFromApi(detail.artStyle),
-    status: "approved",
+    status: (detail.status?.toLowerCase() as AssetRecord["status"]) ?? "pending_review",
     rating: detail.ratingAvg,
     downloads: detail.downloadCount,
     submittedAt: detail.createdAt,

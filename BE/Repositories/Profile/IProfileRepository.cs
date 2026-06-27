@@ -15,4 +15,13 @@ public interface IProfileRepository
         CancellationToken cancellationToken = default);
 
     Task<UserRole?> GetRoleAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<Models.Entities.Profile?> GetActiveByUsernameAsync(
+        string username,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default);
+
+    Task<Models.Entities.Profile?> GetPublicSellerByUsernameAsync(
+        string username,
+        CancellationToken cancellationToken = default);
 }

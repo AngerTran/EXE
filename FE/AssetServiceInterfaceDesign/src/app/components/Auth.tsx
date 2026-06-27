@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   User,
+  ShoppingBag,
+  Store,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AppLogo } from "./AppLogo";
@@ -16,10 +18,18 @@ import { BorderBeam } from "./BorderBeam";
 import authFormBg from "../../assets/auth-form-bg.png";
 import { toast } from "../../utils/notify";
 import { forgotPassword } from "../../api/auth";
+import { applySeller } from "../../api/seller";
 import { ApiError, getRememberMePreference, setRememberMePreference } from "../../api/client";
 import { getSupabase } from "../../lib/supabase";
 
 type AuthView = "login" | "register" | "forgot";
+type RegisterAccountType = "customer" | "seller";
+
+function postLoginPath(role: string, registerAsSeller?: boolean): string {
+  if (role === "admin") return "/admin";
+  if (role === "seller" || registerAsSeller) return "/seller";
+  return "/dashboard";
+}
 
 function HudCorners() {
   return (
@@ -88,12 +98,13 @@ export default function Auth() {
     password: "",
     name: "",
   });
+  const [registerAccountType, setRegisterAccountType] = useState<RegisterAccountType>("customer");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const { login, register, loginWithGoogle } = useAuth();
+  const { login, register, loginWithGoogle, refreshUserData } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -128,7 +139,7 @@ export default function Auth() {
           didSucceed = true;
           setSuccess(true);
           setTimeout(() => {
-            navigate(result.role === "admin" ? "/admin" : "/dashboard");
+            navigate(postLoginPath(result.role));
           }, 600);
         } else {
           setError(result.message);
@@ -140,10 +151,21 @@ export default function Auth() {
         }
         const result = await register(formData.email, formData.password, formData.name);
         if (result.ok) {
+          if (registerAccountType === "seller" && result.role !== "seller" && result.role !== "admin") {
+            try {
+              await applySeller();
+              await refreshUserData();
+              toast.success("Đã đăng ký làm người bán");
+            } catch (err) {
+              toast.error(
+                err instanceof ApiError ? err.message : "Tài khoản đã tạo nhưng kích hoạt seller thất bại"
+              );
+            }
+          }
           didSucceed = true;
           setSuccess(true);
           setTimeout(() => {
-            navigate(result.role === "admin" ? "/admin" : "/dashboard");
+            navigate(postLoginPath(result.role, registerAccountType === "seller"));
           }, 600);
         } else {
           setError(result.message);
@@ -192,6 +214,7 @@ export default function Auth() {
     setView((v) => (v === "login" ? "register" : "login"));
     setError("");
     setSuccess(false);
+    setRegisterAccountType("customer");
     setFormData({ email: formData.email, password: "", name: "" });
   };
 
@@ -295,7 +318,7 @@ export default function Auth() {
                   ? "Nhập email đã đăng ký — chúng tôi sẽ gửi link đặt lại mật khẩu."
                   : isLogin
                     ? "Đăng nhập để vào AssetBox AI và Chợ Assets."
-                    : "Đăng ký miễn phí — nhận 100 xu khi tạo tài khoản."}
+                    : "Đăng ký miễn phí — chọn mua hoặc bán asset."}
               </p>
             </header>
 
@@ -328,6 +351,40 @@ export default function Auth() {
                 <div className="flex items-start gap-3 rounded-xl border border-destructive/35 bg-destructive/10 p-3.5">
                   <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
                   <p className="text-sm text-destructive leading-relaxed">{error}</p>
+                </div>
+              )}
+
+              {!isLogin && !isForgot && (
+                <div className="space-y-1.5">
+                  <span className="auth-label">Bạn muốn</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRegisterAccountType("customer")}
+                      className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm transition-all ${
+                        registerAccountType === "customer"
+                          ? "border-[#4cd7f6]/60 bg-[#4cd7f6]/10 text-[#dae2fd]"
+                          : "border-white/10 bg-white/5 text-[#cbc3d7] hover:border-white/20"
+                      }`}
+                    >
+                      <ShoppingBag className="w-5 h-5" />
+                      <span className="font-semibold">Mua asset</span>
+                      <span className="text-[10px] opacity-80">Khách hàng</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRegisterAccountType("seller")}
+                      className={`flex flex-col items-center gap-2 rounded-xl border p-3 text-sm transition-all ${
+                        registerAccountType === "seller"
+                          ? "border-[#d0bcff]/60 bg-[#d0bcff]/10 text-[#dae2fd]"
+                          : "border-white/10 bg-white/5 text-[#cbc3d7] hover:border-white/20"
+                      }`}
+                    >
+                      <Store className="w-5 h-5" />
+                      <span className="font-semibold">Bán asset</span>
+                      <span className="text-[10px] opacity-80">Người bán</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -451,7 +508,7 @@ export default function Auth() {
                     {isForgot ? "Đã gửi email!" : "Thành công!"}
                   </>
                 ) : (
-                  isForgot ? "Gửi link reset" : isLogin ? "Đăng nhập" : "Đăng ký"
+                  isForgot ? "Gửi link reset" : isLogin ? "Đăng nhập" : registerAccountType === "seller" ? "Đăng ký người bán" : "Đăng ký"
                 )}
               </button>
             </form>

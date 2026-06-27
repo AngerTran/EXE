@@ -5,6 +5,7 @@ namespace Exe.Models;
 public enum UserRole
 {
     [PgName("customer")] Customer,
+    [PgName("seller")] Seller,
     [PgName("admin")] Admin
 }
 
@@ -38,7 +39,9 @@ public enum WalletTxType
     [PgName("REFUND")] Refund,
     [PgName("BONUS")] Bonus,
     [PgName("ASSET_PURCHASE")] AssetPurchase,
-    [PgName("SUBSCRIPTION_GRANT")] SubscriptionGrant
+    [PgName("SUBSCRIPTION_GRANT")] SubscriptionGrant,
+    [PgName("SELLER_SALE")] SellerSale,
+    [PgName("SELLER_PAYOUT")] SellerPayout
 }
 
 public enum PaymentStatus
@@ -132,4 +135,25 @@ public enum NotificationCategory
     [PgName("admin")] Admin,
     [PgName("account")] Account,
     [PgName("ai")] Ai
+}
+
+public enum SellerStatus
+{
+    [PgName("pending")] Pending,
+    [PgName("active")] Active,
+    [PgName("suspended")] Suspended
+}
+
+public enum SellerApplicationStatus
+{
+    [PgName("pending")] Pending,
+    [PgName("approved")] Approved,
+    [PgName("rejected")] Rejected
+}
+
+public enum SellerEarningStatus
+{
+    [PgName("pending")] Pending,
+    [PgName("available")] Available,
+    [PgName("paid_out")] PaidOut
 }

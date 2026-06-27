@@ -21,6 +21,11 @@ public interface IWalletRepository
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Tạo ví balance=0 nếu user chưa có (profile cũ / trigger DB thiếu).</summary>
+    Task<Models.Entities.Wallet> GetOrCreateByUserIdForUpdateAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<HashSet<Guid>> GetAssetPurchaseOrderIdsAsync(
         IReadOnlyList<Guid> orderIds,
         CancellationToken cancellationToken = default);

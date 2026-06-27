@@ -199,6 +199,7 @@ export function getRoleDisplayText(role: string): string {
   const roleText: Record<string, string> = {
     admin: 'Quản trị viên',
     customer: 'Khách hàng',
+    seller: 'Người bán',
   };
   return roleText[role.toLowerCase()] || role;
 }
@@ -208,6 +209,14 @@ export function getRoleDisplayText(role: string): string {
  */
 export function isAdmin(user: { role: string } | null): boolean {
   return user?.role === 'admin';
+}
+
+export function isSeller(user: { role: string } | null): boolean {
+  return user?.role === 'seller' || user?.role === 'admin';
+}
+
+export function isSellerOnly(user: { role: string } | null): boolean {
+  return user?.role === 'seller';
 }
 
 /**

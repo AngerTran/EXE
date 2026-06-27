@@ -55,6 +55,25 @@ public class WalletRepository(AppDbContext db, ISubscriptionRepository subscript
         CancellationToken cancellationToken = default) =>
         db.Wallets.FirstOrDefaultAsync(w => w.UserId == userId, cancellationToken);
 
+    public async Task<Models.Entities.Wallet> GetOrCreateByUserIdForUpdateAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var wallet = await db.Wallets.FirstOrDefaultAsync(w => w.UserId == userId, cancellationToken);
+        if (wallet is not null)
+            return wallet;
+
+        wallet = new Models.Entities.Wallet
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Balance = 0,
+            UpdatedAt = DateTime.UtcNow
+        };
+        db.Wallets.Add(wallet);
+        return wallet;
+    }
+
     public async Task<HashSet<Guid>> GetAssetPurchaseOrderIdsAsync(
         IReadOnlyList<Guid> orderIds,
         CancellationToken cancellationToken = default)

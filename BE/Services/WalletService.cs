@@ -18,7 +18,11 @@ public class WalletService(
     {
         var wallet = await walletRepository.GetByUserIdAsync(userId, cancellationToken);
         if (wallet is null)
-            return null;
+        {
+            wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(userId, cancellationToken);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         var isUnlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
         return new WalletMeResponse(wallet.Balance, isUnlimited);
     }

@@ -1738,6 +1738,7 @@ function UsersManagement({
                         className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                       >
                         <option value="customer">Customer</option>
+                        <option value="seller">Seller</option>
                         <option value="admin">Admin</option>
                       </select>
                     </div>

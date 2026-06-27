@@ -27,6 +27,8 @@ builder.Services.Configure<BankTransferOptions>(
     builder.Configuration.GetSection(BankTransferOptions.SectionName));
 builder.Services.Configure<AiOptions>(
     builder.Configuration.GetSection(AiOptions.SectionName));
+builder.Services.Configure<SellerOptions>(
+    builder.Configuration.GetSection(SellerOptions.SectionName));
 builder.Services.PostConfigure<AiOptions>(options =>
 {
     if (!string.IsNullOrWhiteSpace(options.ApiKey))
@@ -53,6 +55,8 @@ builder.Services.AddScoped<ICreditPackService, CreditPackService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ILookupService, LookupService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
+builder.Services.AddScoped<ISellerService, SellerService>();
+builder.Services.AddScoped<ICreatorService, CreatorService>();
 builder.Services.AddScoped<IAssetStorageService, AssetStorageService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<OrderFulfillmentService>();

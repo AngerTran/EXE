@@ -36,6 +36,9 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
         if (query.CategoryId.HasValue)
             q = q.Where(a => a.CategoryId == query.CategoryId.Value);
 
+        if (query.UploaderId.HasValue)
+            q = q.Where(a => a.UploaderId == query.UploaderId.Value);
+
         if (!string.IsNullOrWhiteSpace(query.PriceType))
         {
             if (Enum.TryParse<PriceType>(query.PriceType, ignoreCase: true, out var priceType))
@@ -176,6 +179,23 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
         var total = await q.CountAsync(cancellationToken);
         var items = await q.Skip(skip).Take(take).ToListAsync(cancellationToken);
         return (items, total);
+    }
+
+    public async Task<(int Total, int Approved, int PendingReview, int Rejected, int Draft, long TotalDownloads)> GetUploaderStatsAsync(
+        Guid uploaderId,
+        CancellationToken cancellationToken = default)
+    {
+        var q = db.Assets.AsNoTracking()
+            .Where(a => a.DeletedAt == null && a.UploaderId == uploaderId);
+
+        var total = await q.CountAsync(cancellationToken);
+        var approved = await q.CountAsync(a => a.Status == AssetStatus.Approved, cancellationToken);
+        var pendingReview = await q.CountAsync(a => a.Status == AssetStatus.PendingReview, cancellationToken);
+        var rejected = await q.CountAsync(a => a.Status == AssetStatus.Rejected, cancellationToken);
+        var draft = await q.CountAsync(a => a.Status == AssetStatus.Draft, cancellationToken);
+        var totalDownloads = await q.SumAsync(a => (long)a.DownloadCount, cancellationToken);
+
+        return (total, approved, pendingReview, rejected, draft, totalDownloads);
     }
 
     public async Task<(IReadOnlyList<Asset> Items, int Total)> ListAdminAsync(

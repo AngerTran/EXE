@@ -11,6 +11,7 @@ public record AssetListItemResponse(
     Guid CategoryId,
     string CategoryName,
     string UploaderName,
+    string UploaderUsername,
     string PriceType,
     long PriceVnd,
     int PriceXu,
@@ -20,7 +21,8 @@ public record AssetListItemResponse(
     int DownloadCount,
     string? ThumbnailUrl,
     IReadOnlyList<string> Tags,
-    bool IsFree);
+    bool IsFree,
+    string Status);
 
 public record AssetFileResponse(
     Guid Id,
@@ -53,6 +55,7 @@ public record AssetDetailResponse(
     string CategoryName,
     Guid UploaderId,
     string UploaderName,
+    string UploaderUsername,
     string? ArtStyle,
     string PriceType,
     long PriceVnd,
@@ -136,6 +139,7 @@ public record AssetQueryParams
     public Guid? CategoryId { get; init; }
     public string? PriceType { get; init; }
     public string? Tag { get; init; }
+    public Guid? UploaderId { get; init; }
     public bool Featured { get; init; }
     public int? Limit { get; init; }
     public string Sort { get; init; } = "createdAt";

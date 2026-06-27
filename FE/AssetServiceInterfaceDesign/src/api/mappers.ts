@@ -14,8 +14,10 @@ export interface MarketplaceAsset {
   downloads: number;
   preview: string;
   author: string;
+  authorUsername?: string;
   tags: string[];
   isFree: boolean;
+  status?: string;
   thumbnailUrl?: string | null;
 }
 
@@ -53,8 +55,10 @@ export function mapAssetListItem(item: AssetListItem): MarketplaceAsset {
     downloads: item.downloadCount,
     preview: item.thumbnailUrl || item.title.toLowerCase(),
     author: item.uploaderName,
+    authorUsername: item.uploaderUsername || undefined,
     tags: item.tags,
     isFree: item.isFree,
+    status: item.status,
     thumbnailUrl: item.thumbnailUrl,
   };
 }

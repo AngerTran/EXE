@@ -38,6 +38,10 @@ public interface IAssetRepository
         int take,
         CancellationToken cancellationToken = default);
 
+    Task<(int Total, int Approved, int PendingReview, int Rejected, int Draft, long TotalDownloads)> GetUploaderStatsAsync(
+        Guid uploaderId,
+        CancellationToken cancellationToken = default);
+
     Task<(IReadOnlyList<Asset> Items, int Total)> ListAdminAsync(
         string? search,
         AssetStatus? status,

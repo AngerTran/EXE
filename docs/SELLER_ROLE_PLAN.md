@@ -87,7 +87,7 @@ public enum UserRole {
 - Seller dashboard / “Asset của tôi”
 - Trang creator công khai
 - Seller nhận xu / VND khi asset bán
-- Bảng `seller_profiles`, `seller_earnings`, payout
+- Bảng `seller_earnings`, payout (mở rộng `profiles` thay vì `seller_profiles`)
 - Đăng ký làm seller (application flow)
 - Auto-publish cho seller tin cậy
 
@@ -177,7 +177,7 @@ public enum UserRole {
               │  PostgreSQL (Supabase) │
               │  profiles.role=seller  │
               │  assets.uploader_id    │
-              │  seller_profiles (mới) │
+              │  profiles (+ cột seller)│
               │  seller_earnings (P3)  │
               └────────────────────────┘
 ```
@@ -188,7 +188,7 @@ public enum UserRole {
 
 ### 6.1 Thêm enum `seller` vào `user_role`
 
-**File SQL mới:** `docs/sql/add_seller_role.sql`
+**File SQL mới:** `docs/sql/add_seller_migration.sql` (một file — Block 1: enum; Block 2: schema đầy đủ)
 
 ```sql
 -- PostgreSQL: thêm giá trị enum (không xóa customer/admin)
@@ -210,20 +210,25 @@ public enum UserRole
 
 Cập nhật: `NpgsqlEnumSetup.cs`, `DependencyInjection.cs` (đã map `user_role`).
 
-### 6.2 Bảng `seller_profiles` (Phase 2, có thể chuẩn bị sớm)
+### 6.2 Mở rộng `profiles` (Phase 2) — không tạo bảng `seller_profiles`
 
-| Cột | Kiểu | Mô tả |
-|-----|------|--------|
-| `user_id` | uuid PK, FK → profiles | 1 seller = 1 profile |
-| `display_name` | varchar | Tên hiển thị storefront |
-| `bio` | text | Giới thiệu |
-| `avatar_url` | text | Optional override |
-| `website_url` | text | Link portfolio |
-| `is_trusted` | boolean | Auto-approve asset (Phase 4) |
-| `status` | enum | `pending`, `active`, `suspended` |
-| `applied_at` | timestamptz | Khi đăng ký seller |
-| `approved_at` | timestamptz | Admin duyệt seller |
-| `created_at` | timestamptz | |
+**Quyết định:** Tránh trùng dữ liệu với user profile. Dùng lại cột có sẵn + thêm vài cột seller.
+
+| Cột `profiles` | Nguồn | Mô tả |
+|----------------|-------|--------|
+| `name` | Sẵn có | Tên hiển thị storefront |
+| `username` | Sẵn có | Slug `/creator/:username` |
+| `avatar_url` | Sẵn có | Avatar |
+| `role` | Sẵn có | `seller` khi được cấp quyền |
+| `status` | Sẵn có | Trạng thái **tài khoản** (active/banned/pending) |
+| `bio` | **Mới** | Giới thiệu creator |
+| `seller_website_url` | **Mới** | Link portfolio |
+| `seller_is_trusted` | **Mới** | Auto-approve asset (Phase 4) |
+| `seller_status` | **Mới** | `pending` / `active` / `suspended` — trạng thái **seller** |
+| `seller_applied_at` | **Mới** | Khi đăng ký seller |
+| `seller_approved_at` | **Mới** | Admin duyệt seller |
+
+**SQL:** `docs/sql/add_seller_migration.sql` Block 2 (ALTER TABLE profiles).
 
 ### 6.3 Bảng `seller_earnings` (Phase 3)
 
@@ -424,7 +429,7 @@ Supabase RLS hiện có trên nhiều bảng. Khi thêm seller:
 | Bảng | Rule gợi ý |
 |------|------------|
 | `assets` | Seller `UPDATE` chỉ row `uploader_id = auth.uid()` và status `draft`/`pending_review` |
-| `seller_profiles` | Seller đọc/sửa row của mình; public đọc `status = active` |
+| `profiles` | Seller sửa `bio`, `seller_website_url` của mình; public đọc `role=seller` + `seller_status=active` |
 | `seller_earnings` | Chỉ seller xem của mình |
 
 **BE vẫn là nguồn chính** (JWT + service check) — RLS là lớp phụ cho Supabase direct access.
@@ -456,7 +461,7 @@ Supabase RLS hiện có trên nhiều bảng. Khi thêm seller:
 
 | # | Task | Effort |
 |---|------|--------|
-| 1 | Bảng `seller_profiles` + migration | M |
+| 1 | Mở rộng `profiles` (cột seller) + migration | M |
 | 2 | `GET /creators/{username}` + assets | M |
 | 3 | FE `/creator/:username` public page | M |
 | 4 | Marketplace: link tác giả → creator page | S |
@@ -499,9 +504,8 @@ Supabase RLS hiện có trên nhiều bảng. Khi thêm seller:
 
 ### Database
 
-- [ ] `docs/sql/add_seller_role.sql` (mới)
-- [ ] `docs/sql/add_seller_profiles.sql` (Phase 2)
-- [ ] `docs/sql/add_seller_earnings.sql` (Phase 3)
+- [x] `docs/sql/add_seller_migration.sql` (Block 1 enum — đã chạy)
+- [ ] `docs/sql/add_seller_migration.sql` (Block 2 — profiles + applications + earnings)
 
 ### Backend
 

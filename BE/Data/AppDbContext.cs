@@ -33,17 +33,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ContactInquiry> ContactInquiries => Set<ContactInquiry>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<SellerApplication> SellerApplications => Set<SellerApplication>();
+    public DbSet<SellerEarning> SellerEarnings => Set<SellerEarning>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum<NotificationLevel>("notification_level");
         modelBuilder.HasPostgresEnum<NotificationCategory>("notification_category");
+        modelBuilder.HasPostgresEnum<SellerStatus>("seller_status");
+        modelBuilder.HasPostgresEnum<SellerApplicationStatus>("seller_application_status");
+        modelBuilder.HasPostgresEnum<SellerEarningStatus>("seller_earning_status");
 
         modelBuilder.Entity<Profile>(e =>
         {
             e.ToTable("profiles");
             e.Property(p => p.Role).HasColumnType("user_role");
             e.Property(p => p.Status).HasColumnType("user_status");
+            e.Property(p => p.SellerStatus).HasColumnType("seller_status");
         });
 
         modelBuilder.Entity<SubscriptionPlan>(e =>
@@ -163,6 +169,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(n => n.Category).HasColumnType("notification_category");
             e.Property(n => n.Metadata).HasColumnType("jsonb");
             e.HasOne(n => n.User).WithMany(p => p.Notifications).HasForeignKey(n => n.UserId);
+        });
+
+        modelBuilder.Entity<SellerApplication>(e =>
+        {
+            e.ToTable("seller_applications");
+            e.Property(a => a.Status).HasColumnType("seller_application_status");
+            e.HasOne(a => a.User).WithMany().HasForeignKey(a => a.UserId);
+            e.HasOne(a => a.Reviewer).WithMany().HasForeignKey(a => a.ReviewedBy);
+        });
+
+        modelBuilder.Entity<SellerEarning>(e =>
+        {
+            e.ToTable("seller_earnings");
+            e.Property(e => e.Status).HasColumnType("seller_earning_status");
+            e.HasOne(e => e.Seller).WithMany().HasForeignKey(e => e.SellerId);
+            e.HasOne(e => e.Order).WithMany().HasForeignKey(e => e.OrderId);
+            e.HasOne(e => e.Asset).WithMany().HasForeignKey(e => e.AssetId);
         });
     }
 }

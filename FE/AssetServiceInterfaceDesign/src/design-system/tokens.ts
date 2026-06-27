@@ -105,5 +105,6 @@ export const mobileNav = {
     '/checkout-credits',
     '/checkout-assets',
     '/add-asset',
+    '/seller',
   ],
 } as const;

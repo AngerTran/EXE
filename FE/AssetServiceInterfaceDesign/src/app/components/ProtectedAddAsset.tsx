@@ -3,7 +3,7 @@ import AddAsset from "./AddAsset";
 
 export default function ProtectedAddAsset() {
   return (
-    <ProtectedRoute>
+    <ProtectedRoute requireSeller>
       <AddAsset />
     </ProtectedRoute>
   );

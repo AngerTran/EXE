@@ -12,6 +12,12 @@ public class Profile
     public string? AvatarUrl { get; set; }
     public UserStatus Status { get; set; } = UserStatus.Active;
     public long TotalSpentVnd { get; set; }
+    public string? Bio { get; set; }
+    public string? SellerWebsiteUrl { get; set; }
+    public bool SellerIsTrusted { get; set; }
+    public SellerStatus? SellerStatus { get; set; }
+    public DateTime? SellerAppliedAt { get; set; }
+    public DateTime? SellerApprovedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }

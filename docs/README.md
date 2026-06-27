@@ -18,6 +18,7 @@ Mục lục tài liệu chính. **Mọi thay đổi Flutter/mobile** cần cập
 | [PERFORMANCE_PLAN.md](./PERFORMANCE_PLAN.md) | **Hiệu năng & scale ~100 user** (cache, polling, Render, load test) |
 | [ITCH_IO_VS_ASSETBOX.md](./ITCH_IO_VS_ASSETBOX.md) | **So sánh itch.io vs AssetBox** — gap analysis, điểm yếu, roadmap |
 | [SELLER_ROLE_PLAN.md](./SELLER_ROLE_PLAN.md) | **Plan role Seller** — creator economy kiểu itch.io, DB/BE/FE, 4 phase |
+| [SELLER_ROLE_PROGRESS.md](./SELLER_ROLE_PROGRESS.md) | **Tiến độ implement Seller** — checklist Phase 1 (BE ✅, FE pending) |
 
 ## Mobile / Flutter
 
@@ -33,6 +34,8 @@ Mục lục tài liệu chính. **Mọi thay đổi Flutter/mobile** cần cập
 ## SQL scripts
 
 Thư mục [sql/](./sql/) — migration/seed tags, notifications, v.v.
+
+**Seller role:** [`sql/add_seller_migration.sql`](./sql/add_seller_migration.sql) — [hướng dẫn](./sql/README_SELLER.md)
 
 ## Frontend web (trong repo FE)
 

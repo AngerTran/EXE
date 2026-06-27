@@ -1,5 +1,6 @@
 using Exe.Repositories.Admin;
 using Exe.Repositories.Notification;
+using Exe.Repositories.Seller;
 using Exe.Repositories.Support;
 using Exe.Repositories.Ai;
 using Exe.Repositories.Billing;
@@ -34,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<IAdminRepository, AdminRepository>();
         services.AddScoped<IContactInquiryRepository, ContactInquiryRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<ISellerApplicationRepository, SellerApplicationRepository>();
+        services.AddScoped<ISellerEarningRepository, SellerEarningRepository>();
 
         return services;
     }

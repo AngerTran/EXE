@@ -27,7 +27,7 @@ import { componentClasses } from "../../constants/theme";
 export default function Root() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout, refreshUserData } = useAuth();
+  const { user, logout, refreshUserData, isSeller } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const isAuthPage =
@@ -154,6 +154,33 @@ export default function Root() {
               
               {user ? (
                 <>
+                  {(user.role === "seller" || user.role === "admin") && (
+                    <Link
+                      to="/seller"
+                      className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
+                        location.pathname.startsWith("/seller")
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Seller Hub
+                      {location.pathname.startsWith("/seller") && (
+                        <span className="absolute -bottom-6 left-0 right-0 h-0.5 bg-primary shadow-[0_0_8px_rgba(0,217,255,0.6)]" />
+                      )}
+                    </Link>
+                  )}
+                  {user.role === "customer" && (
+                    <Link
+                      to="/seller/apply"
+                      className={`text-sm font-medium transition-all relative group whitespace-nowrap ${
+                        isActive("/seller/apply")
+                          ? "text-primary"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Trở thành người bán
+                    </Link>
+                  )}
                   {user.role === "admin" && (
                     <Link
                       to="/admin"
@@ -224,6 +251,11 @@ export default function Root() {
                       {user.role === "admin" && (
                         <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs font-bold rounded-full">
                           ADMIN
+                        </span>
+                      )}
+                      {user.role === "seller" && (
+                        <span className="px-2 py-0.5 bg-secondary/20 text-secondary text-xs font-bold rounded-full">
+                          SELLER
                         </span>
                       )}
                     </Link>
@@ -318,6 +350,28 @@ export default function Root() {
                 {link.label}
               </Link>
             ))}
+            {isSeller() && (
+              <Link
+                to="/seller"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`touch-target justify-start px-3 rounded-lg text-sm font-medium ${
+                  location.pathname.startsWith("/seller") ? "text-primary bg-primary/10" : "text-muted-foreground"
+                }`}
+              >
+                Seller Hub
+              </Link>
+            )}
+            {user?.role === "customer" && (
+              <Link
+                to="/seller/apply"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`touch-target justify-start px-3 rounded-lg text-sm font-medium ${
+                  isActive("/seller/apply") ? "text-primary bg-primary/10" : "text-muted-foreground"
+                }`}
+              >
+                Trở thành người bán
+              </Link>
+            )}
             {user?.role === "admin" && (
               <Link
                 to="/admin"

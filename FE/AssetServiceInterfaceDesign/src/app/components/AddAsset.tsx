@@ -121,6 +121,8 @@ function mergePreviewFiles(existing: File[], incoming: File[]): File[] {
 
 export default function AddAsset() {
   const { user, isAdmin } = useAuth();
+  const hubPath = isAdmin() ? "/admin" : "/seller";
+  const hubLabel = isAdmin() ? "Về trang Admin" : "Về Seller Hub";
   const thumbnailRef = useRef<HTMLInputElement>(null);
   const previewRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
@@ -394,10 +396,10 @@ export default function AddAsset() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              to="/admin"
+              to={hubPath}
               className="bg-gradient-to-r from-primary to-secondary text-primary-foreground px-6 py-3 rounded-lg font-bold hover:shadow-[0_0_30px_rgba(0,217,255,0.4)] transition-all"
             >
-              Về trang Admin
+              {hubLabel}
             </Link>
             <Link to="/marketplace" className="border border-border px-6 py-3 rounded-lg text-foreground hover:border-primary/50 transition-all">
               Xem Chợ Assets
@@ -412,11 +414,11 @@ export default function AddAsset() {
     <div className="min-h-[calc(100vh-120px)] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
         <Link
-          to="/admin"
+          to={hubPath}
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-primary mb-8 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          Quay lại Admin
+          {hubLabel}
         </Link>
 
         <header className="mb-10">

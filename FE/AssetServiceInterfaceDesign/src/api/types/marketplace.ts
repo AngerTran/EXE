@@ -31,6 +31,7 @@ export interface AssetListItem {
   categoryId: string;
   categoryName: string;
   uploaderName: string;
+  uploaderUsername: string;
   priceType: string;
   priceVnd: number;
   priceXu: number;
@@ -41,6 +42,7 @@ export interface AssetListItem {
   thumbnailUrl?: string | null;
   tags: string[];
   isFree: boolean;
+  status?: string;
 }
 
 export interface AssetImageItem {
@@ -54,6 +56,7 @@ export interface AssetImageItem {
 export interface AssetDetail extends AssetListItem {
   fullDescription?: string | null;
   uploaderId: string;
+  uploaderUsername: string;
   artStyle?: string | null;
   license: string;
   status: string;

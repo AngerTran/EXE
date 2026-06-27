@@ -44,6 +44,7 @@ interface AuthContextType {
   }) => Promise<void>;
   refreshUserData: () => Promise<void>;
   isAdmin: () => boolean;
+  isSeller: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -255,6 +256,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const isAdmin = useCallback(() => user?.role === "admin", [user?.role]);
+  const isSeller = useCallback(
+    () => user?.role === "seller" || user?.role === "admin",
+    [user?.role]
+  );
 
   return (
     <AuthContext.Provider
@@ -271,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updateProfile,
         refreshUserData,
         isAdmin,
+        isSeller,
       }}
     >
       {children}

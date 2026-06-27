@@ -208,8 +208,7 @@ public class OrderService(
         var totalXu = assets.Sum(GetAssetPriceXu);
         var now = DateTime.UtcNow;
 
-        var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken)
-            ?? throw new InvalidOperationException("Wallet not found.");
+        var wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(userId, cancellationToken);
 
         var unlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
 

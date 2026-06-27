@@ -41,4 +41,27 @@ public class ProfileRepository(AppDbContext db) : IProfileRepository
             .Where(p => p.Id == id && p.DeletedAt == null)
             .Select(p => (UserRole?)p.Role)
             .FirstOrDefaultAsync(cancellationToken);
+
+    public Task<Models.Entities.Profile?> GetActiveByUsernameAsync(
+        string username,
+        bool asNoTracking = true,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = username.Trim().ToLowerInvariant();
+        var query = ActiveProfilesQuery.Where(p => p.Username.ToLower() == normalized);
+        if (asNoTracking)
+            query = query.AsNoTracking();
+        return query.FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<Models.Entities.Profile?> GetPublicSellerByUsernameAsync(
+        string username,
+        CancellationToken cancellationToken = default) =>
+        ActiveProfilesQuery
+            .AsNoTracking()
+            .Where(p =>
+                p.Username.ToLower() == username.Trim().ToLower()
+                && p.Role == UserRole.Seller
+                && p.SellerStatus == SellerStatus.Active)
+            .FirstOrDefaultAsync(cancellationToken);
 }

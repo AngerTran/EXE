@@ -75,7 +75,14 @@ public class AdminService(
             return null;
 
         if (request.Role.HasValue)
+        {
             user.Role = request.Role.Value;
+            if (request.Role.Value == UserRole.Seller)
+            {
+                user.SellerStatus = SellerStatus.Active;
+                user.SellerApprovedAt ??= DateTime.UtcNow;
+            }
+        }
         if (request.Status.HasValue)
             user.Status = request.Status.Value;
         var profileChanged = request.Role.HasValue || request.Status.HasValue;

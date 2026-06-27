@@ -16,6 +16,11 @@ import ProtectedMyAssets from "./components/ProtectedMyAssets";
 import ProtectedAddAsset from "./components/ProtectedAddAsset";
 import ProtectedMyOrders from "./components/ProtectedMyOrders";
 import ProtectedProfile from "./components/ProtectedProfile";
+import ProtectedSellerDashboard from "./components/ProtectedSellerDashboard";
+import ProtectedSellerUpload from "./components/ProtectedSellerUpload";
+import ProtectedSellerApply from "./components/ProtectedSellerApply";
+import ProtectedSellerEdit from "./components/ProtectedSellerEdit";
+import CreatorStorefront from "./components/CreatorStorefront";
 import Terms from "./components/Terms";
 import Privacy from "./components/Privacy";
 
@@ -38,6 +43,11 @@ export const router = createBrowserRouter([
       { path: "checkout-assets", Component: ProtectedAssetsCheckout },
       { path: "admin", Component: ProtectedAdminDashboard },
       { path: "add-asset", Component: ProtectedAddAsset },
+      { path: "seller", Component: ProtectedSellerDashboard },
+      { path: "seller/upload", Component: ProtectedSellerUpload },
+      { path: "seller/edit/:id", Component: ProtectedSellerEdit },
+      { path: "seller/apply", Component: ProtectedSellerApply },
+      { path: "creator/:username", Component: CreatorStorefront },
       { path: "orders", Component: ProtectedMyOrders },
       { path: "profile", Component: ProtectedProfile },
       { path: "terms", Component: Terms },

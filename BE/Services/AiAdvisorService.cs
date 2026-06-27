@@ -116,9 +116,7 @@ public class AiAdvisorService(
         if (session is null || session.IsArchived)
             return null;
 
-        var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken);
-        if (wallet is null)
-            throw new InvalidOperationException("Wallet not found.");
+        var wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(userId, cancellationToken);
 
         var unlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
         if (!unlimited && wallet.Balance < XuPerMessage)
@@ -310,9 +308,7 @@ public class AiAdvisorService(
         string description,
         CancellationToken cancellationToken)
     {
-        var wallet = await walletRepository.GetByUserIdForUpdateAsync(userId, cancellationToken);
-        if (wallet is null)
-            throw new InvalidOperationException("Wallet not found.");
+        var wallet = await walletRepository.GetOrCreateByUserIdForUpdateAsync(userId, cancellationToken);
 
         var unlimited = await walletRepository.HasUnlimitedPlanAsync(userId, cancellationToken);
         if (!unlimited && wallet.Balance < XuPerMessage)

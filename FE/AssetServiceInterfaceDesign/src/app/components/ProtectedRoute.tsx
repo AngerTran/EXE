@@ -1,16 +1,21 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, Shield, AlertCircle } from "lucide-react";
+import { Loader2, Shield, AlertCircle, Store } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { BeamPanel } from "./BeamPanel";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireSeller?: boolean;
 }
 
-export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { user, isLoading, isAdmin } = useAuth();
+export default function ProtectedRoute({
+  children,
+  requireAdmin = false,
+  requireSeller = false,
+}: ProtectedRouteProps) {
+  const { user, isLoading, isAdmin, isSeller } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -21,8 +26,12 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
     }
     if (requireAdmin && !isAdmin()) {
       navigate("/dashboard");
+      return;
     }
-  }, [user, isLoading, requireAdmin, isAdmin, navigate]);
+    if (requireSeller && !isSeller()) {
+      navigate("/seller/apply");
+    }
+  }, [user, isLoading, requireAdmin, requireSeller, isAdmin, isSeller, navigate]);
 
   if (isLoading) {
     return (
@@ -55,6 +64,20 @@ export default function ProtectedRoute({ children, requireAdmin = false }: Prote
             <Shield className="w-16 h-16 text-red-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Truy cập bị từ chối</h2>
             <p className="text-gray-300 mb-4">Bạn không có quyền truy cập trang Admin</p>
+          </BeamPanel>
+        </div>
+      </div>
+    );
+  }
+
+  if (requireSeller && !isSeller()) {
+    return (
+      <div className="min-h-screen flex items-center justify-center py-12 px-4">
+        <div className="max-w-md w-full text-center">
+          <BeamPanel className="bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-8" beam={4}>
+            <Store className="w-16 h-16 text-warning mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-white mb-2">Cần quyền người bán</h2>
+            <p className="text-gray-300 mb-4">Kích hoạt tài khoản người bán để upload asset</p>
           </BeamPanel>
         </div>
       </div>

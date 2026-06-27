@@ -32,6 +32,7 @@ public class AssetsController(IAssetService assetService) : ControllerBase
     [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(typeof(PagedResponse<AssetListItemResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListMine(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -41,10 +42,17 @@ public class AssetsController(IAssetService assetService) : ControllerBase
         if (userId is null)
             return Unauthorized(new ErrorResponse("Invalid token.", "invalid_token"));
 
-        return Ok(await assetService.ListMyUploadsAsync(
-            userId.Value,
-            new PagedQuery(page, pageSize),
-            cancellationToken));
+        try
+        {
+            return Ok(await assetService.ListMyUploadsAsync(
+                userId.Value,
+                new PagedQuery(page, pageSize),
+                cancellationToken));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(ex.Message, "forbidden"));
+        }
     }
 
     [HttpGet("pending")]
@@ -104,6 +112,7 @@ public class AssetsController(IAssetService assetService) : ControllerBase
     [Authorize]
     [ProducesResponseType(typeof(AssetDetailResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create(
         [FromBody] CreateAssetRequest request,
         CancellationToken cancellationToken)
@@ -123,6 +132,10 @@ public class AssetsController(IAssetService assetService) : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (ForbiddenException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new ErrorResponse(ex.Message, "forbidden"));
         }
         catch (DbUpdateException ex)
         {

@@ -331,6 +331,22 @@ export default function Profile() {
                 <Sparkles className="w-4 h-4 text-primary" />
                 Nâng cấp gói
               </Link>
+              {(user.role === "seller" || user.role === "admin") && (
+                <Link
+                  to="/seller"
+                  className="flex-1 lg:flex-none bg-card border border-secondary/40 hover:border-secondary text-foreground px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                >
+                  Seller Hub
+                </Link>
+              )}
+              {user.role === "customer" && (
+                <Link
+                  to="/seller/apply"
+                  className="flex-1 lg:flex-none bg-card border border-border hover:border-primary/50 text-foreground px-4 py-2.5 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-colors"
+                >
+                  Trở thành người bán
+                </Link>
+              )}
             </div>
           </div>
         </BeamPanel>

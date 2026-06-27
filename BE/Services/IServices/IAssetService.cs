@@ -14,6 +14,7 @@ public interface IAssetService
     Task<AssetDetailResponse?> GetApprovedBySlugAsync(string slug, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse> CreateAsync(Guid userId, CreateAssetRequest request, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> UpdateAsync(Guid userId, Guid assetId, UpdateAssetRequest request, CancellationToken cancellationToken = default);
+    Task<AssetDetailResponse?> GetMyAssetByIdAsync(Guid userId, Guid assetId, CancellationToken cancellationToken = default);
     Task<bool> DeleteAsync(Guid userId, Guid assetId, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> ApproveAsync(Guid adminUserId, Guid assetId, CancellationToken cancellationToken = default);
     Task<AssetDetailResponse?> RejectAsync(Guid adminUserId, Guid assetId, RejectAssetRequest request, CancellationToken cancellationToken = default);

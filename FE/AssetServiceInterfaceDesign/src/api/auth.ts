@@ -27,7 +27,7 @@ export function mapMeToUser(me: MeResponse): AppUser {
     name: me.name,
     credits: me.wallet?.balance ?? 0,
     isUnlimited: me.wallet?.isUnlimited ?? false,
-    role: (me.role === "admin" ? "admin" : "customer") as UserRole,
+    role: me.role === "admin" ? "admin" : me.role === "seller" ? "seller" : "customer",
     subscription: plan as SubscriptionPlan,
     subscriptionExpiry: me.subscription?.expiredAt ?? undefined,
     avatarUrl: me.avatarUrl ?? undefined,
