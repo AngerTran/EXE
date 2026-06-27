@@ -33,7 +33,10 @@ yarn-error.log*
 pnpm-debug.log*
 *.log
 
-### OS / editor
+### Flutter build outputs (large)
+Flutter/build/
+*.apk
+!FE/AssetServiceInterfaceDesign/public/downloads/.gitkeep
 .DS_Store
 Thumbs.db
 ehthumbs.db

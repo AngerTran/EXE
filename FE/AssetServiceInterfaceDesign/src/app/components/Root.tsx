@@ -15,6 +15,8 @@ import {
   MobileBottomNav,
   shouldShowMobileBottomNav,
 } from "./layout/MobileBottomNav";
+import { FooterSocialLinks } from "./layout/FooterSocialLinks";
+import { MobileAppDownload } from "./layout/MobileAppDownload";
 import {
   Sheet,
   SheetContent,
@@ -448,7 +450,7 @@ export default function Root() {
       {!isAuthPage && !isDashboardPage && (
       <footer className={`site-footer border-t border-border bg-white/95 dark:bg-card/60 backdrop-blur-lg mt-20 shadow-sm ${showMobileTabBar ? "mb-16 md:mb-0" : ""}`}>
         <div className={`${componentClasses.container} py-12`}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
             {/* Company Info */}
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -466,7 +468,7 @@ export default function Root() {
               </a>
             </div>
 
-            {/* Quick Links */}
+            {/* Quick Links + Tải app */}
             <div>
               <h3 className="text-foreground font-bold mb-3">Liên Kết</h3>
               <div className="space-y-2">
@@ -480,6 +482,7 @@ export default function Root() {
                   AssetBox AI
                 </Link>
               </div>
+              <MobileAppDownload variant="footer" />
             </div>
 
             {/* Legal */}
@@ -494,6 +497,9 @@ export default function Root() {
                 </Link>
               </div>
             </div>
+
+            {/* Social */}
+            <FooterSocialLinks />
           </div>
 
           <div className="border-t border-border pt-6 text-center text-muted-foreground text-sm">

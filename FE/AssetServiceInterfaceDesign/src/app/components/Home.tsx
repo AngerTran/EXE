@@ -6,6 +6,7 @@ import { mapAssetListItem } from "../../api/mappers";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { BorderBeam } from "./BorderBeam";
 import { XuPrice } from "./XuPrice";
+import { MobileAppDownload } from "./layout/MobileAppDownload";
 
 const PIXEL_HERO = [
   "transparent", "transparent", "#fbbf24", "#fbbf24", "transparent",
@@ -494,6 +495,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Mobile App Download */}
+      <MobileAppDownload />
 
       {/* CTA Section */}
       <section className="py-20">
