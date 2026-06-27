@@ -12,6 +12,7 @@ Xem **[docs/README.md](docs/README.md)** — mục lục đầy đủ.
 - [Plan Backend & REST API](docs/BE_API_PLAN.md)
 - [Plan Mobile (PWA / Capacitor / Flutter)](docs/MOBILE_APP_PLAN.md)
 - [Flutter App — hướng dẫn](docs/FLUTTER_APP.md)
+- [Flutter — Google OAuth mobile](docs/FLUTTER_GOOGLE_OAUTH.md)
 - [Flutter — backlog còn thiếu](docs/FLUTTER_BACKLOG.md)
 - [Quy tắc cập nhật tài liệu](docs/DOCUMENTATION_POLICY.md)
 - [Supabase SQL Script (full)](supabase/schema.sql)

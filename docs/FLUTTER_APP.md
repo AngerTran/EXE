@@ -90,10 +90,14 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.5:5180/api/v1
 
 ### Supabase Redirect URLs (bắt buộc cho OAuth & reset MK)
 
-Thêm trong Supabase Dashboard → Authentication → URL Configuration:
+Xem hướng dẫn đầy đủ: **[FLUTTER_GOOGLE_OAUTH.md](./FLUTTER_GOOGLE_OAUTH.md)**.
+
+Tóm tắt — thêm trong Supabase Dashboard → Authentication → Redirect URLs:
 
 - `vn.assetbox.app://auth/callback`
 - `vn.assetbox.app://auth/reset`
+- `http://10.0.2.2:5180/api/v1/auth/oauth-callback` (Android emulator)
+- `http://localhost:5173/auth/callback` (web)
 
 ---
 

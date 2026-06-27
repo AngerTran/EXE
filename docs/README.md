@@ -15,6 +15,9 @@ Mục lục tài liệu chính. **Mọi thay đổi Flutter/mobile** cần cập
 | [FE_BE_AUTH_TEST.md](./FE_BE_AUTH_TEST.md) | Hướng dẫn test auth |
 | [ASSET_STORAGE_4_6.md](./ASSET_STORAGE_4_6.md) | Asset storage Supabase |
 | [DEPLOY.md](./DEPLOY.md) | **Deploy BE + FE** (Render, Vercel, env, Supabase) |
+| [PERFORMANCE_PLAN.md](./PERFORMANCE_PLAN.md) | **Hiệu năng & scale ~100 user** (cache, polling, Render, load test) |
+| [ITCH_IO_VS_ASSETBOX.md](./ITCH_IO_VS_ASSETBOX.md) | **So sánh itch.io vs AssetBox** — gap analysis, điểm yếu, roadmap |
+| [SELLER_ROLE_PLAN.md](./SELLER_ROLE_PLAN.md) | **Plan role Seller** — creator economy kiểu itch.io, DB/BE/FE, 4 phase |
 
 ## Mobile / Flutter
 
@@ -22,6 +25,7 @@ Mục lục tài liệu chính. **Mọi thay đổi Flutter/mobile** cần cập
 |----------|--------|
 | [MOBILE_APP_PLAN.md](./MOBILE_APP_PLAN.md) | Plan tổng: PWA, Capacitor, Flutter |
 | [FLUTTER_APP.md](./FLUTTER_APP.md) | Hướng dẫn app Flutter — kiến trúc, chạy dev |
+| [FLUTTER_GOOGLE_OAUTH.md](./FLUTTER_GOOGLE_OAUTH.md) | **Cấu hình Google OAuth mobile** (Supabase, BE, Flutter) |
 | [FLUTTER_BACKLOG.md](./FLUTTER_BACKLOG.md) | **Màn hình & API còn thiếu** (so với web) |
 | [FLUTTER_CHANGELOG.md](./FLUTTER_CHANGELOG.md) | Lịch sử thay đổi Flutter |
 | [DOCUMENTATION_POLICY.md](./DOCUMENTATION_POLICY.md) | Quy tắc cập nhật MD sau mỗi lần sửa |

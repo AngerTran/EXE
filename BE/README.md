@@ -74,9 +74,20 @@ Base path: `/api/v1/auth`
 |--------|----------|------|--------|
 | POST | `/register` | Public | Proxy Supabase signup (tuỳ chọn) |
 | POST | `/login` | Public | Proxy Supabase login (tuỳ chọn) |
+| GET | `/config` | Public | Supabase URL + anon key (FE OAuth) |
+| GET | `/google/url?redirectTo=` | Public | URL authorize Google qua Supabase |
 | GET | `/me` | Bearer JWT | Profile + wallet + subscription |
 | PATCH | `/me` | Bearer JWT | Cập nhật `name`, `avatarUrl` |
 | POST | `/logout` | Bearer JWT | 204 — client vẫn nên `supabase.auth.signOut()` |
+
+### Google Sign-In (Supabase OAuth)
+
+1. Supabase Dashboard → **Authentication → Providers → Google** → bật + Client ID/Secret (Google Cloud Console).
+2. **Authentication → URL Configuration** → thêm Redirect URL:
+   - `http://localhost:5173/auth/callback`
+   - `http://127.0.0.1:5173/auth/callback`
+3. FE: copy `.env.example` → `.env` (hoặc để FE gọi `GET /auth/config` từ BE).
+4. Luồng: FE **Tiếp tục với Google** → Supabase OAuth → `/auth/callback` → token → `GET /auth/me`.
 
 ## API §4.2 Subscription Plans
 
