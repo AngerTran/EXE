@@ -49,9 +49,17 @@ public interface IAssetRepository
         int take,
         CancellationToken cancellationToken = default);
 
+    Task<Asset?> GetForHardDeleteAsync(Guid assetId, CancellationToken cancellationToken = default);
+
+    Task<(int UserAssets, int OrderItems)> GetPurchaseReferenceCountsAsync(
+        Guid assetId,
+        CancellationToken cancellationToken = default);
+
     void Add(Asset asset);
 
     void RemoveAssetTags(Asset asset);
 
     void AddAssetTags(IEnumerable<AssetTag> assetTags);
+
+    Task RemoveWithDependentsAsync(Asset asset, CancellationToken cancellationToken = default);
 }

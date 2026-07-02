@@ -37,6 +37,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import { XuPrice } from "./XuPrice";
 import ClientPagination from "./ui/ClientPagination";
+import { ConfirmActionDialog } from "./ui/ConfirmActionDialog";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "./ui/sheet";
 import { cn } from "./ui/utils";
 import { componentClasses } from "../../constants/theme";
@@ -66,7 +67,8 @@ export function SellerMyAssetsTab({ sellerName, sellerUsername }: SellerMyAssets
   const [selectedAsset, setSelectedAsset] = useState<MarketplaceAsset | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<MarketplaceAssetDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const categoryNames = useMemo(
     () => ["Tất cả", ...categories.map((c) => c.name)],
@@ -125,21 +127,22 @@ export function SellerMyAssetsTab({ sellerName, sellerUsername }: SellerMyAssets
     }
   };
 
-  const handleDelete = async (assetId: string, title: string) => {
-    if (!window.confirm(`Xóa asset "${title}"? Hành động không hoàn tác.`)) return;
-    setDeletingId(assetId);
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteAsset(assetId);
+      await deleteAsset(deleteTarget.id);
       toast.success("Đã xóa asset");
-      setAllAssets((prev) => prev.filter((a) => a.id !== assetId));
-      if (selectedAsset?.id === assetId) {
+      setAllAssets((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+      if (selectedAsset?.id === deleteTarget.id) {
         setSelectedAsset(null);
         setSelectedDetail(null);
       }
+      setDeleteTarget(null);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Xóa thất bại");
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
@@ -212,9 +215,9 @@ export function SellerMyAssetsTab({ sellerName, sellerUsername }: SellerMyAssets
                 key={asset.id}
                 asset={asset}
                 sellerName={sellerName}
-                deleting={deletingId === asset.id}
+                deleting={deleting && deleteTarget?.id === asset.id}
                 onViewDetails={() => void openDetail(asset)}
-                onDelete={() => void handleDelete(asset.id, asset.title)}
+                onDelete={() => setDeleteTarget({ id: asset.id, title: asset.title })}
               />
             ))}
           </div>
@@ -254,8 +257,8 @@ export function SellerMyAssetsTab({ sellerName, sellerUsername }: SellerMyAssets
               detailLoading={detailLoading}
               sellerName={sellerName}
               sellerUsername={sellerUsername}
-              deleting={deletingId === selectedAsset.id}
-              onDelete={() => void handleDelete(selectedAsset.id, selectedAsset.title)}
+              deleting={deleting && deleteTarget?.id === selectedAsset.id}
+              onDelete={() => setDeleteTarget({ id: selectedAsset.id, title: selectedAsset.title })}
               onClose={() => {
                 setSelectedAsset(null);
                 setSelectedDetail(null);
@@ -264,6 +267,24 @@ export function SellerMyAssetsTab({ sellerName, sellerUsername }: SellerMyAssets
           </SheetContent>
         )}
       </Sheet>
+
+      <ConfirmActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+        title="Xóa asset?"
+        description={
+          <>
+            Asset{" "}
+            <span className="font-semibold text-foreground">{deleteTarget?.title}</span> sẽ bị gỡ
+            khỏi marketplace. Nếu chưa có ai mua, bản ghi sẽ bị xóa hẳn khỏi database.
+          </>
+        }
+        confirmLabel="Xóa asset"
+        loading={deleting}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
@@ -299,7 +320,7 @@ function SellerAssetCard({
         <ImageWithFallback
           src={thumbnailSrc}
           alt={asset.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          className="w-full h-full object-cover transform-gpu will-change-transform group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
           <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${CTA_GRADIENT} px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg`}>

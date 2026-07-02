@@ -133,6 +133,14 @@ internal static class AiReplyHelpers
         return normalized.Length <= 18 && !ContainsGameIntent(normalized);
     }
 
+    public static bool IsDefaultSessionTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return true;
+
+        return title.Trim() is "New AI Session" or "AssetBox AI Chat" or "Phiên chat mới" or "Phiên mới";
+    }
+
     public static bool ShouldSuggestAssets(
         string prompt,
         IReadOnlyList<string>? recentUserMessages = null)
@@ -360,7 +368,7 @@ internal static class AiReplyHelpers
         var flags = DetectBlueprintAdaptiveFlags(messages);
         var userMsgs = messages.Where(m => m.Role.Equals("user", StringComparison.OrdinalIgnoreCase)).ToList();
         var idea = userMsgs.Count > 0 ? userMsgs[0].Content.Trim() : "Ý tưởng game chưa mô tả chi tiết.";
-        var projectName = sessionTitle is "New AI Session" or "AssetBox AI Chat" or "Phiên chat mới"
+        var projectName = IsDefaultSessionTitle(sessionTitle)
             ? SummarizePrompt(idea)
             : sessionTitle;
 

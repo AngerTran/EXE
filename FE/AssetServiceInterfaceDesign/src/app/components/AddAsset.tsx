@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Link } from "react-router";
 import {
   ArrowLeft,
@@ -11,23 +11,31 @@ import {
   Loader2,
   CheckCircle2,
   X,
+  Search,
+  AlertCircle,
 } from "lucide-react";
-import { toast } from "../../utils/notify";
+import { toast, toastError } from "../../utils/notify";
+import { formatAppError, runUploadStep } from "../../utils/formatError";
 import { useAuth } from "../contexts/AuthContext";
 import { LICENSE_OPTIONS, type LicenseType, type PriceType } from "../../types/asset";
 import { ART_STYLE_OPTIONS, type ArtStyleValue } from "../../constants/artStyles";
 import { formatFileSize } from "../../utils/assetStorage";
+import {
+  archiveTooLargeMessage,
+  isArchiveWithinLimit,
+  maxArchiveSizeLabel,
+} from "../../constants/uploadLimits";
 import { fetchCategories, fetchTagGroups } from "../../api/lookup";
 import {
   approveAsset,
   createAsset,
+  deleteAsset,
   getAssetUploadUrl,
   registerAssetFile,
   registerAssetImage,
   uploadToSignedUrl,
 } from "../../api/assets";
 import type { CategoryItem, TagGroupItem } from "../../api/types/marketplace";
-import { ApiError } from "../../api/client";
 import { BeamPanel } from "./BeamPanel";
 
 const LICENSE_MAP: Record<LicenseType, string> = {
@@ -94,6 +102,22 @@ const inputClass =
 const MAX_PREVIEW_IMAGES = 10;
 const PREVIEW_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/jpg"]);
 const PREVIEW_EXTENSION = /\.(png|jpe?g|webp)$/i;
+const ARCHIVE_EXTENSION = /\.(zip|rar)$/i;
+
+function isArchiveFile(file: File): boolean {
+  return ARCHIVE_EXTENSION.test(file.name);
+}
+
+function resolveArchiveContentType(file: File): string {
+  if (file.name.toLowerCase().endsWith(".rar")) {
+    return "application/vnd.rar";
+  }
+  return "application/zip";
+}
+
+function resolveArchiveFileType(file: File): string {
+  return file.name.toLowerCase().endsWith(".rar") ? "rar" : "zip";
+}
 
 function isPreviewImageFile(file: File): boolean {
   const mime = file.type.toLowerCase();
@@ -129,6 +153,7 @@ export default function AddAsset() {
   const errorsRef = useRef<HTMLDivElement>(null);
 
   const [errors, setErrors] = useState<string[]>([]);
+  const [errorTitle, setErrorTitle] = useState("Vui lòng kiểm tra lại");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submittedStatus, setSubmittedStatus] = useState<"pending_review" | "approved">("pending_review");
@@ -140,6 +165,7 @@ export default function AddAsset() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroupItem[]>([]);
   const [tags, setTags] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
   const [engineSupport, setEngineSupport] = useState({ unity: true, unreal: false, godot: false });
   const [version, setVersion] = useState("1.0.0");
   const [fileSize, setFileSize] = useState("");
@@ -166,7 +192,7 @@ export default function AddAsset() {
         setTagGroups(groups);
         if (cats.length > 0) setCategoryId(cats[0].id);
       })
-      .catch(() => toast.error("Không tải được danh mục/tags"));
+      .catch(() => toastError("Không tải được danh mục/tags", "Kiểm tra kết nối mạng hoặc thử tải lại trang."));
   }, []);
 
   useEffect(() => {
@@ -179,12 +205,22 @@ export default function AddAsset() {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
+  const filteredTagGroups = useMemo(() => {
+    const q = tagSearch.trim().toLowerCase();
+    if (!q) return tagGroups;
+    return tagGroups
+      .map((group) => ({
+        ...group,
+        tags: group.tags.filter((tag) => tag.name.toLowerCase().includes(q)),
+      }))
+      .filter((group) => group.tags.length > 0);
+  }, [tagGroups, tagSearch]);
+
   const handleThumbnail = (file: File | null) => {
     if (!file) return;
     if (!isPreviewImageFile(file)) {
       const msg = "Thumbnail phải là PNG, JPG hoặc WEBP";
-      setErrors([msg]);
-      toast.error(msg);
+      showFormErrors("File không hợp lệ", [msg]);
       return;
     }
     setThumbnailFile(file);
@@ -203,7 +239,7 @@ export default function AddAsset() {
     const rejected = incoming.length - valid.length;
 
     if (valid.length === 0) {
-      toast.error("Chỉ chấp nhận ảnh PNG, JPG hoặc WEBP");
+      toastError("Ảnh preview không hợp lệ", "Chỉ chấp nhận PNG, JPG hoặc WEBP.");
       if (previewRef.current) previewRef.current.value = "";
       return;
     }
@@ -217,7 +253,10 @@ export default function AddAsset() {
     });
 
     if (rejected > 0) {
-      toast.error(`${rejected} file không hợp lệ — chỉ PNG, JPG, WEBP`);
+      toastError(
+        `${rejected} file preview không hợp lệ`,
+        "Chỉ chấp nhận PNG, JPG hoặc WEBP.",
+      );
     }
 
     if (previewRef.current) previewRef.current.value = "";
@@ -227,10 +266,15 @@ export default function AddAsset() {
     setPreviewFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleZip = (file: File | null) => {
+  const handleArchiveFile = (file: File | null) => {
     if (!file) return;
-    if (!file.name.endsWith(".zip")) {
-      setErrors(["File asset phải là định dạng .zip"]);
+    if (!isArchiveFile(file)) {
+      showFormErrors("File asset không hợp lệ", ["File asset phải là định dạng .zip hoặc .rar"]);
+      return;
+    }
+    if (!isArchiveWithinLimit(file.size)) {
+      showFormErrors("File asset quá lớn", [archiveTooLargeMessage(file.name, file.size)]);
+      if (zipRef.current) zipRef.current.value = "";
       return;
     }
     setZipFile(file);
@@ -249,7 +293,10 @@ export default function AddAsset() {
     if (!categoryId) errs.push("Chọn danh mục asset");
     if (!thumbnailFile) errs.push("Tải lên ảnh thumbnail (PNG/JPG/WEBP)");
     if (previewFiles.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
-    if (!zipFile) errs.push("Tải lên file asset.zip");
+    if (!zipFile) errs.push("Tải lên file asset (.zip hoặc .rar)");
+    else if (!isArchiveWithinLimit(zipFile.size)) {
+      errs.push(archiveTooLargeMessage(zipFile.name, zipFile.size));
+    }
     if (!version.trim()) errs.push("Nhập phiên bản");
     if (priceType === "paid" && price < 1) errs.push("Giá trả phí tối thiểu 1 xu");
     if (version.trim().length > 20) errs.push("Phiên bản tối đa 20 ký tự (vd. 1.0.0)");
@@ -258,12 +305,18 @@ export default function AddAsset() {
     return errs;
   };
 
-  const showValidationErrors = (errs: string[]) => {
+  const showFormErrors = (title: string, errs: string[]) => {
+    setErrorTitle(title);
     setErrors(errs);
-    toast.error(errs[0] ?? "Vui lòng kiểm tra lại form");
+    const description = errs.length === 1 ? errs[0] : errs.map((e, i) => `${i + 1}. ${e}`).join("\n");
+    toastError(title, description);
     requestAnimationFrame(() => {
       errorsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
+  };
+
+  const showValidationErrors = (errs: string[]) => {
+    showFormErrors("Vui lòng kiểm tra lại form", errs);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -273,14 +326,16 @@ export default function AddAsset() {
       if (errs.length === 0) {
         if (!thumbnailFile) errs.push("Tải lên ảnh thumbnail (PNG/JPG/WEBP)");
         if (previewFiles.length < 1) errs.push("Tải lên ít nhất 1 ảnh preview");
-        if (!zipFile) errs.push("Tải lên file asset.zip");
+        if (!zipFile) errs.push("Tải lên file asset (.zip hoặc .rar)");
       }
       showValidationErrors(errs);
       return;
     }
 
     setErrors([]);
+    setErrorTitle("Vui lòng kiểm tra lại");
     setSubmitting(true);
+    let createdAssetId: string | null = null;
     try {
       const tagIds: string[] = [];
       for (const group of tagGroups) {
@@ -290,86 +345,110 @@ export default function AddAsset() {
       }
 
       const priceXu = priceType === "free" ? 0 : Math.max(1, Math.floor(price));
-      const created = await createAsset({
-        title: title.trim(),
-        shortDescription: shortDescription.trim(),
-        fullDescription: fullDescription.trim(),
-        categoryId,
-        tagIds,
-        ...(artStyle ? { artStyle } : {}),
-        priceType,
-        priceVnd: 0,
-        priceXu,
-        license: LICENSE_MAP[license],
-        engineUnity: engineSupport.unity,
-        engineUnreal: engineSupport.unreal,
-        engineGodot: engineSupport.godot,
-        featureRigged: features.rigged,
-        featureAnimated: features.animated,
-        featurePbr: features.pbr,
-        featureVrReady: features.vrReady,
-        version: version.trim(),
-        fileSizeBytes: zipFile.size,
-        polygonCount: polygonCount.trim() || undefined,
-        textureResolution: textureResolution.trim() || undefined,
-      });
+      const created = await runUploadStep("Tạo bản ghi asset", () =>
+        createAsset({
+          title: title.trim(),
+          shortDescription: shortDescription.trim(),
+          fullDescription: fullDescription.trim(),
+          categoryId,
+          tagIds,
+          ...(artStyle ? { artStyle } : {}),
+          priceType,
+          priceVnd: 0,
+          priceXu,
+          license: LICENSE_MAP[license],
+          engineUnity: engineSupport.unity,
+          engineUnreal: engineSupport.unreal,
+          engineGodot: engineSupport.godot,
+          featureRigged: features.rigged,
+          featureAnimated: features.animated,
+          featurePbr: features.pbr,
+          featureVrReady: features.vrReady,
+          version: version.trim(),
+          fileSizeBytes: zipFile.size,
+          polygonCount: polygonCount.trim() || undefined,
+          textureResolution: textureResolution.trim() || undefined,
+        })
+      );
 
       const assetId = created.id;
+      createdAssetId = assetId;
 
-      const thumbMeta = await getAssetUploadUrl(
-        assetId,
-        "Image",
-        thumbnailFile.name,
-        resolveImageContentType(thumbnailFile),
-        thumbnailFile.size
-      );
-      await uploadToSignedUrl(thumbMeta.uploadUrl, thumbnailFile, resolveImageContentType(thumbnailFile));
-      await registerAssetImage(assetId, {
-        storagePath: thumbMeta.storagePath,
-        altText: title.trim(),
-        sortOrder: 0,
-        isThumbnail: true,
+      await runUploadStep("Tải ảnh thumbnail", async () => {
+        const thumbMeta = await getAssetUploadUrl(
+          assetId,
+          "Image",
+          thumbnailFile.name,
+          resolveImageContentType(thumbnailFile),
+          thumbnailFile.size
+        );
+        await uploadToSignedUrl(thumbMeta.uploadUrl, thumbnailFile, resolveImageContentType(thumbnailFile));
+        await registerAssetImage(assetId, {
+          storagePath: thumbMeta.storagePath,
+          altText: title.trim(),
+          sortOrder: 0,
+          isThumbnail: true,
+        });
       });
 
       for (let i = 0; i < previewFiles.length; i++) {
         const file = previewFiles[i];
-        const contentType = resolveImageContentType(file);
-        const meta = await getAssetUploadUrl(assetId, "Image", file.name, contentType, file.size);
-        await uploadToSignedUrl(meta.uploadUrl, file, contentType);
-        await registerAssetImage(assetId, {
-          storagePath: meta.storagePath,
-          altText: `${title} preview ${i + 1}`,
-          sortOrder: i + 1,
-          isThumbnail: false,
+        const previewIndex = i;
+        await runUploadStep(`Tải ảnh preview ${previewIndex + 1}/${previewFiles.length} (${file.name})`, async () => {
+          const contentType = resolveImageContentType(file);
+          const meta = await getAssetUploadUrl(assetId, "Image", file.name, contentType, file.size);
+          await uploadToSignedUrl(meta.uploadUrl, file, contentType);
+          await registerAssetImage(assetId, {
+            storagePath: meta.storagePath,
+            altText: `${title} preview ${previewIndex + 1}`,
+            sortOrder: previewIndex + 1,
+            isThumbnail: false,
+          });
         });
       }
 
-      const zipMeta = await getAssetUploadUrl(
-        assetId,
-        "File",
-        zipFile.name,
-        "application/zip",
-        zipFile.size
-      );
-      await uploadToSignedUrl(zipMeta.uploadUrl, zipFile, "application/zip");
-      await registerAssetFile(assetId, {
-        storagePath: zipMeta.storagePath,
-        fileName: zipFile.name,
-        fileType: "zip",
-        fileSizeBytes: zipFile.size,
-        isPrimary: true,
+      const archiveContentType = resolveArchiveContentType(zipFile);
+      const archiveFileType = resolveArchiveFileType(zipFile);
+      await runUploadStep(`Tải file asset (${zipFile.name})`, async () => {
+        const zipMeta = await getAssetUploadUrl(
+          assetId,
+          "File",
+          zipFile.name,
+          archiveContentType,
+          zipFile.size
+        );
+        await uploadToSignedUrl(zipMeta.uploadUrl, zipFile, archiveContentType);
+        await registerAssetFile(assetId, {
+          storagePath: zipMeta.storagePath,
+          fileName: zipFile.name,
+          fileType: archiveFileType,
+          fileSizeBytes: zipFile.size,
+          isPrimary: true,
+        });
       });
 
       let finalStatus = created.status;
       if (isAdmin()) {
-        const approved = await approveAsset(assetId);
+        const approved = await runUploadStep("Duyệt asset (admin)", () => approveAsset(assetId));
         finalStatus = approved.status;
       }
 
       setSubmittedStatus(finalStatus === "approved" ? "approved" : "pending_review");
       setSubmitted(true);
     } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : "Gửi asset thất bại");
+      if (createdAssetId) {
+        try {
+          await deleteAsset(createdAssetId);
+        } catch {
+          /* best-effort cleanup for partial uploads */
+        }
+      }
+      const detail = formatAppError(error, "Gửi asset thất bại — không rõ nguyên nhân");
+      const messages = [detail];
+      if (createdAssetId) {
+        messages.push("Asset tạo dở đã được gỡ tự động — bạn có thể thử upload lại.");
+      }
+      showFormErrors("Gửi asset thất bại", messages);
     } finally {
       setSubmitting(false);
     }
@@ -434,13 +513,24 @@ export default function AddAsset() {
         </header>
 
         {errors.length > 0 && (
-          <div ref={errorsRef} className="mb-6 bg-destructive/10 border border-destructive/30 rounded-xl p-4">
-            <p className="font-bold text-destructive mb-2">Vui lòng kiểm tra lại:</p>
-            <ul className="list-disc list-inside text-sm text-destructive space-y-1">
-              {errors.map((err) => (
-                <li key={err}>{err}</li>
-              ))}
-            </ul>
+          <div
+            ref={errorsRef}
+            role="alert"
+            className="mb-6 bg-destructive/10 border border-destructive/40 rounded-xl p-4 sm:p-5"
+          >
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-destructive mb-2">{errorTitle}</p>
+                <ul className="text-sm text-destructive/95 space-y-2">
+                  {errors.map((err) => (
+                    <li key={err} className="leading-relaxed break-words">
+                      {errors.length > 1 ? `• ${err}` : err}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         )}
 
@@ -535,34 +625,51 @@ export default function AddAsset() {
                   </p>
                 )}
 
+                <div className="relative mb-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <input
+                    type="search"
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    placeholder="Tìm tag nhanh..."
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+
                 <div className="space-y-4 rounded-xl border border-border bg-background/40 p-4 max-h-[420px] overflow-y-auto">
-                  {tagGroups.map((group) => (
-                    <div key={group.id}>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                        {group.label}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {group.tags.map((tag) => {
-                          const selected = tags.includes(tag.name);
-                          return (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() => toggleTag(tag.name)}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-all ${
-                                selected
-                                  ? "bg-primary/20 text-primary border-primary/50 shadow-[0_0_12px_rgba(0,217,255,0.15)]"
-                                  : "bg-card/60 text-foreground border-border hover:border-primary/40 hover:bg-primary/5"
-                              }`}
-                            >
-                              {selected && <Check className="w-3 h-3" />}
-                              {tag.name}
-                            </button>
-                          );
-                        })}
+                  {filteredTagGroups.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      Không tìm thấy tag phù hợp
+                    </p>
+                  ) : (
+                    filteredTagGroups.map((group) => (
+                      <div key={group.id}>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                          {group.label}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {group.tags.map((tag) => {
+                            const selected = tags.includes(tag.name);
+                            return (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => toggleTag(tag.name)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full border transition-all ${
+                                  selected
+                                    ? "bg-primary/20 text-primary border-primary/50 shadow-[0_0_12px_rgba(0,217,255,0.15)]"
+                                    : "bg-card/60 text-foreground border-border hover:border-primary/40 hover:bg-primary/5"
+                                }`}
+                              >
+                                {selected && <Check className="w-3 h-3" />}
+                                {tag.name}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -592,7 +699,7 @@ export default function AddAsset() {
           </Section>
 
           {/* SECTION 3 */}
-          <Section step={3} title="Tải file lên" description="Ảnh đại diện, ảnh preview và file ZIP chính">
+          <Section step={3} title="Tải file lên" description="Ảnh đại diện, ảnh preview và file nén chính (ZIP/RAR)">
             <div className="space-y-6">
               <div>
                 <FieldLabel hint="PNG / JPG / WEBP — 1 ảnh">Ảnh đại diện (Thumbnail)</FieldLabel>
@@ -678,8 +785,16 @@ export default function AddAsset() {
               </div>
 
               <div>
-                <FieldLabel hint="ZIP chứa Models/, Textures/, Demo/, Docs/">File asset</FieldLabel>
-                <input ref={zipRef} type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => handleZip(e.target.files?.[0] ?? null)} />
+                <FieldLabel hint={`ZIP hoặc RAR — tối đa ${maxArchiveSizeLabel()} mỗi file`}>
+                  File asset
+                </FieldLabel>
+                <input
+                  ref={zipRef}
+                  type="file"
+                  accept=".zip,.rar,application/zip,application/vnd.rar,application/x-rar-compressed"
+                  className="hidden"
+                  onChange={(e) => handleArchiveFile(e.target.files?.[0] ?? null)}
+                />
                 <button
                   type="button"
                   onClick={() => zipRef.current?.click()}
@@ -687,7 +802,7 @@ export default function AddAsset() {
                 >
                   <FileArchive className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-foreground font-medium">
-                    {zipFileName || "Tải lên asset.zip"}
+                    {zipFileName || "Tải lên asset.zip hoặc .rar"}
                   </p>
                   {fileSize && <p className="text-xs text-muted-foreground font-mono mt-1">{fileSize}</p>}
                 </button>

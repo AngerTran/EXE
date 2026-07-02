@@ -40,7 +40,22 @@ public class AiAdvisorService(
         CancellationToken cancellationToken = default)
     {
         var session = await aiRepository.GetSessionAsync(sessionId, userId, cancellationToken);
-        return session is null ? null : MapDetail(session);
+        if (session is null)
+            return null;
+
+        if (AiReplyHelpers.IsDefaultSessionTitle(session.Title)
+            && session.Messages.Any(m => m.Role == AiMessageRole.User))
+        {
+            var forUpdate = await aiRepository.GetSessionForUpdateAsync(sessionId, userId, cancellationToken);
+            if (forUpdate is not null && TryAutoRenameSessionFromHistory(forUpdate))
+            {
+                forUpdate.UpdatedAt = DateTime.UtcNow;
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                session = await aiRepository.GetSessionAsync(sessionId, userId, cancellationToken) ?? session;
+            }
+        }
+
+        return MapDetail(session);
     }
 
     public async Task<AiSessionDetailResponse> CreateSessionAsync(
@@ -160,7 +175,7 @@ public class AiAdvisorService(
             cancellationToken);
 
         if (!AiReplyHelpers.IsCasualMessage(trimmedContent)
-            && session.Title is "New AI Session" or "AssetBox AI Chat" or "Phiên chat mới")
+            && AiReplyHelpers.IsDefaultSessionTitle(session.Title))
         {
             var title = TruncateTitle(trimmedContent);
             if (!string.IsNullOrWhiteSpace(title))
@@ -382,6 +397,30 @@ public class AiAdvisorService(
     {
         var oneLine = text.Replace('\n', ' ').Trim();
         return oneLine.Length <= 48 ? oneLine : oneLine[..45] + "...";
+    }
+
+    private static bool TryAutoRenameSessionFromHistory(AiSession session)
+    {
+        if (!AiReplyHelpers.IsDefaultSessionTitle(session.Title))
+            return false;
+
+        var firstUser = session.Messages
+            .Where(m => m.Role == AiMessageRole.User)
+            .OrderBy(m => m.CreatedAt).ThenBy(m => m.Role)
+            .FirstOrDefault();
+        if (firstUser is null)
+            return false;
+
+        var content = firstUser.Content.Trim();
+        if (AiReplyHelpers.IsCasualMessage(content))
+            return false;
+
+        var title = TruncateTitle(content);
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        session.Title = title;
+        return true;
     }
 
     private static AiSessionListItemResponse MapListItem(AiSession s, int messageCount) =>

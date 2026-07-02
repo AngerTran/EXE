@@ -381,7 +381,7 @@ export default function Home() {
                                 <ImageWithFallback
                                   src={asset.thumbnailUrl}
                                   alt={asset.title}
-                                  className="w-full h-full object-cover"
+                                  className="w-full h-full object-cover transform-gpu will-change-transform group-hover:scale-105 transition-transform duration-300"
                                 />
                               ) : (
                                 <Preview />

@@ -135,6 +135,9 @@ export default function Dashboard() {
         const detail = await fetchAiSession(id);
         setSessionId(detail.id);
         setStoredAiSessionId(detail.id);
+        setSessions((prev) =>
+          prev.map((s) => (s.id === detail.id ? { ...s, title: detail.title } : s))
+        );
         if (detail.messages.length === 0) {
           setMessages([]);
         } else {

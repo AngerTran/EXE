@@ -502,8 +502,10 @@ export default function Root() {
             <FooterSocialLinks />
           </div>
 
-          <div className="border-t border-border pt-6 text-center text-muted-foreground text-sm">
-            <p>© 2026 {APP_NAME}. Phát triển bởi AI với ❤️ cho game creators Việt Nam.</p>
+          <div className="border-t border-border pt-6 text-center text-foreground/80 text-sm">
+            <p className="drop-shadow-[0_1px_10px_rgba(0,0,0,0.35)]">
+              © 2026 {APP_NAME}. Xây dựng cùng AI, dành cho game creators Việt Nam.
+            </p>
           </div>
         </div>
       </footer>

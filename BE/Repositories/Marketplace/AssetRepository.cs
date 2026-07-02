@@ -247,11 +247,42 @@ public class AssetRepository(AppDbContext db) : IAssetRepository
         return (items, total);
     }
 
+    public Task<Asset?> GetForHardDeleteAsync(Guid assetId, CancellationToken cancellationToken = default) =>
+        db.Assets
+            .Include(a => a.AssetTags)
+            .Include(a => a.Files)
+            .Include(a => a.Images)
+            .Include(a => a.Reviews)
+            .FirstOrDefaultAsync(a => a.Id == assetId, cancellationToken);
+
+    public async Task<(int UserAssets, int OrderItems)> GetPurchaseReferenceCountsAsync(
+        Guid assetId,
+        CancellationToken cancellationToken = default)
+    {
+        var userAssets = await db.UserAssets.CountAsync(ua => ua.AssetId == assetId, cancellationToken);
+        var orderItems = await db.OrderItems.CountAsync(oi => oi.AssetId == assetId, cancellationToken);
+        return (userAssets, orderItems);
+    }
+
     public void Add(Asset asset) => db.Assets.Add(asset);
 
     public void RemoveAssetTags(Asset asset) => db.AssetTags.RemoveRange(asset.AssetTags);
 
     public void AddAssetTags(IEnumerable<AssetTag> assetTags) => db.AssetTags.AddRange(assetTags);
+
+    public async Task RemoveWithDependentsAsync(Asset asset, CancellationToken cancellationToken = default)
+    {
+        var assetId = asset.Id;
+        await db.CartItems.Where(c => c.AssetId == assetId).ExecuteDeleteAsync(cancellationToken);
+        await db.Bookmarks.Where(b => b.AssetId == assetId).ExecuteDeleteAsync(cancellationToken);
+        await db.AiMessageAssets.Where(a => a.AssetId == assetId).ExecuteDeleteAsync(cancellationToken);
+        await db.SellerEarnings.Where(e => e.AssetId == assetId).ExecuteDeleteAsync(cancellationToken);
+        db.AssetReviews.RemoveRange(asset.Reviews);
+        db.AssetFiles.RemoveRange(asset.Files);
+        db.AssetImages.RemoveRange(asset.Images);
+        db.AssetTags.RemoveRange(asset.AssetTags);
+        db.Assets.Remove(asset);
+    }
 
     private static IQueryable<Asset> ApplySort(IQueryable<Asset> q, string sort, string order)
     {

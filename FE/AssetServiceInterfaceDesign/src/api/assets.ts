@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import { humanizeStorageError } from "../utils/formatError";
 import type {
   AssetDetail,
   AssetListItem,
@@ -159,12 +160,51 @@ export async function uploadToSignedUrl(
   file: File | Blob,
   contentType: string
 ): Promise<void> {
+  const normalizedType = normalizeStorageContentType(file, contentType);
   const put = await fetch(uploadUrl, {
     method: "PUT",
-    headers: { "Content-Type": contentType },
+    headers: {
+      "Content-Type": normalizedType,
+      "x-upsert": "true",
+      "cache-control": "max-age=3600",
+    },
     body: file,
   });
   if (!put.ok) {
-    throw new Error(`Upload thất bại (${put.status})`);
+    const detail = await put.text().catch(() => "");
+    const parsed = parseStorageErrorBody(detail, put.status);
+    const trimmed = parsed ?? detail.replace(/\s+/g, " ").trim().slice(0, 320);
+    throw new Error(trimmed ? `Upload thất bại (${put.status}): ${trimmed}` : `Upload thất bại (${put.status})`);
   }
+}
+
+function parseStorageErrorBody(body: string, httpStatus?: number): string | null {
+  const text = body.trim();
+  if (!text && httpStatus === 413) {
+    return humanizeStorageError("Payload too large");
+  }
+  if (!text) return null;
+  try {
+    const json = JSON.parse(text) as { message?: string; error?: string; statusCode?: string | number };
+    const raw = [json.message, json.error].filter(Boolean).join(" — ");
+    const code = json.statusCode ?? httpStatus;
+    const withCode = raw && code != null ? `${raw} (mã ${code})` : raw || (code != null ? `mã ${code}` : "");
+    return withCode ? humanizeStorageError(withCode) : null;
+  } catch {
+    return humanizeStorageError(text.slice(0, 320));
+  }
+}
+
+/** Chuẩn hoá MIME trước khi PUT lên Supabase — tránh 400 do Windows gửi application/x-zip-compressed. */
+export function normalizeStorageContentType(file: File | Blob, contentType: string): string {
+  if (file instanceof File) {
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith(".zip")) return "application/zip";
+    if (lower.endsWith(".rar")) return "application/vnd.rar";
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+  }
+  if (contentType === "application/x-zip-compressed") return "application/zip";
+  return contentType || "application/octet-stream";
 }

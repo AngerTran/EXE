@@ -229,14 +229,11 @@ public partial class AssetService(
 
     public async Task<bool> DeleteAsync(Guid userId, Guid assetId, CancellationToken cancellationToken = default)
     {
-        var asset = await assetRepository.GetByIdForUpdateAsync(assetId, cancellationToken);
+        var asset = await assetRepository.GetForHardDeleteAsync(assetId, cancellationToken);
         if (asset is null || asset.UploaderId != userId)
             return false;
 
-        asset.DeletedAt = DateTime.UtcNow;
-        asset.UpdatedAt = DateTime.UtcNow;
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        return true;
+        return await RemoveAssetAsync(asset, cancellationToken);
     }
 
     public async Task<AssetDetailResponse?> ApproveAsync(
@@ -348,12 +345,27 @@ public partial class AssetService(
         CancellationToken cancellationToken = default)
     {
         await EnsureAdminAsync(adminUserId, cancellationToken);
-        var asset = await assetRepository.GetByIdForUpdateAsync(assetId, cancellationToken);
+        var asset = await assetRepository.GetForHardDeleteAsync(assetId, cancellationToken);
         if (asset is null)
             return false;
 
-        asset.DeletedAt = DateTime.UtcNow;
-        asset.UpdatedAt = DateTime.UtcNow;
+        return await RemoveAssetAsync(asset, cancellationToken);
+    }
+
+    private async Task<bool> RemoveAssetAsync(Asset asset, CancellationToken cancellationToken)
+    {
+        var (userAssets, orderItems) =
+            await assetRepository.GetPurchaseReferenceCountsAsync(asset.Id, cancellationToken);
+
+        if (userAssets > 0 || orderItems > 0)
+        {
+            asset.DeletedAt = DateTime.UtcNow;
+            asset.UpdatedAt = DateTime.UtcNow;
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+
+        await assetRepository.RemoveWithDependentsAsync(asset, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return true;
     }

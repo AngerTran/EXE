@@ -3,9 +3,12 @@ import {
   Coins,
   CreditCard,
   History,
+  LayoutGrid,
   Loader2,
+  Package,
   Save,
   Shield,
+  ShoppingBag,
   ShoppingCart,
   Sparkles,
   Upload,
@@ -55,6 +58,43 @@ function subscriptionStatusLabel(status: string) {
   if (normalized === "expired") return { label: "Hết hạn", className: "bg-muted text-muted-foreground" };
   return { label: status, className: "bg-warning/20 text-warning" };
 }
+
+const QUICK_LINKS = [
+  {
+    to: "/my-assets",
+    label: "Thư viện assets",
+    desc: "Assets đã mua & tải",
+    icon: Package,
+    accent: "primary" as const,
+  },
+  {
+    to: "/marketplace",
+    label: "Chợ Assets",
+    desc: "Khám phá thêm",
+    icon: ShoppingBag,
+    accent: "secondary" as const,
+  },
+  {
+    to: "/dashboard",
+    label: "AssetBox AI",
+    desc: "Chat tìm asset",
+    icon: Sparkles,
+    accent: "primary" as const,
+  },
+  {
+    to: "/orders",
+    label: "Đơn hàng",
+    desc: "Lịch sử thanh toán",
+    icon: History,
+    accent: "success" as const,
+  },
+] as const;
+
+const QUICK_LINK_ACCENT = {
+  primary: "bg-primary/15 text-primary border-primary/30 group-hover:shadow-[0_0_16px_rgba(0,217,255,0.2)]",
+  secondary: "bg-secondary/15 text-secondary border-secondary/30 group-hover:shadow-[0_0_16px_rgba(168,85,247,0.2)]",
+  success: "bg-success/15 text-success border-success/30 group-hover:shadow-[0_0_16px_rgba(16,185,129,0.2)]",
+} as const;
 
 function walletTxLabel(type: string) {
   switch (type) {
@@ -496,28 +536,42 @@ export default function Profile() {
           </BeamPanel>
 
           <BeamPanel
-            className="lg:col-span-4 bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 space-y-3"
+            className="lg:col-span-4 bg-white/95 dark:bg-card/70 backdrop-blur-lg border border-border rounded-2xl p-6 flex flex-col"
             beam={3.8}
           >
-            <h2 className="text-xl font-bold text-foreground mb-2">Truy cập nhanh</h2>
-            {[
-              { to: "/my-assets", label: "Thư viện assets", desc: "Assets đã mua & tải" },
-              { to: "/marketplace", label: "Chợ Assets", desc: "Khám phá thêm" },
-              { to: "/dashboard", label: "AssetBox AI", desc: "Chat tìm asset" },
-              { to: "/orders", label: "Đơn hàng", desc: "Lịch sử thanh toán" },
-            ].map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card/50 hover:border-primary/40 hover:bg-card transition-colors group"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground text-sm">{item.label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{item.desc}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary shrink-0" />
-              </Link>
-            ))}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/25 shadow-[0_0_12px_rgba(0,217,255,0.1)]">
+                <LayoutGrid className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Truy cập nhanh</h2>
+                <p className="text-xs text-muted-foreground">Điều hướng một chạm</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
+              {QUICK_LINKS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="group flex items-center gap-3.5 p-3.5 rounded-xl border border-border/70 bg-background/30 hover:bg-card/80 hover:border-primary/40 hover:shadow-[0_0_20px_rgba(0,217,255,0.08)] transition-all"
+                  >
+                    <div
+                      className={`p-2.5 rounded-lg border shrink-0 transition-all ${QUICK_LINK_ACCENT[item.accent]}`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground text-sm">{item.label}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{item.desc}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
           </BeamPanel>
         </div>
 

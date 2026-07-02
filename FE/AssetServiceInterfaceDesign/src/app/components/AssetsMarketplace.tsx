@@ -855,7 +855,7 @@ function AssetDetailDrawerContent({
             overlay={
               <>
                 {isPurchased && (
-                  <div className="bg-background/90 backdrop-blur-sm border border-primary/60 text-primary px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 shadow-sm">
+                  <div className="bg-background/95 border border-primary/60 text-primary px-3 py-1.5 rounded-md text-sm font-bold flex items-center gap-2 shadow-sm drop-shadow-[0_1px_10px_rgba(0,0,0,0.25)]">
                     <CheckCircle className="w-4 h-4" />
                     Đã sở hữu
                   </div>
@@ -1085,7 +1085,7 @@ function AssetCard({
         <ImageWithFallback
           src={thumbnailSrc}
           alt={asset.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          className="w-full h-full object-cover transform-gpu will-change-transform group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
           <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${CTA_GRADIENT} px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg`}>
@@ -1094,7 +1094,7 @@ function AssetCard({
           </div>
         </div>
         {isPurchased && (
-          <div className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm border border-primary/60 text-primary px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-sm">
+          <div className="absolute top-3 left-3 bg-background/95 border border-primary/60 text-primary px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-sm drop-shadow-[0_1px_10px_rgba(0,0,0,0.25)]">
             <CheckCircle className="w-3 h-3" />
             Đã sở hữu
           </div>

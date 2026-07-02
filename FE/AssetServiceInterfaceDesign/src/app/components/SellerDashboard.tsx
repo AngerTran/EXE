@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Pencil,
   Trash2,
+  User,
 } from "lucide-react";
 import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
@@ -30,6 +31,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { BeamPanel } from "./BeamPanel";
 import { ScrollableTabBar } from "./ui/ScrollableTabBar";
 import ClientPagination from "./ui/ClientPagination";
+import { ConfirmActionDialog } from "./ui/ConfirmActionDialog";
 import { XuPrice } from "./XuPrice";
 import { componentClasses } from "../../constants/theme";
 import { SellerMyAssetsTab } from "./SellerMyAssetsTab";
@@ -82,7 +84,8 @@ export default function SellerDashboard() {
   const [profileBio, setProfileBio] = useState("");
   const [profileWebsite, setProfileWebsite] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadMe = useCallback(async () => {
     const data = await fetchSellerMe();
@@ -157,17 +160,18 @@ export default function SellerDashboard() {
     };
   }, [activeTab, earningsPage]);
 
-  const handleDeleteAsset = async (assetId: string, title: string) => {
-    if (!window.confirm(`Xóa asset "${title}"? Hành động không hoàn tác.`)) return;
-    setDeletingId(assetId);
+  const confirmDeleteAsset = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteAsset(assetId);
+      await deleteAsset(deleteTarget.id);
       toast.success("Đã xóa asset");
+      setDeleteTarget(null);
       await reloadAssets();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Xóa thất bại");
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
@@ -331,8 +335,8 @@ export default function SellerDashboard() {
                             )}
                             <button
                               type="button"
-                              disabled={deletingId === asset.id}
-                              onClick={() => void handleDeleteAsset(asset.id, asset.title)}
+                              disabled={deleting && deleteTarget?.id === asset.id}
+                              onClick={() => setDeleteTarget({ id: asset.id, title: asset.title })}
                               className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                               title="Xóa asset"
                             >
@@ -415,49 +419,173 @@ export default function SellerDashboard() {
           )}
 
           {activeTab === "profile" && (
-            <BeamPanel className="bg-white/95 dark:bg-card/70 border border-border rounded-xl p-6 max-w-2xl" beam={3.8}>
-              <h2 className="text-lg font-bold text-foreground mb-6">Hồ sơ storefront</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">Tên hiển thị</label>
-                  <input
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">Bio</label>
-                  <textarea
-                    rows={4}
-                    value={profileBio}
-                    onChange={(e) => setProfileBio(e.target.value)}
-                    className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground resize-y"
-                    placeholder="Giới thiệu về bạn và portfolio..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-muted-foreground mb-2">Website / Portfolio</label>
-                  <input
-                    value={profileWebsite}
-                    onChange={(e) => setProfileWebsite(e.target.value)}
-                    className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground"
-                    placeholder="https://..."
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={savingProfile}
-                  onClick={() => void handleSaveProfile()}
-                  className={`px-6 py-2.5 rounded-lg font-bold ${componentClasses.ctaGradientInteractive} disabled:opacity-60`}
-                >
-                  {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
-                </button>
+            <div className="grid lg:grid-cols-3 gap-6 items-start">
+              <div className="lg:col-span-2">
+                <BeamPanel className="bg-white/95 dark:bg-card/70 border border-border rounded-xl p-6" beam={3.8}>
+                  <h2 className="text-lg font-bold text-foreground mb-6">Hồ sơ storefront</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">Tên hiển thị</label>
+                      <input
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">Bio</label>
+                      <textarea
+                        rows={4}
+                        value={profileBio}
+                        onChange={(e) => setProfileBio(e.target.value)}
+                        className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground resize-y"
+                        placeholder="Giới thiệu về bạn và portfolio..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">Website / Portfolio</label>
+                      <input
+                        value={profileWebsite}
+                        onChange={(e) => setProfileWebsite(e.target.value)}
+                        className="w-full bg-card border border-border rounded-lg px-4 py-2 text-foreground"
+                        placeholder="https://..."
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      disabled={savingProfile}
+                      onClick={() => void handleSaveProfile()}
+                      className={`px-6 py-2.5 rounded-lg font-bold ${componentClasses.ctaGradientInteractive} disabled:opacity-60`}
+                    >
+                      {savingProfile ? "Đang lưu..." : "Lưu hồ sơ"}
+                    </button>
+                  </div>
+                </BeamPanel>
               </div>
-            </BeamPanel>
+
+              <div className="lg:col-span-1 space-y-6">
+                <BeamPanel className="bg-white/95 dark:bg-card/70 border border-border rounded-xl p-6" beam={3.0}>
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0 overflow-hidden">
+                      {me.avatarUrl ? (
+                        <img src={me.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-7 h-7 text-primary" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {me.username ? `@${me.username}` : "—"}
+                      </p>
+                      <h3 className="text-xl font-bold text-foreground line-clamp-1">
+                        {profileName.trim() || me.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
+                        {profileBio.trim() || "Chưa có bio — thêm vài câu để tăng tin cậy."}
+                      </p>
+
+                      {profileWebsite.trim() ? (
+                        <a
+                          href={profileWebsite.trim()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 mt-3 text-primary hover:underline text-sm"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Portfolio
+                        </a>
+                      ) : null}
+
+                      {me.username ? (
+                        <Link
+                          to={`/creator/${me.username}`}
+                          className="inline-flex items-center gap-1.5 mt-3 text-muted-foreground hover:text-foreground transition-colors text-sm"
+                        >
+                          <Store className="w-4 h-4" />
+                          Xem storefront
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-3">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Đã duyệt</p>
+                      <p className="font-mono font-bold text-foreground">{me.stats.approvedCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Chờ duyệt</p>
+                      <p className="font-mono font-bold text-warning">{me.stats.pendingReviewCount}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground">Tổng download</p>
+                      <p className="font-mono font-bold text-primary">{me.stats.totalDownloads}</p>
+                    </div>
+                  </div>
+                </BeamPanel>
+
+                <BeamPanel className="bg-white/95 dark:bg-card/70 border border-border rounded-xl p-6" beam={2.7}>
+                  <h4 className="font-bold text-foreground">Checklist tối ưu</h4>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        className={`w-4 h-4 ${
+                          profileName.trim().length >= 2 ? "text-success" : "text-muted-foreground/70"
+                        }`}
+                      />
+                      <span className={profileName.trim().length >= 2 ? "text-foreground" : "text-muted-foreground"}>
+                        Tên hiển thị rõ ràng (tối thiểu 2 ký tự)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        className={`w-4 h-4 ${
+                          profileBio.trim().length >= 20 ? "text-success" : "text-muted-foreground/70"
+                        }`}
+                      />
+                      <span className={profileBio.trim().length >= 20 ? "text-foreground" : "text-muted-foreground"}>
+                        Bio có giá trị (tối thiểu 20 ký tự)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2
+                        className={`w-4 h-4 ${
+                          profileWebsite.trim().length > 5 ? "text-success" : "text-muted-foreground/70"
+                        }`}
+                      />
+                      <span className={profileWebsite.trim().length > 5 ? "text-foreground" : "text-muted-foreground"}>
+                        Có link portfolio / website
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Hồ sơ tốt giúp tăng tỷ lệ người mua xem và tải asset.
+                  </p>
+                </BeamPanel>
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      <ConfirmActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteTarget(null);
+        }}
+        title="Xóa asset?"
+        description={
+          <>
+            Asset{" "}
+            <span className="font-semibold text-foreground">{deleteTarget?.title}</span> sẽ bị gỡ
+            khỏi marketplace. Nếu chưa có ai mua, bản ghi sẽ bị xóa hẳn khỏi database.
+          </>
+        }
+        confirmLabel="Xóa asset"
+        loading={deleting}
+        onConfirm={confirmDeleteAsset}
+      />
     </div>
   );
 }

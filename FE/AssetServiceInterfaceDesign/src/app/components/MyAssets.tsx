@@ -339,7 +339,7 @@ export default function MyAssets() {
                   <ImageWithFallback
                     src={assetThumbnailSrc(asset)}
                     alt={asset.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover transform-gpu will-change-transform group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
                     <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${CTA} px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg`}>

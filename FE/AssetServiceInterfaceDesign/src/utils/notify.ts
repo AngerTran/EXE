@@ -62,6 +62,15 @@ export const toast = {
 
 export const notify = toast;
 
+/** Toast lỗi luôn hiện popup (kể cả đã đăng nhập) — dùng cho form / upload quan trọng. */
+export function toastError(title: string, description?: string) {
+  return toast.error(title, {
+    showToast: true,
+    description,
+    duration: description && description.length > 100 ? 14000 : 9000,
+  });
+}
+
 export function notifySubscriptionExpired(planLabel?: string) {
   const label = planLabel ? planLabel.toUpperCase() : "đăng ký";
   notifyPanel({

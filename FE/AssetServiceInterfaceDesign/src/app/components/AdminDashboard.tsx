@@ -40,6 +40,7 @@ import {
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { AssetPreviewGallery } from "./AssetPreviewGallery";
 import ClientPagination, { getPageSlice } from "./ui/ClientPagination";
+import { ConfirmActionDialog } from "./ui/ConfirmActionDialog";
 import { ScrollableTabBar } from "./ui/ScrollableTabBar";
 import type { AssetRecord } from "../../types/asset";
 import { LICENSE_OPTIONS, type AssetCategory } from "../../types/asset";
@@ -2415,7 +2416,7 @@ function AssetsManagement({
                     )}`
                   }
                   alt={asset.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  className="w-full h-full object-cover transform-gpu will-change-transform group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-lg">
@@ -2702,8 +2703,9 @@ function AssetsManagement({
           description={
             <>
               Asset{" "}
-              <span className="font-semibold text-foreground">{deleteTarget?.title}</span> sẽ bị xóa
-              khỏi marketplace. Hành động này không thể hoàn tác.
+              <span className="font-semibold text-foreground">{deleteTarget?.title}</span> sẽ bị gỡ
+              khỏi marketplace. Nếu chưa có ai mua, bản ghi sẽ bị xóa hẳn khỏi database để dọn dữ
+              liệu lỗi.
             </>
           }
           confirmLabel="Xóa asset"
@@ -4724,71 +4726,6 @@ function PackageForm({
 }
 
 // Modal Component
-function ConfirmActionDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  confirmLabel = "Xác nhận",
-  loading = false,
-  onConfirm,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: ReactNode;
-  confirmLabel?: string;
-  loading?: boolean;
-  onConfirm: () => void | Promise<void>;
-}) {
-  return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next && loading) return;
-        onOpenChange(next);
-      }}
-    >
-      <AlertDialogContent className="bg-card border-border sm:max-w-md">
-        <AlertDialogHeader>
-          <div className="mx-auto sm:mx-0 mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/15">
-            <AlertCircle className="h-6 w-6 text-destructive" />
-          </div>
-          <AlertDialogTitle className="text-foreground text-xl">{title}</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="text-sm text-muted-foreground leading-relaxed">{description}</div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="gap-2 sm:gap-2">
-          <AlertDialogCancel disabled={loading} className="border-border hover:bg-muted/50">
-            Đóng
-          </AlertDialogCancel>
-          <AlertDialogAction
-            disabled={loading}
-            onClick={(e) => {
-              e.preventDefault();
-              void onConfirm();
-            }}
-            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang xử lý...
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-4 h-4" />
-                {confirmLabel}
-              </>
-            )}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 function Modal({
   children,
   onClose,
