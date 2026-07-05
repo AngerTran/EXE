@@ -36,4 +36,9 @@ public interface IOrderService
         Guid orderId,
         UpdateOrderStatusRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<OrderResponse?> ReportBankTransferAsync(
+        Guid userId,
+        Guid orderId,
+        CancellationToken cancellationToken = default);
 }

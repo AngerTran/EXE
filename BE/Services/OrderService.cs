@@ -400,6 +400,45 @@ public class OrderService(
         return MapOrder(saved);
     }
 
+    public async Task<OrderResponse?> ReportBankTransferAsync(
+        Guid userId,
+        Guid orderId,
+        CancellationToken cancellationToken = default)
+    {
+        var order = await orderRepository.GetByIdForUserAsync(orderId, userId, cancellationToken);
+        if (order is null)
+            return null;
+
+        if (order.Status != OrderStatus.Pending)
+            throw new InvalidOperationException("Order is not awaiting payment.");
+
+        if (order.OrderType is not (OrderType.Subscription or OrderType.CreditPack))
+            throw new ArgumentException("Only subscription and credit pack orders support bank transfer reporting.");
+
+        var payment = await paymentRepository.GetByOrderIdForUpdateAsync(orderId, cancellationToken)
+            ?? throw new ArgumentException("Payment not found for order.");
+
+        if (payment.Method != PaymentMethod.BankTransfer)
+            throw new ArgumentException("Order is not a bank transfer payment.");
+
+        if (PaymentMetadataHelper.ReadReportedAt(payment) is null)
+        {
+            var now = DateTime.UtcNow;
+            payment.Metadata = PaymentMetadataHelper.SetReportedAt(payment.Metadata, now);
+            payment.UpdatedAt = now;
+
+            var forUpdate = await orderRepository.GetByIdForUpdateAsync(orderId, cancellationToken);
+            if (forUpdate is not null)
+                forUpdate.UpdatedAt = now;
+
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
+        var saved = await orderRepository.GetByIdForUserAsync(orderId, userId, cancellationToken) ?? order;
+        var savedPayment = await paymentRepository.GetByOrderIdForUserAsync(orderId, userId, cancellationToken) ?? payment;
+        return MapOrder(saved, savedPayment);
+    }
+
     private static Payment CreatePendingPayment(Guid userId, Order order, PaymentMethod method, DateTime now) =>
         new()
         {
@@ -422,8 +461,12 @@ public class OrderService(
             _ => type.ToString().ToLowerInvariant()
         };
 
-    private OrderResponse MapOrder(Order o, Payment? payment = null, bool includePaymentRedirect = false) =>
-        new(
+    private OrderResponse MapOrder(Order o, Payment? payment = null, bool includePaymentRedirect = false)
+    {
+        payment ??= o.Payments?.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
+        var transferReportedAt = PaymentMetadataHelper.ReadReportedAt(payment);
+
+        return new OrderResponse(
             o.Id,
             o.OrderCode,
             SerializeOrderType(o.OrderType),
@@ -448,7 +491,9 @@ public class OrderService(
                 : null,
             o.UserId,
             o.User?.Email,
-            o.User?.Name);
+            o.User?.Name,
+            transferReportedAt);
+    }
 
     /// <summary>Mã đơn tối đa 20 ký tự (cột <c>orders.order_code</c> varchar(20)).</summary>
     private static string GenerateOrderCode(string prefix) =>

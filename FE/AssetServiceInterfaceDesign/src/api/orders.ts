@@ -70,3 +70,10 @@ export async function updateOrderStatus(
     body: JSON.stringify({ status }),
   });
 }
+
+/** Khách báo đã chuyển khoản — đưa đơn vào hàng chờ admin xác nhận. */
+export async function reportBankTransfer(orderId: string): Promise<Order> {
+  return apiRequest<Order>(`/orders/${orderId}/report-transfer`, {
+    method: "POST",
+  });
+}

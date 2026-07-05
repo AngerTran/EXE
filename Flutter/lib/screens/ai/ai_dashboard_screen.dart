@@ -103,18 +103,12 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
 
     try {
       final ai = await ref.read(aiServiceProvider.future);
-      final result = await ai.sendMessage(_session!.id, text);
+      await ai.sendMessage(_session!.id, text);
+      final sessions = await ai.fetchSessions();
+      final detail = await ai.fetchSession(_session!.id);
       setState(() {
-        _session = AiSessionDetail(
-          id: _session!.id,
-          title: _session!.title,
-          isArchived: _session!.isArchived,
-          messages: [
-            ..._session!.messages,
-            result.userMessage,
-            result.assistantMessage,
-          ],
-        );
+        _sessions = sessions;
+        _session = detail;
         _sending = false;
       });
       ref.read(authProvider.notifier).refreshUser();
@@ -137,8 +131,10 @@ class _AiDashboardScreenState extends ConsumerState<AiDashboardScreen> {
     setState(() => _loading = true);
     try {
       final ai = await ref.read(aiServiceProvider.future);
+      final sessions = await ai.fetchSessions();
       final detail = await ai.fetchSession(id);
       setState(() {
+        _sessions = sessions;
         _session = detail;
         _outline = null;
         _loading = false;

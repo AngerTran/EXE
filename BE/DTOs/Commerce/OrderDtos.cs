@@ -28,7 +28,8 @@ public record OrderResponse(
     string? PaymentRedirectUrl = null,
     Guid? UserId = null,
     string? UserEmail = null,
-    string? UserName = null);
+    string? UserName = null,
+    DateTime? TransferReportedAt = null);
 
 public record OrdersSummaryResponse(
     int TotalOrders,

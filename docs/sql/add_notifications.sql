@@ -277,79 +277,10 @@ CREATE TRIGGER trg_notify_order_completed
   FOR EACH ROW
   EXECUTE FUNCTION public.notify_order_completed();
 
--- 4c. Đơn subscription / credit_pack pending → thông báo admin (chuyển khoản)
-CREATE OR REPLACE FUNCTION public.notify_admin_pending_order()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  buyer_name TEXT;
-  item_name TEXT;
-BEGIN
-  IF TG_OP <> 'INSERT' THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW.status <> 'pending' THEN
-    RETURN NEW;
-  END IF;
-
-  IF NEW.order_type NOT IN ('subscription', 'credit_pack') THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT p.name INTO buyer_name
-  FROM public.profiles p
-  WHERE p.id = NEW.user_id;
-
-  SELECT oi.item_name INTO item_name
-  FROM public.order_items oi
-  WHERE oi.order_id = NEW.id
-  ORDER BY oi.created_at
-  LIMIT 1;
-
-  buyer_name := COALESCE(buyer_name, 'Khách hàng');
-  item_name := COALESCE(
-    item_name,
-    CASE WHEN NEW.order_type = 'subscription' THEN 'Gói đăng ký' ELSE 'Gói nạp xu' END
-  );
-
-  PERFORM public.create_admin_notifications(
-    'warning',
-    'admin',
-    CASE WHEN NEW.order_type = 'subscription'
-      THEN 'Đơn mua gói chờ xác nhận'
-      ELSE 'Đơn nạp xu chờ xác nhận'
-    END,
-    format(
-      '%s · %s · %s · %sđ. Vào Admin → Đơn hàng để xác nhận.',
-      buyer_name,
-      item_name,
-      NEW.order_code,
-      to_char(NEW.total_vnd, 'FM999G999G999')
-    ),
-    '/admin?tab=orders',
-    'order',
-    NEW.id,
-    jsonb_build_object(
-      'order_code', NEW.order_code,
-      'order_type', NEW.order_type,
-      'total_vnd', NEW.total_vnd,
-      'user_id', NEW.user_id
-    )
-  );
-
-  RETURN NEW;
-END;
-$$;
-
+-- 4c. Đơn subscription / credit_pack pending → thông báo admin SAU KHI khách báo đã chuyển khoản
+-- (metadata.payments.userReportedTransferAt). Xem docs/sql/order_transfer_report_notify.sql
 DROP TRIGGER IF EXISTS trg_notify_admin_pending_order ON public.orders;
-CREATE TRIGGER trg_notify_admin_pending_order
-  AFTER INSERT ON public.orders
-  FOR EACH ROW
-  EXECUTE FUNCTION public.notify_admin_pending_order();
+DROP FUNCTION IF EXISTS public.notify_admin_pending_order();
 
 -- -----------------------------------------------------------------------------
 -- 5. ROW LEVEL SECURITY

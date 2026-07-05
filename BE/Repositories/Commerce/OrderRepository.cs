@@ -11,7 +11,8 @@ public class OrderRepository(AppDbContext db) : IOrderRepository
         db.Orders
             .AsNoTracking()
             .Include(o => o.Items)
-            .Include(o => o.User);
+            .Include(o => o.User)
+            .Include(o => o.Payments);
 
     public Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         WithItems().FirstOrDefaultAsync(o => o.Id == id, cancellationToken);

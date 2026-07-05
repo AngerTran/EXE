@@ -38,17 +38,36 @@ class _CheckoutWaitingScreenState extends ConsumerState<CheckoutWaitingScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_reportTransferIfNeeded());
+    });
+    _startPolling();
+  }
+
+  Future<void> _reportTransferIfNeeded() async {
+    try {
+      final orders = await ref.read(ordersServiceProvider.future);
+      final current = await orders.fetchOrderById(widget.orderId);
+      if (current.hasReportedTransfer) return;
+      await orders.reportBankTransfer(widget.orderId);
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Đã ghi nhận chuyển khoản. Gói/xu sẽ kích hoạt sau khi được xác nhận.',
-          ),
-          duration: Duration(seconds: 4),
+          content: Text('Không ghi nhận được chuyển khoản. Vui lòng thử lại.'),
+          backgroundColor: AppColors.destructive,
         ),
       );
-    });
-    _startPolling();
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Đã ghi nhận chuyển khoản. Gói/xu sẽ kích hoạt sau khi được xác nhận.',
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
   }
 
   @override

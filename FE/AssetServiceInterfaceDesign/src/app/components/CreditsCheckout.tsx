@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
-import { createCreditPackOrder } from "../../api/orders";
+import { createCreditPackOrder, reportBankTransfer } from "../../api/orders";
 import { fetchBankTransferInfo, type BankTransferInfo } from "../../api/payments";
 import type { Order } from "../../api/types/commerce";
 import { fetchCreditPacks } from "../../api/creditPacks";
@@ -51,6 +51,7 @@ export default function CreditsCheckout() {
   const [bankInfo, setBankInfo] = useState<BankTransferInfo | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false);
   const orderInitPackIdRef = useRef<string | null>(null);
 
   const orderCompleted = usePollOrderCompletion(order?.id, paymentSubmitted, {
@@ -147,9 +148,18 @@ export default function CreditsCheckout() {
     }
   }, []);
 
-  const handleConfirmTransfer = () => {
-    setPaymentSubmitted(true);
-    toast.success("Đã ghi nhận. Xu sẽ được cộng sau khi xác nhận chuyển khoản.");
+  const handleConfirmTransfer = async () => {
+    if (!order || confirmingTransfer) return;
+    setConfirmingTransfer(true);
+    try {
+      await reportBankTransfer(order.id);
+      setPaymentSubmitted(true);
+      toast.success("Đã ghi nhận. Xu sẽ được cộng sau khi xác nhận chuyển khoản.");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không ghi nhận được chuyển khoản");
+    } finally {
+      setConfirmingTransfer(false);
+    }
   };
 
   if (!user || !canBuy || packsLoading || !selectedPack) {
@@ -345,10 +355,17 @@ export default function CreditsCheckout() {
                 variant="gradient"
                 size="lg"
                 className="w-full mt-8"
-                onClick={handleConfirmTransfer}
-                disabled={checkoutLoading || !order}
+                onClick={() => void handleConfirmTransfer()}
+                disabled={checkoutLoading || !order || confirmingTransfer}
               >
-                Tôi đã chuyển khoản
+                {confirmingTransfer ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Đang ghi nhận...
+                  </>
+                ) : (
+                  "Tôi đã chuyển khoản"
+                )}
               </Button>
             </BeamPanel>
           </div>

@@ -3,12 +3,26 @@ export function normalizeOrderType(orderType?: string | null): string {
   return (orderType ?? "").toLowerCase().replace(/_/g, "");
 }
 
-/** Đơn CK chờ admin xác nhận (gói đăng ký hoặc nạp xu). */
+/** Đơn CK đang ở bước checkout — chưa báo chuyển khoản (ẩn khỏi admin). */
+export function isUnreportedBankTransferCheckout(order: {
+  status: string;
+  orderType?: string | null;
+  transferReportedAt?: string | null;
+}): boolean {
+  if (order.status.toLowerCase() !== "pending") return false;
+  if (order.transferReportedAt) return false;
+  const type = normalizeOrderType(order.orderType);
+  return type === "subscription" || type === "creditpack";
+}
+
+/** Đơn CK chờ admin xác nhận (gói đăng ký hoặc nạp xu) — chỉ sau khi khách báo đã chuyển. */
 export function isBankTransferAwaitingConfirmation(order: {
   status: string;
   orderType?: string | null;
+  transferReportedAt?: string | null;
 }): boolean {
   if (order.status.toLowerCase() !== "pending") return false;
+  if (!order.transferReportedAt) return false;
   const type = normalizeOrderType(order.orderType);
   return type === "subscription" || type === "creditpack";
 }

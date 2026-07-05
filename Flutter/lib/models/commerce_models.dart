@@ -124,6 +124,7 @@ class Order {
     required this.items,
     this.paymentId,
     this.paymentRedirectUrl,
+    this.transferReportedAt,
   });
 
   final String id;
@@ -139,9 +140,12 @@ class Order {
   final List<OrderItem> items;
   final String? paymentId;
   final String? paymentRedirectUrl;
+  final String? transferReportedAt;
 
   bool get isCompleted => status == 'completed';
   bool get isPending => status == 'pending';
+  bool get hasReportedTransfer =>
+      transferReportedAt != null && transferReportedAt!.isNotEmpty;
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
         id: json['id'] as String,
@@ -161,6 +165,7 @@ class Order {
             [],
         paymentId: json['paymentId'] as String?,
         paymentRedirectUrl: json['paymentRedirectUrl'] as String?,
+        transferReportedAt: json['transferReportedAt'] as String?,
       );
 }
 

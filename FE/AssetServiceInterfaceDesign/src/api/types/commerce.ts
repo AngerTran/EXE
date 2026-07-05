@@ -25,6 +25,8 @@ export interface Order {
   userId?: string | null;
   userEmail?: string | null;
   userName?: string | null;
+  /** Set when user clicks "Tôi đã chuyển khoản". */
+  transferReportedAt?: string | null;
 }
 
 export interface OrdersSummary {

@@ -35,6 +35,7 @@ import { toast } from "../../utils/notify";
 import {
   isAssetOrderType,
   isBankTransferAwaitingConfirmation,
+  isUnreportedBankTransferCheckout,
   orderTypeDisplayLabel,
 } from "../../utils/orderType";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
@@ -305,6 +306,7 @@ interface Order {
   totalXu: number;
   status: "completed" | "pending" | "cancelled";
   date: string;
+  transferReportedAt?: string | null;
 }
 
 function mapApiOrderToAdmin(o: CommerceOrder): Order {
@@ -320,6 +322,7 @@ function mapApiOrderToAdmin(o: CommerceOrder): Order {
     totalXu: o.totalXu,
     status: o.status.toLowerCase() as Order["status"],
     date: o.createdAt.split("T")[0],
+    transferReportedAt: o.transferReportedAt ?? null,
   };
 }
 
@@ -3304,7 +3307,9 @@ function OrdersManagement({
   );
 
   const pendingOrders = filteredOrders.filter(orderNeedsAdminConfirmation);
-  const confirmedOrders = filteredOrders.filter((o) => !orderNeedsAdminConfirmation(o));
+  const confirmedOrders = filteredOrders.filter(
+    (o) => !orderNeedsAdminConfirmation(o) && !isUnreportedBankTransferCheckout(o),
+  );
 
   const { paged: pagedPending, totalPages: pendingTotalPages } = getPageSlice(
     pendingOrders,

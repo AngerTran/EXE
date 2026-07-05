@@ -46,4 +46,9 @@ class OrdersService {
         data: {'packId': packId, 'paymentMethod': 'bank'},
         parser: (d) => Order.fromJson(d as Map<String, dynamic>),
       );
+
+  Future<Order> reportBankTransfer(String orderId) => _client.post(
+        '/orders/$orderId/report-transfer',
+        parser: (d) => Order.fromJson(d as Map<String, dynamic>),
+      );
 }

@@ -167,4 +167,24 @@ public class OrdersController(IOrderService orderService) : ControllerBase
             return StatusCode(403, new ErrorResponse(ex.Message, "forbidden"));
         }
     }
+
+    [HttpPost("{id:guid}/report-transfer")]
+    public async Task<IActionResult> ReportTransfer(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        if (userId is null) return Unauthorized();
+        try
+        {
+            var order = await orderService.ReportBankTransferAsync(userId.Value, id, cancellationToken);
+            return order is null ? NotFound() : Ok(order);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "validation_error"));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ErrorResponse(ex.Message, "invalid_state"));
+        }
+    }
 }

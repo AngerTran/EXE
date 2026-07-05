@@ -15,7 +15,7 @@ import {
 import { toast } from "../../utils/notify";
 import { ApiError } from "../../api/client";
 import { fetchSubscriptionPlanBySlug } from "../../api/subscriptionPlans";
-import { createSubscriptionOrder } from "../../api/orders";
+import { createSubscriptionOrder, reportBankTransfer } from "../../api/orders";
 import { fetchBankTransferInfo, type BankTransferInfo } from "../../api/payments";
 import type { SubscriptionPlan } from "../../api/types/billing";
 import type { Order } from "../../api/types/commerce";
@@ -39,6 +39,7 @@ export default function Checkout() {
   const [bankInfo, setBankInfo] = useState<BankTransferInfo | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [confirmingTransfer, setConfirmingTransfer] = useState(false);
   const orderInitPlanIdRef = useRef<string | null>(null);
 
   const orderCompleted = usePollOrderCompletion(order?.id, paymentSubmitted, {
@@ -138,9 +139,18 @@ export default function Checkout() {
     }
   }, []);
 
-  const handleConfirmTransfer = () => {
-    setPaymentSubmitted(true);
-    toast.success("Đã ghi nhận. Chúng tôi sẽ kích hoạt gói sau khi xác nhận chuyển khoản.");
+  const handleConfirmTransfer = async () => {
+    if (!order || confirmingTransfer) return;
+    setConfirmingTransfer(true);
+    try {
+      await reportBankTransfer(order.id);
+      setPaymentSubmitted(true);
+      toast.success("Đã ghi nhận. Chúng tôi sẽ kích hoạt gói sau khi xác nhận chuyển khoản.");
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : "Không ghi nhận được chuyển khoản");
+    } finally {
+      setConfirmingTransfer(false);
+    }
   };
 
   if (!user) return null;
@@ -335,10 +345,17 @@ export default function Checkout() {
                 variant="gradient"
                 size="lg"
                 className="w-full mt-8"
-                onClick={handleConfirmTransfer}
-                disabled={checkoutLoading || !order}
+                onClick={() => void handleConfirmTransfer()}
+                disabled={checkoutLoading || !order || confirmingTransfer}
               >
-                Tôi đã chuyển khoản
+                {confirmingTransfer ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Đang ghi nhận...
+                  </>
+                ) : (
+                  "Tôi đã chuyển khoản"
+                )}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center mt-4">

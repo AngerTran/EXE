@@ -121,9 +121,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         CheckoutKind.assets => 'Asset trong giỏ',
       };
 
-  void _confirmTransfer() {
+  Future<void> _confirmTransfer() async {
     final order = _order;
     if (order == null) return;
+
+    try {
+      final orders = await ref.read(ordersServiceProvider.future);
+      await orders.reportBankTransfer(order.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyErrorMessage(e)),
+          backgroundColor: AppColors.destructive,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
     context.go(
       '/checkout/waiting/${order.id}'
       '?orderCode=${Uri.encodeComponent(order.orderCode)}'
