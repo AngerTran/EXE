@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/utils/error_messages.dart';
 import '../../models/auth_models.dart';
 import '../../core/utils/purchase_history.dart';
 import '../../models/billing_models.dart';
@@ -29,6 +30,7 @@ class ProfileScreen extends ConsumerWidget {
     final auth = ref.watch(authProvider);
     final purchases = ref.watch(_recentPurchasesProvider);
     final subscriptionHistory = ref.watch(_subscriptionHistoryProvider);
+    final subscriptionMe = ref.watch(_subscriptionMeProvider);
     final notificationsEnabled = ref.watch(
       notificationProvider.select((s) => s.alertsEnabled),
     );
@@ -55,6 +57,7 @@ class ProfileScreen extends ConsumerWidget {
     }
 
     final user = auth.user!;
+    final subMe = subscriptionMe.maybeWhen(data: (d) => d, orElse: () => null);
 
     return SafeArea(
       child: RefreshIndicator(
@@ -63,6 +66,7 @@ class ProfileScreen extends ConsumerWidget {
           await ref.read(authProvider.notifier).refreshUser();
           ref.invalidate(_recentPurchasesProvider);
           ref.invalidate(_subscriptionHistoryProvider);
+          ref.invalidate(_subscriptionMeProvider);
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -79,8 +83,59 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xl),
             _WalletPanel(
               user: user,
+              subscriptionMe: subMe,
               onUpgrade: () => context.go('/pricing'),
               onOrders: () => context.push('/orders'),
+              onCancelSubscription: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Hủy gói đăng ký?'),
+                    content: const Text(
+                      'Bạn sẽ mất quyền lợi gói hiện tại sau khi hủy. Thao tác này không thể hoàn tác.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Không'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text(
+                          'Hủy gói',
+                          style: TextStyle(color: AppColors.destructive),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
+                try {
+                  final svc =
+                      await ref.read(customerSubscriptionServiceProvider.future);
+                  await svc.cancelSubscription();
+                  await ref.read(authProvider.notifier).refreshUser();
+                  ref.invalidate(_subscriptionHistoryProvider);
+                  ref.invalidate(_subscriptionMeProvider);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã hủy gói đăng ký'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(friendlyErrorMessage(e)),
+                        backgroundColor: AppColors.destructive,
+                      ),
+                    );
+                  }
+                }
+              },
             ),
             subscriptionHistory.when(
               data: (history) {
@@ -310,6 +365,17 @@ final _subscriptionHistoryProvider =
   return svc.fetchHistory();
 });
 
+final _subscriptionMeProvider = FutureProvider<SubscriptionMe?>((ref) async {
+  final auth = ref.watch(authProvider);
+  if (!auth.isLoggedIn) return null;
+  final svc = await ref.watch(customerSubscriptionServiceProvider.future);
+  try {
+    return await svc.fetchMySubscription();
+  } catch (_) {
+    return null;
+  }
+});
+
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({required this.user, required this.onEdit});
 
@@ -440,18 +506,44 @@ class _ProfileHeader extends StatelessWidget {
 class _WalletPanel extends StatelessWidget {
   const _WalletPanel({
     required this.user,
+    required this.subscriptionMe,
     required this.onUpgrade,
     required this.onOrders,
+    required this.onCancelSubscription,
   });
 
   final AppUser user;
+  final SubscriptionMe? subscriptionMe;
   final VoidCallback onUpgrade;
   final VoidCallback onOrders;
+  final Future<void> Function() onCancelSubscription;
 
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.decimalPattern('vi');
     final body = Theme.of(context).textTheme;
+    final planSlug = subscriptionMe?.planSlug ?? user.subscription;
+    final planName = subscriptionMe?.planName ?? _planLabel(planSlug);
+    final status = (subscriptionMe?.status ?? '').toLowerCase();
+    final expiredAt = subscriptionMe?.expiredAt ?? user.subscriptionExpiry;
+    final canCancel = planSlug.toLowerCase() != 'free' && status == 'active';
+
+    String statusLabel() {
+      if (status == 'active') return 'Đang hoạt động';
+      if (status == 'cancelled') return 'Đã hủy';
+      if (status == 'expired') return 'Hết hạn';
+      if (status == 'pending') return 'Chờ kích hoạt';
+      return '';
+    }
+
+    String? expiryText() {
+      if (expiredAt == null) return null;
+      final formatted = _formatDate(expiredAt);
+      if (status == 'expired') return 'Hết hạn $formatted';
+      if (status == 'cancelled') return 'Còn hiệu lực đến $formatted';
+      if (status == 'active') return 'Hiệu lực đến $formatted';
+      return 'Hết hạn $formatted';
+    }
 
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -531,19 +623,45 @@ class _WalletPanel extends StatelessWidget {
                     icon: Icons.workspace_premium_outlined,
                     iconColor: AppColors.secondary,
                     label: 'Gói hiện tại',
-                    child: Text(
-                      _planLabel(user.subscription),
-                      style: body.titleLarge?.copyWith(
-                        color: AppColors.secondary,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          planName,
+                          style: body.titleLarge?.copyWith(
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        if (statusLabel().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              statusLabel(),
+                              style: body.labelSmall?.copyWith(
+                                color: AppColors.mutedForeground,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        if (expiryText() != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              expiryText()!,
+                              style: body.labelSmall?.copyWith(
+                                color: AppColors.mutedForeground,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          if (user.isUnlimited) ...[
+          if (user.isUnlimited && planSlug.toLowerCase() != 'free') ...[
             const SizedBox(height: AppSpacing.md),
             Container(
               width: double.infinity,
@@ -565,7 +683,7 @@ class _WalletPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Xu không giới hạn với gói ${_planLabel(user.subscription)}',
+                      'Xu không giới hạn với gói $planName',
                       style: body.labelSmall?.copyWith(
                         color: AppColors.secondary,
                         fontWeight: FontWeight.w600,
@@ -606,6 +724,21 @@ class _WalletPanel extends StatelessWidget {
               ),
             ],
           ),
+          if (canCancel) ...[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () => onCancelSubscription(),
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              label: const Text('Hủy gói'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.destructive,
+                side: BorderSide(
+                  color: AppColors.destructive.withValues(alpha: 0.5),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ],
         ],
       ),
     );
