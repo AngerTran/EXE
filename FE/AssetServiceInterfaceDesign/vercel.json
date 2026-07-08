@@ -1,3 +1,17 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "headers": [
+    {
+      "source": "/downloads/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+        { "key": "Content-Type", "value": "application/vnd.android.package-archive" }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!downloads/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

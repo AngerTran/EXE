@@ -1,7 +1,7 @@
 name: assetbox_mobile
 description: AssetBox mobile — AI Game Asset Marketplace (Flutter)
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.1
