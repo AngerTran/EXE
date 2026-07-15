@@ -3874,7 +3874,7 @@ function PackagesManagement({
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {pagedPackages.map((pkg) => (
+          {pagedPackages.map((pkg, index) => (
             <div
               key={pkg.id}
               className={`bg-card border rounded-xl p-6 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] ${
@@ -3892,7 +3892,9 @@ function PackagesManagement({
                         Đã ẩn
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground">#{pkg.sortOrder}</span>
+                    <span className="text-xs text-muted-foreground">
+                      #{(page - 1) * pageSize + index + 1}
+                    </span>
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-1">{pkg.name}</h3>
                   {pkg.description && (
@@ -4291,7 +4293,7 @@ function CreditPacksManagement() {
         <p className="text-center text-muted-foreground py-8">Chưa có gói xu — bấm &quot;Thêm gói xu&quot; để tạo mới.</p>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {packs.map((pack) => (
+          {packs.map((pack, index) => (
             <div
               key={pack.id}
               className={`bg-card border rounded-xl p-6 transition-all hover:border-primary/50 hover:shadow-[0_0_20px_rgba(0,217,255,0.1)] ${
@@ -4309,7 +4311,7 @@ function CreditPacksManagement() {
                         Đã ẩn
                       </span>
                     )}
-                    <span className="text-xs text-muted-foreground">#{pack.sortOrder}</span>
+                    <span className="text-xs text-muted-foreground">#{index + 1}</span>
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-1">{pack.name}</h3>
                   <p className="text-2xl font-bold text-primary font-mono">
