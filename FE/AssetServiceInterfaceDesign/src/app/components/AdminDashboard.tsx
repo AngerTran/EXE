@@ -1554,9 +1554,6 @@ function UsersManagement({
                 <span className="px-2.5 py-1 rounded-full bg-muted/20 text-foreground font-mono">
                   {user.credits} xu
                 </span>
-                <span className="px-2.5 py-1 rounded-full bg-muted/20 text-foreground font-mono">
-                  {user.totalSpent.toLocaleString("vi-VN")}đ
-                </span>
               </div>
             </div>
           ))}
@@ -1578,7 +1575,6 @@ function UsersManagement({
               <th className="text-left text-muted-foreground font-medium py-3 px-4">Credits</th>
               <th className="text-left text-muted-foreground font-medium py-3 px-4">Gói</th>
               <th className="text-left text-muted-foreground font-medium py-3 px-4">Role</th>
-              <th className="text-left text-muted-foreground font-medium py-3 px-4">Đã chi</th>
               <th className="text-right text-muted-foreground font-medium py-3 px-4">
                 Hành động
               </th>
@@ -1587,7 +1583,7 @@ function UsersManagement({
           <tbody>
             {!listLoading && users.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                <td colSpan={7} className="py-12 text-center text-muted-foreground">
                   Không tìm thấy user nào.
                 </td>
               </tr>
@@ -1618,9 +1614,6 @@ function UsersManagement({
                     >
                       {user.role}
                     </span>
-                  </td>
-                  <td className="py-4 px-4 text-foreground font-mono">
-                    {user.totalSpent.toLocaleString("vi-VN")}đ
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center justify-end">{renderUserActions(user)}</div>
