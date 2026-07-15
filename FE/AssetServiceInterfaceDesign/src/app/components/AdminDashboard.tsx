@@ -1,4 +1,13 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode, type RefObject } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  type Dispatch,
+  type ReactNode,
+  type RefObject,
+  type SetStateAction,
+} from "react";
 import { Link, useSearchParams } from "react-router";
 import { BeamPanel } from "./BeamPanel";
 import {
@@ -642,8 +651,7 @@ export default function AdminDashboard() {
           <UsersManagement
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            users={users}
-            setUsers={setUsers}
+            setOverviewUsers={setUsers}
           />
         )}
 
@@ -1309,13 +1317,12 @@ function OverviewTab({
 function UsersManagement({
   searchQuery,
   setSearchQuery,
-  users,
-  setUsers,
+  setOverviewUsers,
 }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  users: UserData[];
-  setUsers: (users: UserData[]) => void;
+  /** Patch overview snapshot only — never replace with paged list (breaks "có subscription"). */
+  setOverviewUsers: Dispatch<SetStateAction<UserData[]>>;
 }) {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1326,6 +1333,7 @@ function UsersManagement({
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [listLoading, setListLoading] = useState(false);
+  const [listUsers, setListUsers] = useState<UserData[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [includeBanned, setIncludeBanned] = useState(false);
   const [page, setPage] = useState(1);
@@ -1344,14 +1352,14 @@ function UsersManagement({
         includeBanned
       );
       const mapped = res.data.map(mapAdminUserToUserData);
-      setUsers(mapped);
+      setListUsers(mapped);
       setTotalUsers(res.total);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : "Không tải được danh sách user");
     } finally {
       setListLoading(false);
     }
-  }, [page, pageSize, searchQuery, includeBanned, setUsers]);
+  }, [page, pageSize, searchQuery, includeBanned]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1385,7 +1393,7 @@ function UsersManagement({
 
   const handleSaveEdit = async () => {
     if (!editingUser) return;
-    const original = users.find((u) => u.id === editingUser.id);
+    const original = listUsers.find((u) => u.id === editingUser.id);
     if (!original) return;
 
     const body: { role?: string; status?: string; walletBalance?: number } = {};
@@ -1402,7 +1410,8 @@ function UsersManagement({
     try {
       const updated = await updateAdminUser(editingUser.id, body);
       const mapped = mapAdminUserToUserData(updated);
-      setUsers(users.map((u) => (u.id === mapped.id ? mapped : u)));
+      setListUsers((prev) => prev.map((u) => (u.id === mapped.id ? mapped : u)));
+      setOverviewUsers((prev) => prev.map((u) => (u.id === mapped.id ? mapped : u)));
       toast.success("Đã cập nhật user trên BE");
       setShowEditModal(false);
       setEditingUser(null);
@@ -1420,6 +1429,9 @@ function UsersManagement({
     try {
       await deleteAdminUser(deleteTarget.id);
       toast.success("Đã khóa tài khoản user");
+      setOverviewUsers((prev) =>
+        prev.map((u) => (u.id === deleteTarget.id ? { ...u, status: "banned" } : u))
+      );
       setDeleteTarget(null);
       await loadUsers();
     } catch (error) {
@@ -1520,11 +1532,11 @@ function UsersManagement({
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
         )}
-        {!listLoading && users.length === 0 && (
+        {!listLoading && listUsers.length === 0 && (
           <p className="py-12 text-center text-muted-foreground">Không tìm thấy user nào.</p>
         )}
         {!listLoading &&
-          users.map((user) => (
+          listUsers.map((user) => (
             <div key={user.id} className={componentClasses.listCard}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -1581,14 +1593,14 @@ function UsersManagement({
             </tr>
           </thead>
           <tbody>
-            {!listLoading && users.length === 0 ? (
+            {!listLoading && listUsers.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-muted-foreground">
                   Không tìm thấy user nào.
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
+              listUsers.map((user) => (
                 <tr key={user.id} className="border-b border-border/50 hover:bg-card/50">
                   <td className="py-4 px-4 text-muted-foreground font-mono text-xs">{user.id}</td>
                   <td className="py-4 px-4 text-foreground font-medium">
